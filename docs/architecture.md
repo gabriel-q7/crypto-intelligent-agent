@@ -36,7 +36,10 @@ Camadas do código:
 
 ## 2. Classificação atual: agente reativo
 
-A Etapa 1 é um **agente reativo simples**: cada pergunta gera exatamente uma chamada ao modelo e uma resposta, sem estado, sem ciclo de observação e sem ferramentas. O modelo **não responde** a pergunta; ele a **interpreta** e produz um `CryptoAnalysisRequest` (intenção, ativos, métricas, etapas de investigação, lacunas, premissas, confiança).
+A Etapa 1 é um **agente reativo simples**: cada pergunta gera exatamente uma chamada ao modelo e uma resposta, sem estado, sem ciclo de observação e sem ferramentas. O modelo **interpreta** a pergunta e produz um `CryptoAnalysisRequest` com duas partes:
+
+- **plano de análise** (intenção, ativos, métricas, etapas de investigação, lacunas, premissas, confiança);
+- **resposta mínima** (`answer` + `answer_status`): perguntas conceituais são respondidas com o conhecimento do modelo; perguntas que dependem de dados de mercado recebem a declaração explícita de que esses dados não estão disponíveis nesta fase.
 
 Consequências:
 

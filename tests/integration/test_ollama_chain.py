@@ -9,7 +9,7 @@ import pytest
 
 from app.chains import build_imperative_chain, build_lcel_chain
 from app.config import get_settings
-from app.schemas import AnalysisIntent, CryptoAnalysisRequest, CryptoQuestion
+from app.schemas import AnalysisIntent, AnswerStatus, CryptoAnalysisRequest, CryptoQuestion
 from app.services.analysis import run_analysis, run_batch, stream_analysis
 from app.services.llm import build_llm
 
@@ -44,6 +44,14 @@ def test_invoke_returns_valid_analysis(llm, builder):
     assert isinstance(result, CryptoAnalysisRequest)
     assert {"BTC", "ETH"} <= set(result.assets)
     assert result.investigation_steps
+    assert result.answer_status is AnswerStatus.REQUIRES_MARKET_DATA
+    assert result.answer
+
+
+def test_conceptual_question_is_answered(llm):
+    result = run_analysis(build_lcel_chain(llm), CryptoQuestion(question="O que é staking de ETH?"))
+    assert result.answer_status is AnswerStatus.ANSWERED
+    assert len(result.answer) > 50
 
 
 def test_batch(llm):

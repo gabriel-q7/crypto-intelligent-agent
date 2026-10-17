@@ -139,6 +139,45 @@ Saída final para a pergunta de referência:
 }
 ```
 
+### 5.4 O plano não respondia ao usuário — inclusão da resposta mínima
+
+- **Sintoma (apontado na revisão do usuário):** "O que é staking de ETH?" retornava só o plano (`"Definir o que é staking de ETH"`, `"Explorar o processo..."`), sem nenhuma explicação. A pergunta é conceitual e o modelo sabe respondê-la sem dados externos.
+- **Causa:** o schema da especificação só tinha campos de **plano**; o modelo não tinha onde responder.
+- **Correção:** dois campos novos no `CryptoAnalysisRequest`:
+  - `answer_status`: `answered` (conceito respondido com conhecimento do modelo), `requires_market_data` (depende de dados de mercado), `needs_clarification` (pergunta ambígua);
+  - `answer`: resposta de 2 a 4 frases.
+  - `investigation_steps` passou a poder ser vazio quando `answered`.
+  - Segundo exemplo few-shot, conceitual ("Como funciona o halving do Bitcoin?"), mostrando que fatos de protocolo (210.000 blocos, 21 milhões de BTC) são permitidos e preços não.
+
+Iterações com o modelo real (6 perguntas: staking, DEX, comparação, preço/previsão, TVL, risco):
+
+| # | Mudança | Resultado | Problema revelado |
+|---|---|---|---|
+| 1 | Campos `answer_status`/`answer` no fim do JSON + exemplo conceitual | Staking e DEX respondidos | "BTC preço" e "Aave TVL" **falharam**: `investigation_steps` vazio com `requires_market_data`; "risco de SOL" classificado como conceito |
+| 2 | `answer_status` movido para logo após `intent`; `answered` restrito a conceitos ("NÃO use para avaliar desempenho ou risco de um ativo específico") | Aave corrigido | "BTC preço" ainda sem etapas; SOL ainda `answered` |
+| 3 | Etapa de coleta derivada de `requested_metrics` quando o modelo a omite | "BTC preço" corrigido | — |
+
+Diagnóstico da iteração 1: modelos autorregressivos geram o JSON **na ordem dos campos**. Com `answer_status` no fim, o modelo escrevia `investigation_steps: []` — imitando o exemplo conceitual — antes de decidir que tipo de resposta daria. Colocar a decisão antes das consequências corrigiu o caso do Aave sem nenhuma regra nova.
+
+Diagnóstico da iteração 3: a saída crua do modelo para "BTC vai subir amanhã? Qual o preço atual?" estava correta em tudo (`requested_metrics: ["price"]`, resposta "Não consigo prever [...] não tenho dados de mercado atualizados"), exceto pelas etapas omitidas. Rejeitar a análise inteira por uma omissão derivável era desproporcional; a etapa "Obter price de BTC" é gerada pelo código e registrada em `assumptions`, sem inventar nada.
+
+### 5.5 Por que a resposta não pode conter valores de mercado
+
+Com um campo de texto livre, surgiu o risco de o modelo escrever números de mercado ("o staking rende 4% ao ano", "o BTC custa US$ 65.000"). Antes, o plano só citava **nomes** de métricas (`price_history`), nunca valores.
+
+Motivos para bloquear:
+
+1. **O modelo não tem dado atual.** O `qwen2.5:7b` conhece apenas o que viu até o fim do treinamento (2024). Preço, volume, TVL e rendimento mudam diariamente; um número do modelo estaria defasado em mais de um ano e seria lido pelo usuário como atual, já que não vem com data.
+2. **Mesmo o dado antigo não é confiável.** Modelos pequenos não memorizam números com precisão: geram valores *plausíveis*. Sem fonte externa nesta fase, não há como verificar. O caso de "2026 é um erro, deve ser 2023" (5.3) já mostrou o modelo agindo a partir de uma visão desatualizada do mundo.
+3. **Requisito da especificação:** "impedir a invenção de preços, volumes e dados atuais" e "não inventar dados de mercado".
+4. **Prompt não é garantia.** Modelos 7B nem sempre obedecem instruções (5.3). A regra precisava de uma verificação determinística, assim como o formato tem o Pydantic.
+
+Decisão do usuário sobre o comportamento da trava, entre três opções (rejeitar a análise, substituir a resposta, remover a trava): **substituir**. Implementação refinada: apenas as frases com valor monetário ou percentual são removidas e um aviso padrão é acrescentado ("Nesta fase não tenho acesso a dados de mercado atualizados e respondo apenas com o conhecimento do modelo [...]"); o ocorrido é registrado em `assumptions`. Assim a parte conceitual da resposta é preservada.
+
+Complemento no prompt, também pedido pelo usuário: quando a pergunta depende de dados, a resposta deve **dizer explicitamente** que o agente não tem dados atualizados nesta fase, em vez de apenas descrever o que será analisado.
+
+Limites conhecidos da trava (heurística por expressão regular, não garantia): falso positivo em termos como "ataque de 51%"; falso negativo em valores sem símbolo de moeda ("65 mil", "65k").
+
 ## 6. Evidências e métricas
 
 Detalhes completos e saídas brutas: [docs/stage-1-evidence.md](../docs/stage-1-evidence.md).
@@ -157,6 +196,8 @@ Cobertura dos testes unitários: schemas (normalização, obrigatórios, limites
 
 **Custo do few-shot:** a integração passou de 174 s para 256 s (+47%) por causa do prompt mais longo, inferido em CPU.
 
+**Após a resposta mínima (5.4/5.5):** 80 testes unitários (0,7 s) e 5 de integração (409,8 s, incluindo o novo teste "pergunta conceitual é respondida"). O tempo maior vem do segundo exemplo few-shot e do texto adicional gerado em `answer`.
+
 ## 7. Limitações conhecidas
 
 1. **O streaming só existe antes da validação.** O Pydantic precisa do objeto completo; os objetos parciais não são validados e as chains com validação emitem um único chunk.
@@ -168,6 +209,8 @@ Cobertura dos testes unitários: schemas (normalização, obrigatórios, limites
 4. **Desempenho em CPU:** 30–110 s por chamada.
 5. **Enum de intenção estrito:** uma intenção fora da lista é rejeitada; não há retry automático.
 6. **Não validado:** execução fora do Docker (host sem Python 3.12) e uso de GPU.
+7. **Erros conceituais em `answer` não são detectados.** Na resposta sobre staking, o modelo escreveu "depositar ETH em nós de mineração"; o Ethereum não usa mineração desde a migração para proof-of-stake (2022). A trava cobre valores de mercado, não a correção do conteúdo.
+8. **Fronteira `answered` × `requires_market_data` oscila:** "risco de manter SOL" recebeu resposta qualitativa sem plano, apesar da regra.
 
 ## 8. Aprendizados
 
@@ -176,6 +219,9 @@ Cobertura dos testes unitários: schemas (normalização, obrigatórios, limites
 - **Ajuste de prompt tem efeito colateral.** Cada correção alterou outros casos; sem um conjunto fixo de perguntas de regressão, as regressões teriam passado despercebidas.
 - **O modelo não sabe que dia é hoje.** Contexto temporal precisa ser injetado; senão o modelo "corrige" o usuário com base no seu corte de treino.
 - **Ambiguidade no prompt vira inconsistência na saída.** A instabilidade de `missing_information` vinha da redação da regra, não do modelo.
+- **A ordem dos campos no schema é uma decisão de prompt.** O modelo gera o JSON em sequência; campos que condicionam outros (`answer_status` → `investigation_steps`) devem vir antes.
+- **Nem toda falha de validação deve virar erro.** Omissões deriváveis (etapa de coleta) e conteúdo proibido localizado (uma frase com valor) podem ser corrigidos deterministicamente e registrados, preservando o restante da resposta.
+- **Plano e resposta atendem públicos diferentes.** O plano serve às próximas etapas do sistema; o usuário precisa de uma resposta, mesmo que seja "não tenho esse dado nesta fase".
 
 ## 9. Pendências e insumos para a próxima fase
 
@@ -184,4 +230,6 @@ Cobertura dos testes unitários: schemas (normalização, obrigatórios, limites
 - **Mapeamento `requested_metrics` → ferramentas:** o vocabulário `METRIC_VOCABULARY` é o ponto de partida do contrato com as APIs.
 - **Retry/fallback** (`with_retry`, `with_fallbacks`) para `AnalysisOutputError`.
 - **Avaliar outros modelos e GPU:** comparar qualidade e latência (ex.: modelos maiores ou com melhor aderência a JSON).
+- **Verificação de fatos conceituais:** com RAG ou fontes de referência, checar respostas `answered` (ex.: o erro "nós de mineração").
+- **Substituir a trava heurística:** com dados reais disponíveis, valores em `answer` podem vir das ferramentas, com fonte e data, em vez de serem bloqueados.
 - **Pergunta aberta:** `confidence` deve continuar sendo autoavaliação do modelo ou ser calculada a partir de sinais objetivos (ativos identificados, período presente, número de premissas)?

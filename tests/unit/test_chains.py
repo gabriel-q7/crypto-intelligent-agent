@@ -76,7 +76,7 @@ def test_llm_receives_system_and_human_messages(question):
         return VALID_JSON
 
     build_lcel_chain(RunnableLambda(capture)).invoke(question)
-    assert [m.type for m in seen[0]] == ["system", "human", "ai", "human"]
+    assert [m.type for m in seen[0]] == ["system", "human", "ai", "human", "ai", "human"]
 
 
 def test_build_analysis_chain_selects_composition(valid_llm):

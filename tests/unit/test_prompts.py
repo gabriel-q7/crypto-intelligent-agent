@@ -55,20 +55,34 @@ def test_build_prompt_input_accepts_dict():
 
 def test_chat_prompt_produces_system_and_human_messages(question):
     messages = ANALYSIS_PROMPT.invoke(build_prompt_input(question)).to_messages()
-    assert [m.type for m in messages] == ["system", "human", "ai", "human"]
+    assert [m.type for m in messages] == ["system", "human", "ai", "human", "ai", "human"]
     assert messages[0].content == SYSTEM_INSTRUCTIONS
     assert "Compare BTC e ETH" in messages[-1].content
     # Chaves do JSON schema não podem quebrar o template (chaves {} escapadas).
     assert '"properties"' in messages[-1].content
 
 
-def test_few_shot_example_is_valid_analysis():
-    from app.prompts.analysis import EXAMPLE_ANSWER
-    from app.schemas import CryptoAnalysisRequest
+def test_few_shot_examples_are_valid_analyses():
+    from app.prompts.analysis import FEW_SHOT_EXAMPLES
+    from app.schemas import AnswerStatus, CryptoAnalysisRequest
 
     messages = ANALYSIS_PROMPT.invoke(build_prompt_input({"question": "teste"})).to_messages()
-    example = CryptoAnalysisRequest.model_validate_json(messages[2].content)
-    assert example == CryptoAnalysisRequest.model_validate(EXAMPLE_ANSWER)
+    ai_messages = [m for m in messages if m.type == "ai"]
+    examples = [CryptoAnalysisRequest.model_validate_json(m.content) for m in ai_messages]
+    assert examples == [CryptoAnalysisRequest.model_validate(a) for _, a in FEW_SHOT_EXAMPLES]
+    # Um exemplo de cada caso principal: depende de dados e conceitual respondido.
+    assert {e.answer_status for e in examples} == {
+        AnswerStatus.REQUIRES_MARKET_DATA,
+        AnswerStatus.ANSWERED,
+    }
+
+
+def test_system_instructions_define_answer():
+    from app.schemas import AnswerStatus
+
+    for status in AnswerStatus:
+        assert status.value in SYSTEM_INSTRUCTIONS
+    assert "NUNCA escreva preços" in SYSTEM_INSTRUCTIONS
 
 
 def test_system_instructions_separate_metrics_from_missing_information():

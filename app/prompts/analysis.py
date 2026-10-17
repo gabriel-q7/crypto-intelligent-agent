@@ -1,7 +1,7 @@
 """Prompts da análise.
 
 - ``QUESTION_PROMPT`` (PromptTemplate): renderiza a pergunta do usuário em um bloco de texto.
-- ``ANALYSIS_PROMPT`` (ChatPromptTemplate): system + exemplo few-shot + pergunta enviada ao modelo.
+- ``ANALYSIS_PROMPT`` (ChatPromptTemplate): system + exemplos few-shot + pergunta enviada ao modelo.
 """
 
 import json
@@ -11,7 +11,7 @@ from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.prompts import ChatPromptTemplate, PromptTemplate
 
-from app.schemas import AnalysisIntent, CryptoAnalysisRequest, CryptoQuestion
+from app.schemas import AnalysisIntent, AnswerStatus, CryptoAnalysisRequest, CryptoQuestion
 
 NOT_INFORMED = "não informado"
 
@@ -29,7 +29,8 @@ METRIC_VOCABULARY = (
 )
 
 SYSTEM_INSTRUCTIONS = f"""Você é o Crypto Intelligence Agent, um analista que INTERPRETA perguntas \
-sobre criptomoedas e as transforma em um plano de análise estruturado.
+sobre criptomoedas, as transforma em um plano de análise estruturado e dá ao usuário uma resposta \
+mínima.
 
 Regras obrigatórias:
 1. Você NÃO tem acesso a dados de mercado, APIs, internet ou ferramentas.
@@ -45,10 +46,12 @@ Lista vazia se a pergunta estiver completa.
 (ex.: "comparação por retorno e volatilidade, pois o critério não foi informado"), moeda de cotação \
 e granularidade dos dados.
 6. "investigation_steps": etapas ordenadas e executáveis. A primeira etapa obtém os dados de \
-mercado necessários; as seguintes calculam e comparam.
+mercado necessários; as seguintes calculam e comparam. Lista vazia quando "answer_status" for \
+"answered".
 7. Use tickers em maiúsculas em "assets" (ex.: BTC, ETH, AAVE), inclusive para ativos citados \
 pelo nome (Aave -> AAVE, Solana -> SOL).
-8. "intent" deve ser exatamente um destes valores: {", ".join(i.value for i in AnalysisIntent)}.
+8. "intent" deve ser exatamente um destes valores: {", ".join(i.value for i in AnalysisIntent)}. \
+"answer_status" deve ser um destes: {", ".join(s.value for s in AnswerStatus)}.
 9. "confidence" (0 a 1) mede o quão bem a pergunta está especificada, não uma previsão de mercado:
    - 0.9 a 1.0: ativos, período e critério explícitos, sem premissas relevantes;
    - 0.6 a 0.8: algum critério ou parâmetro precisou ser inferido;
@@ -58,7 +61,23 @@ previsões e planeje apenas a análise de dados históricos.
 11. Interprete períodos relativos ("neste ano", "últimos 30 dias") a partir da "Data de referência". \
 Nunca altere ou corrija um período informado pelo usuário.
 12. Se o período não estiver claro, use null em "period" e registre a ausência em "missing_information".
-13. Responda SOMENTE com um objeto JSON válido, sem markdown e sem texto fora do JSON."""
+13. "answer_status":
+   - "answered": pergunta conceitual ou educacional (definições, funcionamento de protocolos e \
+mecanismos) que pode ser respondida com conhecimento geral estável. NÃO use para avaliar \
+desempenho, risco ou tendência de um ativo específico;
+   - "requires_market_data": a resposta depende de preços, volumes, TVL, rendimentos ou qualquer \
+dado atual ou histórico, inclusive risco ou desempenho de um ativo específico. Exige \
+"investigation_steps" e "requested_metrics";
+   - "needs_clarification": pergunta ambígua demais para responder ou planejar.
+14. "answer": resposta ao usuário em português, de 2 a 4 frases:
+   - se "answered", responda diretamente à pergunta;
+   - se "requires_market_data", diga explicitamente que nesta fase você não tem dados de mercado \
+atualizados e responde só com o conhecimento do modelo; depois explique o que será analisado, \
+sem antecipar resultados;
+   - se "needs_clarification", diga o que o usuário precisa informar.
+   Fatos de protocolo são permitidos (ex.: limite de 21 milhões de BTC), mas NUNCA escreva preços, \
+valores em moeda, rendimentos, percentuais ou variações de mercado.
+15. Responda SOMENTE com um objeto JSON válido, sem markdown e sem texto fora do JSON."""
 
 QUESTION_PROMPT = PromptTemplate.from_template(
     "Pergunta: {question}\n"
@@ -68,8 +87,9 @@ QUESTION_PROMPT = PromptTemplate.from_template(
     "Data de referência: {reference_date}"
 )
 
-# Exemplo few-shot com ativos diferentes dos casos comuns, para o modelo seguir o padrão sem copiá-lo.
+# Exemplos few-shot com ativos diferentes dos casos comuns, para o modelo seguir o padrão sem copiá-lo.
 # Mensagens prontas (não templates): as chaves do JSON não precisam de escape.
+# 1) Pergunta que depende de dados de mercado.
 EXAMPLE_QUESTION = QUESTION_PROMPT.format(
     # Ativos só no texto: ensina a extraí-los da pergunta, não do campo "Ativos informados".
     question="Compare SOL e AVAX",
@@ -80,6 +100,7 @@ EXAMPLE_QUESTION = QUESTION_PROMPT.format(
 )
 EXAMPLE_ANSWER = {
     "intent": "comparison",
+    "answer_status": "requires_market_data",
     "assets": ["SOL", "AVAX"],
     "requested_metrics": ["price_history", "return_pct", "volatility", "max_drawdown"],
     "period": "últimos 90 dias",
@@ -95,18 +116,62 @@ EXAMPLE_ANSWER = {
         "preços de fechamento diários",
         "período contado até a data da consulta",
     ],
+    "answer": (
+        "Nesta fase não tenho dados de mercado atualizados e respondo apenas com o conhecimento "
+        "do modelo, então não consigo dizer qual dos dois teve melhor desempenho nos últimos 90 "
+        "dias. A comparação vai medir retorno, volatilidade e drawdown máximo de SOL e AVAX a "
+        "partir do histórico diário de preços em USD."
+    ),
     "confidence": 0.8,
 }
+
+# 2) Pergunta conceitual: respondida diretamente; fatos de protocolo sim, preços não.
+CONCEPT_EXAMPLE_QUESTION = QUESTION_PROMPT.format(
+    question="Como funciona o halving do Bitcoin?",
+    assets=NOT_INFORMED,
+    period=NOT_INFORMED,
+    context=NOT_INFORMED,
+    reference_date="2026-01-15",
+)
+CONCEPT_EXAMPLE_ANSWER = {
+    "intent": "general_information",
+    "answer_status": "answered",
+    "assets": ["BTC"],
+    "requested_metrics": [],
+    "period": None,
+    "investigation_steps": [],
+    "missing_information": [],
+    "assumptions": [],
+    "answer": (
+        "O halving é um evento programado no protocolo do Bitcoin que reduz pela metade a "
+        "recompensa paga aos mineradores por bloco. Ele ocorre a cada 210.000 blocos, "
+        "aproximadamente a cada quatro anos, e faz parte do mecanismo que limita a emissão total "
+        "a 21 milhões de BTC. O efeito sobre o preço não é garantido e só pode ser avaliado com "
+        "dados de mercado."
+    ),
+    "confidence": 0.9,
+}
+
+FEW_SHOT_EXAMPLES = [
+    (EXAMPLE_QUESTION, EXAMPLE_ANSWER),
+    (CONCEPT_EXAMPLE_QUESTION, CONCEPT_EXAMPLE_ANSWER),
+]
 
 ANALYSIS_PROMPT = ChatPromptTemplate.from_messages(
     [
         ("system", SYSTEM_INSTRUCTIONS),
-        HumanMessage(content=EXAMPLE_QUESTION),
-        AIMessage(content=json.dumps(EXAMPLE_ANSWER, ensure_ascii=False)),
+        *(
+            message
+            for example_question, example_answer in FEW_SHOT_EXAMPLES
+            for message in (
+                HumanMessage(content=example_question),
+                AIMessage(content=json.dumps(example_answer, ensure_ascii=False)),
+            )
+        ),
         (
             "human",
             "{question_block}\n\n"
-            "Produza o plano de análise seguindo o formato abaixo.\n"
+            "Produza o plano de análise e a resposta mínima seguindo o formato abaixo.\n"
             "{format_instructions}",
         ),
     ]

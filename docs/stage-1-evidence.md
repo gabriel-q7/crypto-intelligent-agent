@@ -121,7 +121,7 @@ docker compose run --rm --no-deps app pytest
 ```
 
 ```
-63 passed, 4 deselected in 0.59s
+80 passed, 5 deselected in 0.72s
 ```
 
 Cobrem: schemas (normalização, campos obrigatórios, limites), prompts (tipos, regras anti-invenção, renderização, escape do JSON schema), parsing (`JsonOutputParser`, validação, tradução de erros), as **duas composições** com o mesmo conjunto de testes (invoke, batch, stream, JSON inválido, schema violado, falha de conexão), equivalência LCEL × `@chain`, streaming parcial, isolamento de falhas no batch, configuração por env e `LLMUnavailableError` com Ollama real inacessível.
@@ -138,6 +138,12 @@ test_invoke_returns_valid_analysis[build_imperative_chain] PASSED
 test_batch PASSED
 test_stream PASSED
 4 passed, 60 deselected in 173.88s
+```
+
+Após a inclusão de `answer` (5 testes, incluindo "pergunta conceitual é respondida"):
+
+```
+5 passed, 80 deselected in 409.83s
 ```
 
 ## 6. Limitações observadas
@@ -187,7 +193,39 @@ Cada ajuste foi validado reexecutando 5 perguntas (comparação, preço atual/pr
 - `confidence` concentra-se em 0.6 e 0.8 — melhor que 1.0 fixo, mas ainda é autoavaliação grosseira.
 - Ajustes de prompt em modelo 7B têm efeitos colaterais: cada mudança corrigiu um caso e alterou outros. Uma rede de segurança determinística (ex.: extrair tickers conhecidos do texto) fica para a próxima etapa, junto com o catálogo de ativos das APIs.
 
-## 8. O que não foi validado
+## 8. Resposta mínima ao usuário (`answer`)
+
+O plano sozinho não respondia nada ao usuário: "O que é staking de ETH?" retornava só etapas como "Definir o que é staking". Foram adicionados `answer_status` (`answered` / `requires_market_data` / `needs_clarification`) e `answer` (2 a 4 frases).
+
+Resultado final com o modelo real:
+
+| Pergunta | `answer_status` | `answer` (resumo) |
+|---|---|---|
+| O que é staking de ETH? | `answered` | Explica o conceito (depósito de ETH para validar blocos e receber recompensas) |
+| O que é uma exchange descentralizada? | `answered` | Explica DEX, contratos inteligentes, ausência de intermediário |
+| Compare BTC e ETH (30 dias) | `requires_market_data` | "Nesta fase não tenho dados de mercado atualizados [...] não consigo comparar [...]" + o que será medido |
+| BTC vai subir amanhã? Qual o preço atual? | `requires_market_data` | "Não consigo prever se o BTC vai subir amanhã, pois não tenho dados de mercado atualizados [...]" |
+| Como evoluiu o TVL do Aave neste ano? | `requires_market_data` | Declara ausência de dados e o que será medido |
+| Qual o risco de manter SOL em carteira? | `answered` | Riscos qualitativos (volatilidade, segurança, desenvolvimento), sem números |
+
+A trava de valores de mercado não precisou agir nestas execuções; é coberta por testes unitários (valores monetários, percentuais, remoção apenas das frases afetadas, fatos de protocolo preservados).
+
+Problemas encontrados e corrigidos durante a implementação:
+
+| Sintoma | Causa | Correção |
+|---|---|---|
+| "BTC preço" e "Aave TVL" falhavam com `investigation_steps` vazio | `answer_status` era gerado **depois** das etapas; o modelo copiava `[]` do exemplo conceitual antes de decidir o tipo de resposta | `answer_status` movido para logo após `intent` (o modelo gera o JSON em ordem) |
+| "BTC preço" ainda sem etapas, mas com `requested_metrics: ["price"]` e resposta correta | Omissão em pergunta simples | Etapa de coleta derivada deterministicamente de `requested_metrics` + `assets`, registrada em `assumptions` |
+| Resposta de dados não dizia que faltavam dados | Regra pedia só "explique o que será analisado" | Regra e exemplo exigem declarar explicitamente a ausência de dados atualizados |
+| Trava rejeitava a análise inteira | Validação lançava erro | Remove só as frases com valores e acrescenta aviso padrão |
+
+### Limitações da resposta mínima
+
+- **Erros conceituais não são detectados.** Na resposta sobre staking o modelo escreveu "depositar ETH em nós de mineração" — o Ethereum não usa mineração desde a migração para proof-of-stake (2022). A trava só cobre valores de mercado, não a correção do conteúdo.
+- **Classificação de risco oscila:** "risco de manter SOL" foi classificada como `answered` (resposta qualitativa, sem plano), apesar da regra que reserva `answered` a conceitos.
+- **Trava heurística:** falso positivo em termos como "ataque de 51%"; falso negativo em valores sem moeda ("65 mil").
+
+## 9. O que não foi validado
 
 - **Execução fora do Docker** com Python 3.12 local: o host tem apenas Python 3.14; toda validação foi feita nos containers (Python 3.12.15).
 - **GPU:** o `compose.yaml` não reserva GPU; não testado com aceleração.

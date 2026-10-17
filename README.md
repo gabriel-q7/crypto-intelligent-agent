@@ -82,29 +82,64 @@ OLLAMA_BASE_URL=http://localhost:11434 python -m scripts.analyze "Compare BTC e 
 
 ## Saída
 
+A saída tem duas partes: o **plano de análise** (para as próximas etapas executarem) e uma **resposta mínima** ao usuário.
+
+Pergunta conceitual — respondida com o conhecimento do modelo:
+
+```json
+{
+  "intent": "general_information",
+  "answer_status": "answered",
+  "assets": ["ETH"],
+  "requested_metrics": [],
+  "period": null,
+  "investigation_steps": [],
+  "missing_information": [],
+  "assumptions": [],
+  "answer": "Staking de ETH é o processo de depositar ETH para validar transações e criar novos blocos, recebendo recompensas em troca. ...",
+  "confidence": 0.9
+}
+```
+
+Pergunta que depende de dados de mercado — o agente diz que não tem os dados e entrega o plano:
+
 ```json
 {
   "intent": "comparison",
+  "answer_status": "requires_market_data",
   "assets": ["BTC", "ETH"],
   "requested_metrics": ["price_history", "return_pct", "volatility", "max_drawdown"],
   "period": "últimos 30 dias",
   "investigation_steps": ["Obter price_history diário de BTC e ETH em USD nos últimos 30 dias", "..."],
   "missing_information": [],
   "assumptions": ["comparação por retorno e risco, pois o critério não foi informado", "cotação em USD", "preços de fechamento diários"],
+  "answer": "Nesta fase não tenho dados de mercado atualizados e respondo apenas com o conhecimento do modelo, então não consigo comparar o desempenho e o risco de BTC e ETH nos últimos 30 dias. ...",
   "confidence": 0.8
 }
 ```
 
+- `answer_status`: `answered` (conceito respondido), `requires_market_data` (depende de dados de mercado) ou `needs_clarification` (pergunta ambígua).
+- `answer`: resposta de 2 a 4 frases. **Nunca contém valores de mercado** (ver abaixo).
 - `requested_metrics`: dados de mercado que uma etapa futura buscará em APIs (vocabulário sugerido em `METRIC_VOCABULARY`).
 - `missing_information`: apenas o que o usuário não informou e nenhuma API resolve.
-`intent` ∈ `price_analysis`, `comparison`, `trend_analysis`, `risk_assessment`, `fundamental_analysis`, `general_information`, `other`. `confidence` mede a clareza da pergunta (0–1), não uma previsão.
+- `investigation_steps`: vazio só quando `answered`; se o modelo omitir as etapas de uma pergunta de dados, a etapa de coleta é derivada de `requested_metrics` (registrado em `assumptions`).
+- `intent` ∈ `price_analysis`, `comparison`, `trend_analysis`, `risk_assessment`, `fundamental_analysis`, `general_information`, `other`. `confidence` mede a clareza da pergunta (0–1), não uma previsão.
+
+### Por que a resposta não traz valores de mercado
+
+O modelo só conhece o que aprendeu até o fim do treinamento. Preço, volume, TVL e rendimento mudam diariamente: qualquer número que ele escrevesse estaria desatualizado (sem data) ou seria alucinado, e não há fonte para conferir nesta etapa. Por isso:
+
+1. O prompt proíbe valores de mercado e manda dizer explicitamente que não há dados atualizados.
+2. O schema aplica uma trava determinística: frases de `answer` com valor monetário (`US$ 100`, `2 bilhões de dólares`) ou percentual (`4%`) são removidas e substituídas por um aviso padrão; o ocorrido fica em `assumptions`. Fatos de protocolo (ex.: "21 milhões de BTC") são permitidos.
+
+A trava é heurística: pode remover termos como "ataque de 51%" e não detecta valores sem moeda (ex.: "65 mil").
 
 ## Tratamento de erros
 
 | Situação | Erro |
 |---|---|
 | Modelo responde algo que não é JSON | `AnalysisOutputError` (via `OutputParserException`) |
-| JSON fora do schema (campo ausente, intent inválida, confiança fora de 0–1) | `AnalysisOutputError` com `raw_output` |
+| JSON fora do schema (campo ausente, intent/answer_status inválido, confiança fora de 0–1, plano vazio sem métricas) | `AnalysisOutputError` com `raw_output` |
 | Ollama inacessível / modelo inexistente | `LLMUnavailableError` |
 
 No `batch`, falhas são isoladas por item: o lote retorna `AnalysisError` na posição que falhou.

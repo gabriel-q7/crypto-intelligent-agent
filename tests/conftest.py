@@ -13,6 +13,8 @@ VALID_OUTPUT = {
     "investigation_steps": ["Obter série de preços", "Comparar variação percentual"],
     "missing_information": ["moeda de cotação"],
     "assumptions": ["cotação em USD"],
+    "answer_status": "requires_market_data",
+    "answer": "A comparação depende do histórico de preços de BTC e ETH, ainda não consultado.",
     "confidence": 0.8,
 }
 
