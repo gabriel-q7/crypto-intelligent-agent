@@ -1,0 +1,11 @@
+[project]
+name = "crypto-intelligent-agent"
+version = "0.1.0"
+requires-python = ">=3.12"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-m 'not integration'"
+markers = [
+    "integration: exige Ollama em execução com o modelo configurado (pytest -m integration)",
+]
