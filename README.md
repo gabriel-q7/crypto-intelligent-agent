@@ -84,15 +84,17 @@ OLLAMA_BASE_URL=http://localhost:11434 python -m scripts.analyze "Compare BTC e 
 {
   "intent": "comparison",
   "assets": ["BTC", "ETH"],
-  "requested_metrics": ["rendimento", "volatilidade"],
+  "requested_metrics": ["price_history", "return_pct", "volatility", "max_drawdown"],
   "period": "últimos 30 dias",
-  "investigation_steps": ["calcular o rendimento médio diário", "..."],
+  "investigation_steps": ["Obter price_history diário de BTC e ETH em USD nos últimos 30 dias", "..."],
   "missing_information": [],
-  "assumptions": ["moeda de cotação USD"],
-  "confidence": 1.0
+  "assumptions": ["comparação por retorno e risco, pois o critério não foi informado", "cotação em USD", "preços de fechamento diários"],
+  "confidence": 0.8
 }
 ```
 
+- `requested_metrics`: dados de mercado que uma etapa futura buscará em APIs (vocabulário sugerido em `METRIC_VOCABULARY`).
+- `missing_information`: apenas o que o usuário não informou e nenhuma API resolve.
 `intent` ∈ `price_analysis`, `comparison`, `trend_analysis`, `risk_assessment`, `fundamental_analysis`, `general_information`, `other`. `confidence` mede a clareza da pergunta (0–1), não uma previsão.
 
 ## Tratamento de erros

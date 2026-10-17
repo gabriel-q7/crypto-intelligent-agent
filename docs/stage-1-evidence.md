@@ -16,28 +16,33 @@ docker compose up -d ollama ollama-pull
 ## 2. CLI — análise padrão (LCEL)
 
 ```bash
-docker compose run --rm app
-# = python -m scripts.analyze "Compare BTC e ETH nos últimos 30 dias" --assets BTC ETH --period "últimos 30 dias"
+docker compose run --rm app python -m scripts.analyze "Compare BTC e ETH" --assets BTC ETH --period "últimos 30 dias"
 ```
+
+Resultado com o prompt revisado (seção 7), idêntico em 3 execuções:
 
 ```json
 {
   "intent": "comparison",
   "assets": ["BTC", "ETH"],
-  "requested_metrics": ["rendimento", "volatilidade"],
+  "requested_metrics": ["price_history", "return_pct", "volatility", "max_drawdown"],
   "period": "últimos 30 dias",
   "investigation_steps": [
-    "calcular o rendimento médio diário",
-    "calcular a volatilidade diária",
-    "comparar os resultados entre BTC e ETH"
+    "Obter price_history diário de BTC e ETH em USD nos últimos 30 dias",
+    "Calcular return_pct, volatility e max_drawdown de cada ativo",
+    "Comparar desempenho e risco entre BTC e ETH"
   ],
   "missing_information": [],
-  "assumptions": ["moeda de cotação USD"],
-  "confidence": 1.0
+  "assumptions": [
+    "comparação por retorno e risco, pois o critério não foi informado",
+    "cotação em USD",
+    "preços de fechamento diários"
+  ],
+  "confidence": 0.8
 }
 ```
 
-Tempo total: ~110 s (inclui carga do modelo na memória na primeira chamada).
+Tempo: ~30–110 s por chamada (a primeira inclui carga do modelo na memória).
 
 ## 3. CLI — pergunta que pede dado atual (`@chain`)
 
@@ -116,7 +121,7 @@ docker compose run --rm --no-deps app pytest
 ```
 
 ```
-60 passed, 4 deselected in 0.51s
+63 passed, 4 deselected in 0.59s
 ```
 
 Cobrem: schemas (normalização, campos obrigatórios, limites), prompts (tipos, regras anti-invenção, renderização, escape do JSON schema), parsing (`JsonOutputParser`, validação, tradução de erros), as **duas composições** com o mesmo conjunto de testes (invoke, batch, stream, JSON inválido, schema violado, falha de conexão), equivalência LCEL × `@chain`, streaming parcial, isolamento de falhas no batch, configuração por env e `LLMUnavailableError` com Ollama real inacessível.
@@ -149,7 +154,40 @@ test_stream PASSED
 4. **Desempenho em CPU:** ~30–110 s por chamada neste ambiente; `batch` com `max_concurrency=2` é limitado pelo Ollama, que processa as requisições conforme sua configuração de paralelismo.
 5. **Enum de intenção estrito:** se o modelo responder uma intenção fora da lista, a saída é rejeitada (`AnalysisOutputError`) em vez de mapeada para `other`. Não ocorreu nas execuções, mas não há retry automático.
 
-## 7. O que não foi validado
+## 7. Revisão do prompt (resultado do "Compare BTC e ETH")
+
+A primeira versão do prompt produzia, para `"Compare BTC e ETH" --assets BTC ETH --period "últimos 30 dias"`:
+
+```json
+{
+  "requested_metrics": ["rendimento", "volatilidade"],
+  "investigation_steps": ["calcular o rendimento médio dos últimos 30 dias", "..."],
+  "missing_information": [],
+  "assumptions": ["moeda de cotação USD"],
+  "confidence": 1.0
+}
+```
+
+| Problema | Causa | Correção |
+|---|---|---|
+| Etapas calculavam sem obter dados | Nada exigia etapa de coleta | Regra: a primeira etapa obtém os dados de mercado |
+| `requested_metrics` vago e instável ("rendimento", "preço_atual") | Texto livre | Vocabulário sugerido em snake_case (`METRIC_VOCABULARY`: `price_history`, `return_pct`, `volatility`, ...) e exigência dos dados de base |
+| `missing_information` ora com dados de mercado, ora vazio | Regra 3 original era ambígua | `requested_metrics` = dados que APIs buscarão; `missing_information` = só o que o usuário não informou e nenhuma API resolve |
+| Critério inferido não registrado; `confidence` 1.0 | Sem régua de calibração | Régua explícita (0.9–1.0 / 0.6–0.8 / < 0.6) e premissas obrigatórias para critérios inferidos |
+| Moeda/granularidade ausentes | Modelo 7B ignora regras abstratas | Exemplo few-shot (SOL × AVAX) mostrando o padrão |
+| Ativos copiados do campo "Ativos informados" em vez de extraídos do texto | Exemplo trazia os ativos nesse campo | No exemplo, ativos aparecem só no texto da pergunta |
+| `"período de 2026 é um erro, deve ser 2023"` | O modelo assume a data do seu treino | `Data de referência` (data atual) injetada no prompt + regra para nunca corrigir o período do usuário |
+
+Cada ajuste foi validado reexecutando 5 perguntas (comparação, preço atual/previsão, TVL do Aave, staking, risco de SOL).
+
+### Limitações que persistem após a revisão
+
+- `assets` ainda oscila em perguntas conceituais ("O que é staking de ETH?" retornou `[]` na última execução e `["ETH"]` na anterior).
+- A ressalva "o agente não faz previsões" (regra 10) nem sempre aparece em "BTC vai subir amanhã?".
+- `confidence` concentra-se em 0.6 e 0.8 — melhor que 1.0 fixo, mas ainda é autoavaliação grosseira.
+- Ajustes de prompt em modelo 7B têm efeitos colaterais: cada mudança corrigiu um caso e alterou outros. Uma rede de segurança determinística (ex.: extrair tickers conhecidos do texto) fica para a próxima etapa, junto com o catálogo de ativos das APIs.
+
+## 8. O que não foi validado
 
 - **Execução fora do Docker** com Python 3.12 local: o host tem apenas Python 3.14; toda validação foi feita nos containers (Python 3.12.15).
 - **GPU:** o `compose.yaml` não reserva GPU; não testado com aceleração.

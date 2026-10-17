@@ -17,7 +17,7 @@ Fluxo atual:
 CryptoQuestion
    │  build_prompt_input  (PromptTemplate renderiza o bloco da pergunta)
    ▼
-ANALYSIS_PROMPT  (ChatPromptTemplate: system + human + format_instructions)
+ANALYSIS_PROMPT  (ChatPromptTemplate: system + exemplo few-shot + pergunta com data de referência e format_instructions)
    ▼
 ChatOllama  (format="json", temperature=0)
    ▼

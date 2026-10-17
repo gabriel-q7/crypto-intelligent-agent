@@ -38,6 +38,16 @@ def test_build_prompt_input_renders_question(question):
     assert "investigation_steps" in data["format_instructions"]
 
 
+def test_build_prompt_input_includes_reference_date(question):
+    from datetime import date
+
+    block = build_prompt_input(question, reference_date=date(2026, 10, 17))["question_block"]
+    assert "Data de referência: 2026-10-17" in block
+    assert f"Data de referência: {date.today().isoformat()}" in build_prompt_input(question)[
+        "question_block"
+    ]
+
+
 def test_build_prompt_input_accepts_dict():
     data = build_prompt_input({"question": "O que é staking?"})
     assert "Ativos informados: não informado" in data["question_block"]
@@ -45,8 +55,26 @@ def test_build_prompt_input_accepts_dict():
 
 def test_chat_prompt_produces_system_and_human_messages(question):
     messages = ANALYSIS_PROMPT.invoke(build_prompt_input(question)).to_messages()
-    assert [m.type for m in messages] == ["system", "human"]
+    assert [m.type for m in messages] == ["system", "human", "ai", "human"]
     assert messages[0].content == SYSTEM_INSTRUCTIONS
-    assert "Compare BTC e ETH" in messages[1].content
+    assert "Compare BTC e ETH" in messages[-1].content
     # Chaves do JSON schema não podem quebrar o template (chaves {} escapadas).
-    assert '"properties"' in messages[1].content
+    assert '"properties"' in messages[-1].content
+
+
+def test_few_shot_example_is_valid_analysis():
+    from app.prompts.analysis import EXAMPLE_ANSWER
+    from app.schemas import CryptoAnalysisRequest
+
+    messages = ANALYSIS_PROMPT.invoke(build_prompt_input({"question": "teste"})).to_messages()
+    example = CryptoAnalysisRequest.model_validate_json(messages[2].content)
+    assert example == CryptoAnalysisRequest.model_validate(EXAMPLE_ANSWER)
+
+
+def test_system_instructions_separate_metrics_from_missing_information():
+    from app.prompts.analysis import METRIC_VOCABULARY
+
+    for metric in METRIC_VOCABULARY:
+        assert metric in SYSTEM_INSTRUCTIONS
+    assert "NÃO coloque dados de mercado aqui" in SYSTEM_INSTRUCTIONS
+    assert "A primeira etapa obtém os dados de" in SYSTEM_INSTRUCTIONS
