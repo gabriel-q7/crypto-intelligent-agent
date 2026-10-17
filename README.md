@@ -24,6 +24,8 @@ tests/
   integration/     exigem Ollama + modelo (marcador `integration`)
 docs/
   architecture.md, composition-decision.md, stage-1-evidence.md
+Report/
+  diário técnico por fase (base do relatório final)
 ```
 
 ## Executar com Docker Compose
