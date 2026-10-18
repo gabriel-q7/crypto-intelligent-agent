@@ -225,7 +225,37 @@ Problemas encontrados e corrigidos durante a implementação:
 - **Classificação de risco oscila:** "risco de manter SOL" foi classificada como `answered` (resposta qualitativa, sem plano), apesar da regra que reserva `answered` a conceitos.
 - **Trava heurística:** falso positivo em termos como "ataque de 51%"; falso negativo em valores sem moeda ("65 mil").
 
-## 9. O que não foi validado
+## 9. Benchmark de modelos
+
+2026-10-17, CPU (12 threads), Ollama 0.40.6, ambos os modelos em Q4_K_M, temperatura 0, 6 perguntas de [benchmarks/questions.json](../benchmarks/questions.json). Qwen: 3 repetições (variação entre elas < 2%); Gemma: 1 repetição por modo.
+
+```bash
+docker compose run --rm app python -m scripts.benchmark --models qwen2.5:7b --runs 3
+docker compose run --rm app python -m scripts.benchmark --models gemma4:e4b --reasoning off
+docker compose run --rm app python -m scripts.benchmark --models gemma4:e4b --reasoning on
+docker compose run --rm app python -m scripts.compare_benchmarks
+```
+
+| Modelo | Thinking | Cold start (s) | Latência média (s) | Mediana (s) | p95 (s) | Tokens prompt | Prompt tok/s | Tokens saída | Saída tok/s | JSON válido | answer_status ok | assets ok |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| qwen2.5:7b | padrão (não suporta) | 7.0 | **71.0** | 65.8 | 90.5 | 2514 | **66.1** | 153 | 4.6 | 100% | 83% | 100% |
+| gemma4:e4b | desligado | 8.2 | 83.1 | 83.9 | **87.3** | 2383 | 38.9 | 211 | **9.6** | 100% | **100%** | 100% |
+| gemma4:e4b | ligado | 7.5 | 118.1 | 110.1 | 187.7 | 2385 | 38.8 | 554 | 9.8 | 100% | **100%** | 100% |
+| mistral:7b | padrão (não suporta) | 16.5 | 141.9 | 140.8 | 163.0 | 2985 | 43.6 | 179 | 2.4 | **67%** | 100%¹ | 100%¹ |
+
+¹ Calculado só sobre as respostas válidas (4 de 6).
+
+**mistral:7b (adicionado depois, 1 repetição):** o mais lento (geração 2,4 tok/s; o tokenizador gera ~2.985 tokens para o mesmo prompt, +19% que o Qwen) e o único com saídas inválidas — omitiu `confidence` em "Compare BTC e ETH" e `answer` em "TVL do Aave". O modo JSON do Ollama garante sintaxe, não a presença dos campos; a validação Pydantic rejeitou as duas saídas, como esperado. Nas respostas válidas, conteúdo correto e aviso de ausência de dados presente. Dados: `benchmarks/results/20261017T235946_mistral-7b.json`.
+
+Dados brutos: `benchmarks/results/20261017T224551_qwen2.5-7b.json`, `..._gemma4-e4b_thinking-off.json`, `..._gemma4-e4b_thinking-on.json`.
+
+- **Leitura do prompt domina a latência:** ~38 s (Qwen) e ~61 s (Gemma) dos totais são só leitura dos ~2.400 tokens de instruções, exemplos e schema.
+- **Gemma gera 2× mais rápido, mas lê o prompt mais devagar;** no total, fica 17% mais lento que o Qwen sem thinking.
+- **Thinking ligado no Gemma:** +42% de latência média e p95 2× maior (perguntas de dados geram 750–1.200 tokens de raciocínio oculto), sem ganho de acerto neste conjunto.
+- **Qualidade:** Gemma acertou `answer_status` em 6/6 (Qwen errou "risco de SOL", classificada como conceitual) e respondeu staking citando Proof-of-Stake corretamente.
+- **Resultados descartados:** a primeira rodada (`benchmarks/results/obsoletos/`) tinha dois erros de medição — aquecimento com a mesma pergunta do 1º caso (prompt em cache, 0,3 s de leitura) e taxa média de razões distorcida por esse caso — e o Gemma com thinking padrão sem isso ser identificado.
+
+## 10. O que não foi validado
 
 - **Execução fora do Docker** com Python 3.12 local: o host tem apenas Python 3.14; toda validação foi feita nos containers (Python 3.12.15).
 - **GPU:** o `compose.yaml` não reserva GPU; não testado com aceleração.

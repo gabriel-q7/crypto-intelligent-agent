@@ -12,7 +12,9 @@ services:
       retries: 20
     restart: unless-stopped
 
-  # Baixa o modelo uma única vez; o volume persistente evita novo download.
+  # Baixa o modelo configurado em OLLAMA_MODEL; o volume persistente evita novo download.
+  # Trocar de modelo: OLLAMA_MODEL=gemma4:e4b docker compose run --rm app ...
+  # (o app depende deste serviço, então o novo modelo é baixado automaticamente).
   ollama-pull:
     image: ollama/ollama:latest
     environment:
@@ -30,6 +32,13 @@ services:
     environment:
       # Sempre pelo nome do serviço dentro da rede do Compose.
       OLLAMA_BASE_URL: http://ollama:11434
+      # Interpolado pelo Compose: variável do shell > .env > padrão.
+      # Garante que o app use o mesmo modelo baixado pelo ollama-pull.
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5:7b}
+      OLLAMA_REASONING: ${OLLAMA_REASONING:-}
+    volumes:
+      # Resultados de benchmark persistidos no host.
+      - ./benchmarks/results:/app/benchmarks/results
     depends_on:
       ollama-pull:
         condition: service_completed_successfully

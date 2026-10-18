@@ -1,0 +1,728 @@
+{
+  "meta": {
+    "model": "qwen2.5:7b",
+    "model_info": {
+      "family": "qwen2",
+      "parameter_size": "7.6B",
+      "quantization_level": "Q4_K_M"
+    },
+    "timestamp": "2026-10-17T22:45:51",
+    "ollama_version": "0.40.6",
+    "temperature": 0.0,
+    "reasoning": null,
+    "runs": 3,
+    "cases": [
+      "conceito-staking",
+      "conceito-dex",
+      "comparacao-btc-eth",
+      "preco-previsao-btc",
+      "tendencia-tvl-aave",
+      "risco-sol"
+    ],
+    "host": {
+      "platform": "Linux-6.12.108-1-MANJARO-x86_64-with-glibc2.41",
+      "cpu_count": 12
+    },
+    "warmup": {
+      "case_id": "aquecimento",
+      "run": 0,
+      "wall_s": 127.58410459199877,
+      "valid": true,
+      "status_ok": null,
+      "assets_ok": null,
+      "load_s": 6.96160925,
+      "prompt_tokens": 2509,
+      "prompt_eval_s": 94.568198,
+      "output_tokens": 121,
+      "eval_s": 26.025718,
+      "error": null,
+      "output": {
+        "intent": "general_information",
+        "answer_status": "answered",
+        "assets": [],
+        "requested_metrics": [],
+        "period": null,
+        "investigation_steps": [],
+        "missing_information": [],
+        "assumptions": [],
+        "answer": "Uma blockchain é uma cadeia de blocos interconectados que registra transações de forma descentralizada e imutável. Ela usa criptografia para garantir a segurança e autenticidade dos dados, sendo fundamental para tecnologias como criptomoedas e smart contracts.",
+        "confidence": 0.9
+      },
+      "tokens_per_s": 4.649247332965031
+    }
+  },
+  "summary": {
+    "model": "qwen2.5:7b",
+    "reasoning": null,
+    "runs": 18,
+    "cold_start_s": 6.96160925,
+    "wall_mean_s": 71.0129139828334,
+    "wall_median_s": 65.760265819501,
+    "wall_p95_s": 90.53797330499947,
+    "prompt_tokens_mean": 2513.8333333333335,
+    "prompt_tokens_per_s": 66.05750886224496,
+    "output_tokens_mean": 152.77777777777777,
+    "output_tokens_per_s": 4.639412815669338,
+    "valid_rate": 1.0,
+    "status_accuracy": 0.8333333333333334,
+    "assets_accuracy": 1.0,
+    "per_case": {
+      "conceito-staking": {
+        "wall_mean_s": 61.32735275399924,
+        "valid_rate": 1.0,
+        "status_accuracy": 1.0,
+        "assets_accuracy": 1.0
+      },
+      "conceito-dex": {
+        "wall_mean_s": 63.0781775113331,
+        "valid_rate": 1.0,
+        "status_accuracy": 1.0,
+        "assets_accuracy": 1.0
+      },
+      "comparacao-btc-eth": {
+        "wall_mean_s": 90.78675612700074,
+        "valid_rate": 1.0,
+        "status_accuracy": 1.0,
+        "assets_accuracy": 1.0
+      },
+      "preco-previsao-btc": {
+        "wall_mean_s": 66.23765777466785,
+        "valid_rate": 1.0,
+        "status_accuracy": 1.0,
+        "assets_accuracy": 1.0
+      },
+      "tendencia-tvl-aave": {
+        "wall_mean_s": 79.2447562456667,
+        "valid_rate": 1.0,
+        "status_accuracy": 1.0,
+        "assets_accuracy": 1.0
+      },
+      "risco-sol": {
+        "wall_mean_s": 65.40278348433276,
+        "valid_rate": 1.0,
+        "status_accuracy": 0.0,
+        "assets_accuracy": 1.0
+      }
+    }
+  },
+  "results": [
+    {
+      "case_id": "conceito-staking",
+      "run": 1,
+      "wall_s": 63.539156543996796,
+      "valid": true,
+      "status_ok": true,
+      "assets_ok": true,
+      "load_s": 0.000951355,
+      "prompt_tokens": 2511,
+      "prompt_eval_s": 37.645124,
+      "output_tokens": 121,
+      "eval_s": 25.868793,
+      "error": null,
+      "output": {
+        "intent": "general_information",
+        "answer_status": "answered",
+        "assets": [
+          "ETH"
+        ],
+        "requested_metrics": [],
+        "period": null,
+        "investigation_steps": [],
+        "missing_information": [],
+        "assumptions": [],
+        "answer": "Staking de ETH é o processo de depositar ETH em um contrato inteligente para validar blocos e receber recompensas. Isso ajuda a manter a rede Ethereum segura e descentralizada, e os stakers podem ganhar ETH como recompensa por seu apoio.",
+        "confidence": 0.9
+      },
+      "tokens_per_s": 4.677450548233928
+    },
+    {
+      "case_id": "conceito-dex",
+      "run": 1,
+      "wall_s": 63.08429156599959,
+      "valid": true,
+      "status_ok": true,
+      "assets_ok": true,
+      "load_s": 0.000930576,
+      "prompt_tokens": 2512,
+      "prompt_eval_s": 37.972326,
+      "output_tokens": 117,
+      "eval_s": 25.08655,
+      "error": null,
+      "output": {
+        "intent": "general_information",
+        "answer_status": "answered",
+        "assets": [],
+        "requested_metrics": [],
+        "period": null,
+        "investigation_steps": [],
+        "missing_information": [],
+        "assumptions": [],
+        "answer": "Uma exchange descentralizada (DEX) é uma plataforma que permite trocas de criptomoedas sem a necessidade de um intermediário central. Ela utiliza contratos inteligentes para facilitar as transações, mantendo a autenticidade e a segurança dos ativos.",
+        "confidence": 0.9
+      },
+      "tokens_per_s": 4.663853738357806
+    },
+    {
+      "case_id": "comparacao-btc-eth",
+      "run": 1,
+      "wall_s": 90.45582976100195,
+      "valid": true,
+      "status_ok": true,
+      "assets_ok": true,
+      "load_s": 0.001194098,
+      "prompt_tokens": 2510,
+      "prompt_eval_s": 37.967004,
+      "output_tokens": 243,
+      "eval_s": 52.460027,
+      "error": null,
+      "output": {
+        "intent": "comparison",
+        "answer_status": "requires_market_data",
+        "assets": [
+          "BTC",
+          "ETH"
+        ],
+        "requested_metrics": [
+          "price_history",
+          "return_pct",
+          "volatility",
+          "max_drawdown"
+        ],
+        "period": "últimos 30 dias",
+        "investigation_steps": [
+          "Obter price_history diário de BTC e ETH em USD nos últimos 30 dias",
+          "Calcular return_pct, volatility e max_drawdown de cada ativo",
+          "Comparar desempenho e risco entre BTC e ETH"
+        ],
+        "missing_information": [],
+        "assumptions": [
+          "comparação por retorno e risco, pois o critério não foi informado",
+          "cotação em USD",
+          "preços de fechamento diários"
+        ],
+        "answer": "Nesta fase não tenho dados de mercado atualizados e respondo apenas com o conhecimento do modelo, então não consigo comparar o desempenho e o risco de BTC e ETH nos últimos 30 dias. A comparação vai medir retorno, volatilidade e drawdown máximo de cada ativo.",
+        "confidence": 0.8
+      },
+      "tokens_per_s": 4.6320982640744734
+    },
+    {
+      "case_id": "preco-previsao-btc",
+      "run": 1,
+      "wall_s": 66.08687237500271,
+      "valid": true,
+      "status_ok": true,
+      "assets_ok": true,
+      "load_s": 0.001512503,
+      "prompt_tokens": 2516,
+      "prompt_eval_s": 37.830102,
+      "output_tokens": 131,
+      "eval_s": 28.231728,
+      "error": null,
+      "output": {
+        "intent": "price_analysis",
+        "answer_status": "requires_market_data",
+        "assets": [
+          "BTC"
+        ],
+        "requested_metrics": [
+          "price"
+        ],
+        "period": null,
+        "investigation_steps": [
+          "Obter price de BTC"
+        ],
+        "missing_information": [
+          "período"
+        ],
+        "assumptions": [
+          "pergunta sobre previsão de preço",
+          "cotação em USD",
+          "etapa de investigação derivada automaticamente de requested_metrics"
+        ],
+        "answer": "Não consigo prever se o BTC vai subir amanhã, pois não tenho dados de mercado atualizados. Além disso, não posso fornecer um preço atual, pois a pergunta não especificou um período.",
+        "confidence": 0.6
+      },
+      "tokens_per_s": 4.6401693867268765
+    },
+    {
+      "case_id": "tendencia-tvl-aave",
+      "run": 1,
+      "wall_s": 78.90972163400147,
+      "valid": true,
+      "status_ok": true,
+      "assets_ok": true,
+      "load_s": 0.001437052,
+      "prompt_tokens": 2519,
+      "prompt_eval_s": 38.243527,
+      "output_tokens": 189,
+      "eval_s": 40.640782,
+      "error": null,
+      "output": {
+        "intent": "trend_analysis",
+        "answer_status": "requires_market_data",
+        "assets": [
+          "AAVE"
+        ],
+        "requested_metrics": [
+          "price_history",
+          "tvl"
+        ],
+        "period": "2026",
+        "investigation_steps": [
+          "Obter o histórico de TVL do Aave para o ano de 2026",
+          "Analisar a tendência do TVL ao longo do período"
+        ],
+        "missing_information": [],
+        "assumptions": [
+          "período referente ao ano de 2026",
+          "cotação em USD",
+          "TVL em USD"
+        ],
+        "answer": "Nesta fase, não tenho dados de mercado atualizados e respondo apenas com o conhecimento do modelo. A análise vai medir como o TVL do Aave evoluiu ao longo do ano de 2026.",
+        "confidence": 0.6
+      },
+      "tokens_per_s": 4.650501065653707
+    },
+    {
+      "case_id": "risco-sol",
+      "run": 1,
+      "wall_s": 65.43365926399929,
+      "valid": true,
+      "status_ok": false,
+      "assets_ok": true,
+      "load_s": 0.000969348,
+      "prompt_tokens": 2515,
+      "prompt_eval_s": 38.161678,
+      "output_tokens": 127,
+      "eval_s": 27.244991,
+      "error": null,
+      "output": {
+        "intent": "risk_assessment",
+        "answer_status": "answered",
+        "assets": [
+          "SOL"
+        ],
+        "requested_metrics": [],
+        "period": null,
+        "investigation_steps": [],
+        "missing_information": [],
+        "assumptions": [],
+        "answer": "O risco de manter SOL em carteira inclui volatilidade de mercado, riscos de segurança da cadeia de blocos e dependência de desenvolvimento da comunidade. O valor de mercado pode oscilar significativamente, e falhas na segurança podem resultar em perdas financeiras.",
+        "confidence": 0.6
+      },
+      "tokens_per_s": 4.661407302355138
+    },
+    {
+      "case_id": "conceito-staking",
+      "run": 2,
+      "wall_s": 60.20419310700163,
+      "valid": true,
+      "status_ok": true,
+      "assets_ok": true,
+      "load_s": 0.00159713,
+      "prompt_tokens": 2511,
+      "prompt_eval_s": 37.851288,
+      "output_tokens": 104,
+      "eval_s": 22.309631,
+      "error": null,
+      "output": {
+        "intent": "general_information",
+        "answer_status": "answered",
+        "assets": [
+          "ETH"
+        ],
+        "requested_metrics": [],
+        "period": null,
+        "investigation_steps": [],
+        "missing_information": [],
+        "assumptions": [],
+        "answer": "Staking de ETH é o processo de depositar ETH em um contrato inteligente para validar blocos e receber recompensas. Isso ajuda a manter a rede Ethereum segura e descentralizada.",
+        "confidence": 0.9
+      },
+      "tokens_per_s": 4.661663834780593
+    },
+    {
+      "case_id": "conceito-dex",
+      "run": 2,
+      "wall_s": 62.99862170399865,
+      "valid": true,
+      "status_ok": true,
+      "assets_ok": true,
+      "load_s": 0.001064076,
+      "prompt_tokens": 2512,
+      "prompt_eval_s": 37.743184,
+      "output_tokens": 117,
+      "eval_s": 25.227697,
+      "error": null,
+      "output": {
+        "intent": "general_information",
+        "answer_status": "answered",
+        "assets": [],
+        "requested_metrics": [],
+        "period": null,
+        "investigation_steps": [],
+        "missing_information": [],
+        "assumptions": [],
+        "answer": "Uma exchange descentralizada (DEX) é uma plataforma que permite trocas de criptomoedas sem a necessidade de um intermediário central. Ela utiliza contratos inteligentes para facilitar as transações, mantendo a autenticidade e a segurança dos ativos.",
+        "confidence": 0.9
+      },
+      "tokens_per_s": 4.637759839909287
+    },
+    {
+      "case_id": "comparacao-btc-eth",
+      "run": 2,
+      "wall_s": 91.36646531500082,
+      "valid": true,
+      "status_ok": true,
+      "assets_ok": true,
+      "load_s": 0.000973596,
+      "prompt_tokens": 2510,
+      "prompt_eval_s": 38.209241,
+      "output_tokens": 243,
+      "eval_s": 53.13132,
+      "error": null,
+      "output": {
+        "intent": "comparison",
+        "answer_status": "requires_market_data",
+        "assets": [
+          "BTC",
+          "ETH"
+        ],
+        "requested_metrics": [
+          "price_history",
+          "return_pct",
+          "volatility",
+          "max_drawdown"
+        ],
+        "period": "últimos 30 dias",
+        "investigation_steps": [
+          "Obter price_history diário de BTC e ETH em USD nos últimos 30 dias",
+          "Calcular return_pct, volatility e max_drawdown de cada ativo",
+          "Comparar desempenho e risco entre BTC e ETH"
+        ],
+        "missing_information": [],
+        "assumptions": [
+          "comparação por retorno e risco, pois o critério não foi informado",
+          "cotação em USD",
+          "preços de fechamento diários"
+        ],
+        "answer": "Nesta fase não tenho dados de mercado atualizados e respondo apenas com o conhecimento do modelo, então não consigo comparar o desempenho e o risco de BTC e ETH nos últimos 30 dias. A comparação vai medir retorno, volatilidade e drawdown máximo de cada ativo.",
+        "confidence": 0.8
+      },
+      "tokens_per_s": 4.5735735532262325
+    },
+    {
+      "case_id": "preco-previsao-btc",
+      "run": 2,
+      "wall_s": 66.30899685300028,
+      "valid": true,
+      "status_ok": true,
+      "assets_ok": true,
+      "load_s": 0.000926428,
+      "prompt_tokens": 2516,
+      "prompt_eval_s": 37.985532,
+      "output_tokens": 131,
+      "eval_s": 28.296873,
+      "error": null,
+      "output": {
+        "intent": "price_analysis",
+        "answer_status": "requires_market_data",
+        "assets": [
+          "BTC"
+        ],
+        "requested_metrics": [
+          "price"
+        ],
+        "period": null,
+        "investigation_steps": [
+          "Obter price de BTC"
+        ],
+        "missing_information": [
+          "período"
+        ],
+        "assumptions": [
+          "pergunta sobre previsão de preço",
+          "cotação em USD",
+          "etapa de investigação derivada automaticamente de requested_metrics"
+        ],
+        "answer": "Não consigo prever se o BTC vai subir amanhã, pois não tenho dados de mercado atualizados. Além disso, não posso fornecer um preço atual, pois a pergunta não especificou um período.",
+        "confidence": 0.6
+      },
+      "tokens_per_s": 4.6294867987710155
+    },
+    {
+      "case_id": "tendencia-tvl-aave",
+      "run": 2,
+      "wall_s": 79.29854894600066,
+      "valid": true,
+      "status_ok": true,
+      "assets_ok": true,
+      "load_s": 0.000926769,
+      "prompt_tokens": 2519,
+      "prompt_eval_s": 38.473938,
+      "output_tokens": 189,
+      "eval_s": 40.799985,
+      "error": null,
+      "output": {
+        "intent": "trend_analysis",
+        "answer_status": "requires_market_data",
+        "assets": [
+          "AAVE"
+        ],
+        "requested_metrics": [
+          "price_history",
+          "tvl"
+        ],
+        "period": "2026",
+        "investigation_steps": [
+          "Obter o histórico de TVL do Aave para o ano de 2026",
+          "Analisar a tendência do TVL ao longo do período"
+        ],
+        "missing_information": [],
+        "assumptions": [
+          "período referente ao ano de 2026",
+          "cotação em USD",
+          "TVL em USD"
+        ],
+        "answer": "Nesta fase, não tenho dados de mercado atualizados e respondo apenas com o conhecimento do modelo. A análise vai medir como o TVL do Aave evoluiu ao longo do ano de 2026.",
+        "confidence": 0.6
+      },
+      "tokens_per_s": 4.632354644248031
+    },
+    {
+      "case_id": "risco-sol",
+      "run": 2,
+      "wall_s": 65.39615928800049,
+      "valid": true,
+      "status_ok": false,
+      "assets_ok": true,
+      "load_s": 0.002468676,
+      "prompt_tokens": 2515,
+      "prompt_eval_s": 37.940233,
+      "output_tokens": 127,
+      "eval_s": 27.427413,
+      "error": null,
+      "output": {
+        "intent": "risk_assessment",
+        "answer_status": "answered",
+        "assets": [
+          "SOL"
+        ],
+        "requested_metrics": [],
+        "period": null,
+        "investigation_steps": [],
+        "missing_information": [],
+        "assumptions": [],
+        "answer": "O risco de manter SOL em carteira inclui volatilidade de mercado, riscos de segurança da cadeia de blocos e dependência de desenvolvimento da comunidade. O valor de mercado pode oscilar significativamente, e falhas na segurança podem resultar em perdas financeiras.",
+        "confidence": 0.6
+      },
+      "tokens_per_s": 4.630403895547859
+    },
+    {
+      "case_id": "conceito-staking",
+      "run": 3,
+      "wall_s": 60.23870861099931,
+      "valid": true,
+      "status_ok": true,
+      "assets_ok": true,
+      "load_s": 0.001117395,
+      "prompt_tokens": 2511,
+      "prompt_eval_s": 37.931331,
+      "output_tokens": 104,
+      "eval_s": 22.281974,
+      "error": null,
+      "output": {
+        "intent": "general_information",
+        "answer_status": "answered",
+        "assets": [
+          "ETH"
+        ],
+        "requested_metrics": [],
+        "period": null,
+        "investigation_steps": [],
+        "missing_information": [],
+        "assumptions": [],
+        "answer": "Staking de ETH é o processo de depositar ETH em um contrato inteligente para validar blocos e receber recompensas. Isso ajuda a manter a rede Ethereum segura e descentralizada.",
+        "confidence": 0.9
+      },
+      "tokens_per_s": 4.66745002036175
+    },
+    {
+      "case_id": "conceito-dex",
+      "run": 3,
+      "wall_s": 63.151619264001056,
+      "valid": true,
+      "status_ok": true,
+      "assets_ok": true,
+      "load_s": 0.001097317,
+      "prompt_tokens": 2512,
+      "prompt_eval_s": 37.93106,
+      "output_tokens": 117,
+      "eval_s": 25.194112,
+      "error": null,
+      "output": {
+        "intent": "general_information",
+        "answer_status": "answered",
+        "assets": [],
+        "requested_metrics": [],
+        "period": null,
+        "investigation_steps": [],
+        "missing_information": [],
+        "assumptions": [],
+        "answer": "Uma exchange descentralizada (DEX) é uma plataforma que permite trocas de criptomoedas sem a necessidade de um intermediário central. Ela utiliza contratos inteligentes para facilitar as transações, mantendo a autenticidade e a segurança dos ativos.",
+        "confidence": 0.9
+      },
+      "tokens_per_s": 4.643942203638692
+    },
+    {
+      "case_id": "comparacao-btc-eth",
+      "run": 3,
+      "wall_s": 90.53797330499947,
+      "valid": true,
+      "status_ok": true,
+      "assets_ok": true,
+      "load_s": 0.000910068,
+      "prompt_tokens": 2510,
+      "prompt_eval_s": 38.016862,
+      "output_tokens": 243,
+      "eval_s": 52.495092,
+      "error": null,
+      "output": {
+        "intent": "comparison",
+        "answer_status": "requires_market_data",
+        "assets": [
+          "BTC",
+          "ETH"
+        ],
+        "requested_metrics": [
+          "price_history",
+          "return_pct",
+          "volatility",
+          "max_drawdown"
+        ],
+        "period": "últimos 30 dias",
+        "investigation_steps": [
+          "Obter price_history diário de BTC e ETH em USD nos últimos 30 dias",
+          "Calcular return_pct, volatility e max_drawdown de cada ativo",
+          "Comparar desempenho e risco entre BTC e ETH"
+        ],
+        "missing_information": [],
+        "assumptions": [
+          "comparação por retorno e risco, pois o critério não foi informado",
+          "cotação em USD",
+          "preços de fechamento diários"
+        ],
+        "answer": "Nesta fase não tenho dados de mercado atualizados e respondo apenas com o conhecimento do modelo, então não consigo comparar o desempenho e o risco de BTC e ETH nos últimos 30 dias. A comparação vai medir retorno, volatilidade e drawdown máximo de cada ativo.",
+        "confidence": 0.8
+      },
+      "tokens_per_s": 4.629004174333097
+    },
+    {
+      "case_id": "preco-previsao-btc",
+      "run": 3,
+      "wall_s": 66.31710409600055,
+      "valid": true,
+      "status_ok": true,
+      "assets_ok": true,
+      "load_s": 0.000901883,
+      "prompt_tokens": 2516,
+      "prompt_eval_s": 38.210352,
+      "output_tokens": 131,
+      "eval_s": 28.080264,
+      "error": null,
+      "output": {
+        "intent": "price_analysis",
+        "answer_status": "requires_market_data",
+        "assets": [
+          "BTC"
+        ],
+        "requested_metrics": [
+          "price"
+        ],
+        "period": null,
+        "investigation_steps": [
+          "Obter price de BTC"
+        ],
+        "missing_information": [
+          "período"
+        ],
+        "assumptions": [
+          "pergunta sobre previsão de preço",
+          "cotação em USD",
+          "etapa de investigação derivada automaticamente de requested_metrics"
+        ],
+        "answer": "Não consigo prever se o BTC vai subir amanhã, pois não tenho dados de mercado atualizados. Além disso, não posso fornecer um preço atual, pois a pergunta não especificou um período.",
+        "confidence": 0.6
+      },
+      "tokens_per_s": 4.665198304403406
+    },
+    {
+      "case_id": "tendencia-tvl-aave",
+      "run": 3,
+      "wall_s": 79.52599815699796,
+      "valid": true,
+      "status_ok": true,
+      "assets_ok": true,
+      "load_s": 0.000950293,
+      "prompt_tokens": 2519,
+      "prompt_eval_s": 38.724501,
+      "output_tokens": 189,
+      "eval_s": 40.775353,
+      "error": null,
+      "output": {
+        "intent": "trend_analysis",
+        "answer_status": "requires_market_data",
+        "assets": [
+          "AAVE"
+        ],
+        "requested_metrics": [
+          "price_history",
+          "tvl"
+        ],
+        "period": "2026",
+        "investigation_steps": [
+          "Obter o histórico de TVL do Aave para o ano de 2026",
+          "Analisar a tendência do TVL ao longo do período"
+        ],
+        "missing_information": [],
+        "assumptions": [
+          "período referente ao ano de 2026",
+          "cotação em USD",
+          "TVL em USD"
+        ],
+        "answer": "Nesta fase, não tenho dados de mercado atualizados e respondo apenas com o conhecimento do modelo. A análise vai medir como o TVL do Aave evoluiu ao longo do ano de 2026.",
+        "confidence": 0.6
+      },
+      "tokens_per_s": 4.635153005297097
+    },
+    {
+      "case_id": "risco-sol",
+      "run": 3,
+      "wall_s": 65.3785319009985,
+      "valid": true,
+      "status_ok": false,
+      "assets_ok": true,
+      "load_s": 0.001183268,
+      "prompt_tokens": 2515,
+      "prompt_eval_s": 38.156759,
+      "output_tokens": 127,
+      "eval_s": 27.19484,
+      "error": null,
+      "output": {
+        "intent": "risk_assessment",
+        "answer_status": "answered",
+        "assets": [
+          "SOL"
+        ],
+        "requested_metrics": [],
+        "period": null,
+        "investigation_steps": [],
+        "missing_information": [],
+        "assumptions": [],
+        "answer": "O risco de manter SOL em carteira inclui volatilidade de mercado, riscos de segurança da cadeia de blocos e dependência de desenvolvimento da comunidade. O valor de mercado pode oscilar significativamente, e falhas na segurança podem resultar em perdas financeiras.",
+        "confidence": 0.6
+      },
+      "tokens_per_s": 4.67000357420746
+    }
+  ]
+}

@@ -5,8 +5,10 @@ Exemplo:
 """
 
 import argparse
+from dataclasses import replace
 
 from app.chains import COMPOSITIONS, DEFAULT_COMPOSITION, build_analysis_chain
+from app.config import get_settings
 from app.errors import AnalysisError
 from app.schemas import CryptoQuestion
 from app.services.analysis import run_analysis
@@ -26,6 +28,7 @@ def parse_args() -> argparse.Namespace:
         default=DEFAULT_COMPOSITION,
         help="Forma de composição da chain (padrão: lcel).",
     )
+    parser.add_argument("--model", help="Sobrescreve OLLAMA_MODEL nesta execução.")
     return parser.parse_args()
 
 
@@ -34,7 +37,10 @@ def main() -> None:
     question = CryptoQuestion(
         question=args.question, assets=args.assets, period=args.period, context=args.context
     )
-    chain = build_analysis_chain(build_llm(), args.composition)
+    settings = get_settings()
+    if args.model:
+        settings = replace(settings, ollama_model=args.model)
+    chain = build_analysis_chain(build_llm(settings), args.composition)
     try:
         print_analysis(run_analysis(chain, question))
     except AnalysisError as exc:

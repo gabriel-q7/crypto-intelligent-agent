@@ -178,6 +178,46 @@ Complemento no prompt, também pedido pelo usuário: quando a pergunta depende d
 
 Limites conhecidos da trava (heurística por expressão regular, não garantia): falso positivo em termos como "ataque de 51%"; falso negativo em valores sem símbolo de moeda ("65 mil", "65k").
 
+### 5.6 Benchmark de modelos: qwen2.5:7b × gemma4:e4b
+
+**Objetivo (pedido do usuário):** medir o desempenho do modelo atual e comparar com o `gemma4:e4b`, com troca de modelo simples pelo env.
+
+**Troca de modelo:** antes, `OLLAMA_MODEL` definido no shell não chegava ao container (o `env_file` não é sobrescrito pelo shell). O `compose.yaml` passou a interpolar `OLLAMA_MODEL` no serviço `app`, com prioridade shell > `.env` > padrão; como o `app` depende do `ollama-pull`, que usa a mesma variável, `OLLAMA_MODEL=gemma4:e4b docker compose run --rm app ...` baixa e usa o modelo novo. A CLI também ganhou `--model`.
+
+**Ferramenta:** `scripts/benchmark.py` executa prompt → LLM → parser → validação separadamente para capturar as métricas do Ollama (`load_duration`, `prompt_eval_*`, `eval_*`), que a chain completa descarta, e verifica `answer_status`/`assets` contra o esperado em `benchmarks/questions.json`. `scripts/compare_benchmarks.py` gera a tabela comparativa.
+
+**Problemas de medição encontrados e corrigidos:**
+
+| Sintoma | Causa | Correção |
+|---|---|---|
+| "Prompt tok/s" de 609 e 1.904 (a medição isolada dava 23 e 38) | O aquecimento usava a mesma pergunta do 1º caso; a execução seguinte reaproveitou o prompt inteiro do cache do Ollama (0,3 s de leitura) e a média de razões amplificou esse ponto | Aquecimento com pergunta fora do conjunto; taxas calculadas como soma dos tokens ÷ soma dos tempos |
+| Gemma gerando 1.232 tokens para um JSON de ~250 | `gemma4` tem **thinking** (raciocínio interno) ligado por padrão; os tokens contam no tempo mas não aparecem na saída | Nova variável `OLLAMA_REASONING` (vazio/true/false), opção `--reasoning` no benchmark e coluna "Thinking" na comparação |
+| Benchmark completo estimado em ~1h40 | 3 repetições × 6 perguntas × 3 configurações em CPU | Com temperatura 0 as repetições do Qwen variaram < 2%; padrão reduzido para 1 repetição (`--runs` continua disponível) |
+
+**Resultado:**
+
+| Modelo | Thinking | Cold start (s) | Latência média (s) | Mediana (s) | p95 (s) | Tokens prompt | Prompt tok/s | Tokens saída | Saída tok/s | JSON válido | answer_status ok | assets ok |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| qwen2.5:7b | padrão (não suporta) | 7.0 | **71.0** | 65.8 | 90.5 | 2514 | **66.1** | 153 | 4.6 | 100% | 83% | 100% |
+| gemma4:e4b | desligado | 8.2 | 83.1 | 83.9 | **87.3** | 2383 | 38.9 | 211 | **9.6** | 100% | **100%** | 100% |
+| gemma4:e4b | ligado | 7.5 | 118.1 | 110.1 | 187.7 | 2385 | 38.8 | 554 | 9.8 | 100% | **100%** | 100% |
+| mistral:7b | padrão (não suporta) | 16.5 | 141.9 | 140.8 | 163.0 | 2985 | 43.6 | 179 | 2.4 | **67%** | 100%¹ | 100%¹ |
+
+¹ Calculado só sobre as respostas válidas (4 de 6).
+
+**mistral:7b (adicionado depois, 1 repetição):** o mais lento (geração 2,4 tok/s; o tokenizador gera ~2.985 tokens para o mesmo prompt, +19% que o Qwen) e o único com saídas inválidas — omitiu `confidence` em "Compare BTC e ETH" e `answer` em "TVL do Aave". O modo JSON do Ollama garante sintaxe, não a presença dos campos; a validação Pydantic rejeitou as duas saídas, como esperado. Nas respostas válidas, conteúdo correto e aviso de ausência de dados presente. Dados: `benchmarks/results/20261017T235946_mistral-7b.json`.
+
+**Leitura dos resultados:**
+
+- O **tempo é dominado pela leitura do prompt** (~2.400 tokens): ~54% do total no Qwen e ~73% no Gemma. Encurtar o prompt é a alavanca de desempenho mais forte para qualquer modelo.
+- O Gemma **gera 2× mais rápido** mas **lê o prompt mais devagar**; no total, sem thinking, é 17% mais lento que o Qwen e mais estável (p95 87 s × 91 s).
+- O **thinking não compensa** neste caso de uso: +42% de latência média, p95 2× maior, mesma acurácia.
+- Em **qualidade**, o Gemma acertou 6/6 classificações e não repetiu o erro conceitual do Qwen ("nós de mineração").
+
+**Recomendação:** `mistral:7b` descartado (mais lento e 33% de saídas inválidas). `gemma4:e4b` com `OLLAMA_REASONING=false` — ~12 s a mais por pergunta (+17%) em troca de classificação correta em todos os casos e respostas conceituais mais precisas. Se latência for prioridade absoluta, `qwen2.5:7b`. O padrão do projeto não foi alterado; a decisão fica para o usuário.
+
+**Limitações do benchmark:** 6 perguntas e 1 repetição por modo do Gemma; acurácia medida só em `answer_status` e `assets` (correção do conteúdo de `answer` foi avaliada manualmente); apenas CPU.
+
 ## 6. Evidências e métricas
 
 Detalhes completos e saídas brutas: [docs/stage-1-evidence.md](../docs/stage-1-evidence.md).
@@ -230,6 +270,8 @@ Cobertura dos testes unitários: schemas (normalização, obrigatórios, limites
 - **Mapeamento `requested_metrics` → ferramentas:** o vocabulário `METRIC_VOCABULARY` é o ponto de partida do contrato com as APIs.
 - **Retry/fallback** (`with_retry`, `with_fallbacks`) para `AnalysisOutputError`.
 - **Avaliar outros modelos e GPU:** comparar qualidade e latência (ex.: modelos maiores ou com melhor aderência a JSON).
+- **Reduzir o prompt:** a leitura de ~2.400 tokens domina a latência; avaliar `format_instructions` mais enxuto (o JSON schema completo) e o custo/benefício de cada exemplo few-shot, medindo com o benchmark.
+- **Definir o modelo padrão** com base em 5.6 (recomendação: `gemma4:e4b` sem thinking).
 - **Verificação de fatos conceituais:** com RAG ou fontes de referência, checar respostas `answered` (ex.: o erro "nós de mineração").
 - **Substituir a trava heurística:** com dados reais disponíveis, valores em `answer` podem vir das ferramentas, com fonte e data, em vez de serem bloqueados.
 - **Pergunta aberta:** `confidence` deve continuar sendo autoavaliação do modelo ou ser calculada a partir de sinais objetivos (ativos identificados, período presente, número de premissas)?

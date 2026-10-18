@@ -19,6 +19,11 @@ app/
 scripts/
   analyze.py         CLI de análise
   demo_runnables.py  demonstração de invoke, batch e stream
+  benchmark.py       benchmark de modelos (latência, tok/s, aderência)
+  compare_benchmarks.py  comparação de resultados salvos
+benchmarks/
+  questions.json     perguntas do benchmark com respostas esperadas
+  results/           resultados (JSON) de cada execução
 tests/
   unit/            sem modelo (LLM falso)
   integration/     exigem Ollama + modelo (marcador `integration`)
@@ -51,6 +56,54 @@ docker compose run --rm app python -m scripts.demo_runnables stream   # só um
 
 A aplicação acessa o Ollama por `http://ollama:11434` (nome do serviço). Os modelos ficam no volume `ollama_models`, então o download acontece uma vez.
 
+## Trocar de modelo
+
+`OLLAMA_MODEL` controla tanto o modelo baixado (`ollama-pull`) quanto o usado pela aplicação. Três formas, da mais permanente à mais pontual:
+
+```bash
+# 1. Padrão do projeto: editar .env
+OLLAMA_MODEL=gemma4:e4b
+
+# 2. Só nesta execução (o shell tem prioridade sobre o .env; o modelo é baixado automaticamente)
+OLLAMA_MODEL=gemma4:e4b docker compose run --rm app python -m scripts.analyze "O que é staking de ETH?"
+
+# 3. Só nesta análise, com o modelo já baixado
+docker compose run --rm app python -m scripts.analyze "O que é staking de ETH?" --model gemma4:e4b
+```
+
+Modelos já avaliados: `qwen2.5:7b`, `gemma4:e4b`, `mistral:7b` (resultados em [docs/stage-1-evidence.md](docs/stage-1-evidence.md#9-benchmark-de-modelos)).
+
+**Thinking:** o `gemma4` raciocina internamente antes de responder. Esses tokens não aparecem na saída, mas custam tempo: na pergunta "BTC vai subir amanhã?", 1.232 tokens gerados com thinking contra 211 sem (197 s → 88 s em CPU). Controle com `OLLAMA_REASONING=false` (ou `true`); vazio mantém o padrão do modelo. Modelos sem thinking (`qwen2.5`) ignoram `false`.
+
+Para baixar outro modelo sem executar a aplicação: `OLLAMA_MODEL=<modelo> docker compose run --rm ollama-pull`.
+
+## Benchmark de modelos
+
+```bash
+# um ou mais modelos; --pull baixa os que faltarem
+docker compose run --rm app python -m scripts.benchmark --models qwen2.5:7b gemma4:e4b --runs 3
+
+# mesmo modelo com e sem thinking
+docker compose run --rm app python -m scripts.benchmark --models gemma4:e4b --reasoning off
+docker compose run --rm app python -m scripts.benchmark --models gemma4:e4b --reasoning on
+
+# comparar resultados salvos (mais recente de cada modelo + thinking)
+docker compose run --rm app python -m scripts.compare_benchmarks
+```
+
+Para cada modelo, o benchmark descarrega os modelos da memória, mede o *cold start* em uma execução de aquecimento (com uma pergunta fora do conjunto, para não deixar o prompt de um caso em cache) e roda as perguntas de [benchmarks/questions.json](benchmarks/questions.json) `--runs` vezes. Os resultados ficam em `benchmarks/results/<data>_<modelo>.json`, com métricas por execução e a saída de cada resposta.
+
+| Métrica | Origem |
+|---|---|
+| Cold start | `load_duration` do Ollama no aquecimento |
+| Latência média, mediana e p95 | Tempo de parede de cada chamada |
+| Tokens e tok/s do prompt | `prompt_eval_count` / `prompt_eval_duration` (taxa = soma dos tokens ÷ soma dos tempos) |
+| Tokens e tok/s da saída | `eval_count` / `eval_duration`; inclui tokens de thinking, que não aparecem na resposta |
+| JSON válido | Saída aprovada no parser e no schema |
+| `answer_status` ok / `assets` ok | Comparação com `expected_status` / `expected_assets` de cada pergunta |
+
+Para adicionar perguntas, inclua itens em `benchmarks/questions.json` (`expected_*` são opcionais).
+
 ## Testes
 
 ```bash
@@ -74,10 +127,11 @@ OLLAMA_BASE_URL=http://localhost:11434 python -m scripts.analyze "Compare BTC e 
 
 | Variável | Padrão | Descrição |
 |---|---|---|
-| `OLLAMA_MODEL` | `qwen2.5:7b` | Modelo usado pelo `ChatOllama` e baixado pelo `ollama-pull` |
+| `OLLAMA_MODEL` | `qwen2.5:7b` | Modelo usado pelo `ChatOllama` e baixado pelo `ollama-pull`; pode ser sobrescrito pelo shell |
 | `OLLAMA_BASE_URL` | `http://ollama:11434` | URL do Ollama (no Compose é sempre o nome do serviço) |
 | `OLLAMA_TEMPERATURE` | `0` | Temperatura de geração |
-| `OLLAMA_REQUEST_TIMEOUT` | `180` | Timeout por requisição (s) |
+| `OLLAMA_REQUEST_TIMEOUT` | `300` | Timeout por requisição (s) |
+| `OLLAMA_REASONING` | vazio | Thinking em modelos que suportam (`gemma4`): vazio = padrão do modelo, `false` = desliga, `true` = liga |
 | `OLLAMA_HOST_PORT` | `11434` | Porta do Ollama publicada no host |
 
 ## Saída

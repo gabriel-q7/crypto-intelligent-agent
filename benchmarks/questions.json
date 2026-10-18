@@ -1,0 +1,41 @@
+[
+  {
+    "id": "conceito-staking",
+    "question": "O que é staking de ETH?",
+    "expected_status": "answered",
+    "expected_assets": ["ETH"]
+  },
+  {
+    "id": "conceito-dex",
+    "question": "O que é uma exchange descentralizada?",
+    "expected_status": "answered",
+    "expected_assets": []
+  },
+  {
+    "id": "comparacao-btc-eth",
+    "question": "Compare BTC e ETH",
+    "assets": ["BTC", "ETH"],
+    "period": "últimos 30 dias",
+    "expected_status": "requires_market_data",
+    "expected_assets": ["BTC", "ETH"]
+  },
+  {
+    "id": "preco-previsao-btc",
+    "question": "BTC vai subir amanhã? Qual o preço atual?",
+    "expected_status": "requires_market_data",
+    "expected_assets": ["BTC"]
+  },
+  {
+    "id": "tendencia-tvl-aave",
+    "question": "Como evoluiu o TVL do Aave neste ano?",
+    "period": "2026",
+    "expected_status": "requires_market_data",
+    "expected_assets": ["AAVE"]
+  },
+  {
+    "id": "risco-sol",
+    "question": "Qual o risco de manter SOL em carteira?",
+    "expected_status": "requires_market_data",
+    "expected_assets": ["SOL"]
+  }
+]

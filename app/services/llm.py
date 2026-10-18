@@ -13,5 +13,6 @@ def build_llm(settings: Settings | None = None) -> BaseChatModel:
         temperature=settings.ollama_temperature,
         # Modo JSON do Ollama: restringe a geração a JSON sintaticamente válido.
         format="json",
+        reasoning=settings.ollama_reasoning,
         client_kwargs={"timeout": settings.ollama_request_timeout},
     )

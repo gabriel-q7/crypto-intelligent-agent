@@ -1,0 +1,275 @@
+{
+  "meta": {
+    "model": "mistral:7b",
+    "model_info": {
+      "family": "llama",
+      "parameter_size": "7.2B",
+      "quantization_level": "Q4_K_M"
+    },
+    "timestamp": "2026-10-17T23:59:46",
+    "ollama_version": "0.40.6",
+    "temperature": 0.0,
+    "reasoning": null,
+    "runs": 1,
+    "cases": [
+      "conceito-staking",
+      "conceito-dex",
+      "comparacao-btc-eth",
+      "preco-previsao-btc",
+      "tendencia-tvl-aave",
+      "risco-sol"
+    ],
+    "host": {
+      "platform": "Linux-6.12.108-1-MANJARO-x86_64-with-glibc2.41",
+      "cpu_count": 12
+    },
+    "warmup": {
+      "case_id": "aquecimento",
+      "run": 0,
+      "wall_s": 211.3560573859977,
+      "valid": true,
+      "status_ok": null,
+      "assets_ok": null,
+      "load_s": 16.48989765,
+      "prompt_tokens": 2979,
+      "prompt_eval_s": 144.193925,
+      "output_tokens": 140,
+      "eval_s": 50.646069,
+      "error": null,
+      "output": {
+        "intent": "general_information",
+        "answer_status": "answered",
+        "assets": [],
+        "requested_metrics": [],
+        "period": null,
+        "investigation_steps": [],
+        "missing_information": [],
+        "assumptions": [],
+        "answer": "Uma blockchain é uma tecnologia distribuída que armazena dados em blocos interligados de forma cronológica e segura. Ela é baseada em regras de consenso e é usada para criar uma cópia distribuída de um registro de transações.",
+        "confidence": 1.0
+      },
+      "tokens_per_s": 2.764281666164456
+    }
+  },
+  "summary": {
+    "model": "mistral:7b",
+    "reasoning": null,
+    "runs": 6,
+    "cold_start_s": 16.48989765,
+    "wall_mean_s": 141.8650138898344,
+    "wall_median_s": 140.82340078000016,
+    "wall_p95_s": 163.03807561400026,
+    "prompt_tokens_mean": 2985.3333333333335,
+    "prompt_tokens_per_s": 43.6024298315751,
+    "output_tokens_mean": 178.83333333333334,
+    "output_tokens_per_s": 2.4375956930950893,
+    "valid_rate": 0.6666666666666666,
+    "status_accuracy": 1.0,
+    "assets_accuracy": 1.0,
+    "per_case": {
+      "conceito-staking": {
+        "wall_mean_s": 144.98751794200143,
+        "valid_rate": 1.0,
+        "status_accuracy": 1.0,
+        "assets_accuracy": 1.0
+      },
+      "conceito-dex": {
+        "wall_mean_s": 128.78939438900125,
+        "valid_rate": 1.0,
+        "status_accuracy": 1.0,
+        "assets_accuracy": 1.0
+      },
+      "comparacao-btc-eth": {
+        "wall_mean_s": 163.03807561400026,
+        "valid_rate": 0.0,
+        "status_accuracy": null,
+        "assets_accuracy": null
+      },
+      "preco-previsao-btc": {
+        "wall_mean_s": 136.65928361799888,
+        "valid_rate": 1.0,
+        "status_accuracy": 1.0,
+        "assets_accuracy": 1.0
+      },
+      "tendencia-tvl-aave": {
+        "wall_mean_s": 124.54060563000166,
+        "valid_rate": 0.0,
+        "status_accuracy": null,
+        "assets_accuracy": null
+      },
+      "risco-sol": {
+        "wall_mean_s": 153.1752061460029,
+        "valid_rate": 1.0,
+        "status_accuracy": 1.0,
+        "assets_accuracy": 1.0
+      }
+    }
+  },
+  "results": [
+    {
+      "case_id": "conceito-staking",
+      "run": 1,
+      "wall_s": 144.98751794200143,
+      "valid": true,
+      "status_ok": true,
+      "assets_ok": true,
+      "load_s": 0.000993247,
+      "prompt_tokens": 2981,
+      "prompt_eval_s": 71.978433,
+      "output_tokens": 150,
+      "eval_s": 72.975764,
+      "error": null,
+      "output": {
+        "intent": "general_information",
+        "answer_status": "answered",
+        "assets": [
+          "ETH"
+        ],
+        "requested_metrics": [],
+        "period": null,
+        "investigation_steps": [],
+        "missing_information": [],
+        "assumptions": [],
+        "answer": "Staking de ETH é um mecanismo pelo qual os proprietários de ETH podem receber recompensas por participar da rede Ethereum e ajudar a validar transações. Os stakers depositam seus ETH em um contrato inteligente e recebem uma taxa de recompensa por cada bloco validado.",
+        "confidence": 1.0
+      },
+      "tokens_per_s": 2.0554769388916574
+    },
+    {
+      "case_id": "conceito-dex",
+      "run": 1,
+      "wall_s": 128.78939438900125,
+      "valid": true,
+      "status_ok": true,
+      "assets_ok": true,
+      "load_s": 0.000949474,
+      "prompt_tokens": 2981,
+      "prompt_eval_s": 73.863231,
+      "output_tokens": 149,
+      "eval_s": 54.895477,
+      "error": null,
+      "output": {
+        "intent": "general_information",
+        "answer_status": "answered",
+        "assets": [],
+        "requested_metrics": [],
+        "period": null,
+        "investigation_steps": [],
+        "missing_information": [],
+        "assumptions": [],
+        "answer": "Uma exchange descentralizada é um tipo de plataforma de troca de criptomoedas que não depende de uma entidade central para realizar trocas de ativos. Elas são baseadas em tecnologias de blockchain e permitem que os usuários troquem diretamente entre si, sem a necessidade de intermediários.",
+        "confidence": 1.0
+      },
+      "tokens_per_s": 2.714249117463721
+    },
+    {
+      "case_id": "comparacao-btc-eth",
+      "run": 1,
+      "wall_s": 163.03807561400026,
+      "valid": false,
+      "status_ok": null,
+      "assets_ok": null,
+      "load_s": 0.001022771,
+      "prompt_tokens": 2985,
+      "prompt_eval_s": 66.35767,
+      "output_tokens": 214,
+      "eval_s": 96.654035,
+      "error": "AnalysisOutputError: Saída do modelo não respeita o schema CryptoAnalysisRequest: 1 validation error for CryptoAnalysisRequest\nconfidence\n  Field required [type=missing, input_value={'intent': 'comparison', ... nos últimos 30 dias.'}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.14/v/missing",
+      "output": null,
+      "tokens_per_s": 2.214082422942819
+    },
+    {
+      "case_id": "preco-previsao-btc",
+      "run": 1,
+      "wall_s": 136.65928361799888,
+      "valid": true,
+      "status_ok": true,
+      "assets_ok": true,
+      "load_s": 0.001387581,
+      "prompt_tokens": 2990,
+      "prompt_eval_s": 73.695151,
+      "output_tokens": 157,
+      "eval_s": 62.928863,
+      "error": null,
+      "output": {
+        "intent": "price_analysis",
+        "answer_status": "requires_market_data",
+        "assets": [
+          "BTC"
+        ],
+        "requested_metrics": [
+          "price"
+        ],
+        "period": null,
+        "investigation_steps": [
+          "Identificar o preço atual do BTC"
+        ],
+        "missing_information": [],
+        "assumptions": [
+          "preço em USD",
+          "preço atual"
+        ],
+        "answer": "Nesta fase não tenho dados de mercado atualizados e respondo apenas com o conhecimento do modelo, então não consigo dizer qual é o preço atual do BTC.",
+        "confidence": 0.9
+      },
+      "tokens_per_s": 2.4948806082830384
+    },
+    {
+      "case_id": "tendencia-tvl-aave",
+      "run": 1,
+      "wall_s": 124.54060563000166,
+      "valid": false,
+      "status_ok": null,
+      "assets_ok": null,
+      "load_s": 0.002250342,
+      "prompt_tokens": 2989,
+      "prompt_eval_s": 61.786005,
+      "output_tokens": 150,
+      "eval_s": 62.711375,
+      "error": "AnalysisOutputError: Saída do modelo não respeita o schema CryptoAnalysisRequest: 1 validation error for CryptoAnalysisRequest\nanswer\n  Field required [type=missing, input_value={'intent': 'trend_analysi...ia'], 'confidence': 0.8}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.14/v/missing",
+      "output": null,
+      "tokens_per_s": 2.391910558491183
+    },
+    {
+      "case_id": "risco-sol",
+      "run": 1,
+      "wall_s": 153.1752061460029,
+      "valid": true,
+      "status_ok": true,
+      "assets_ok": true,
+      "load_s": 0.001125562,
+      "prompt_tokens": 2986,
+      "prompt_eval_s": 63.122304,
+      "output_tokens": 253,
+      "eval_s": 90.022333,
+      "error": null,
+      "output": {
+        "intent": "risk_assessment",
+        "answer_status": "requires_market_data",
+        "assets": [
+          "SOL"
+        ],
+        "requested_metrics": [
+          "price_history",
+          "volatility",
+          "max_drawdown"
+        ],
+        "period": null,
+        "investigation_steps": [
+          "Obter price_history diário de SOL",
+          "Calcular volatility e max_drawdown de SOL",
+          "Avaliar risco de manter SOL em carteira"
+        ],
+        "missing_information": [
+          "Período"
+        ],
+        "assumptions": [
+          "risco será avaliado por volatilidade e drawdown máximo, pois o critério não foi informado"
+        ],
+        "answer": "Nesta fase não tenho dados de mercado atualizados e respondo apenas com o conhecimento do modelo, então não consigo dizer o risco de manter SOL em carteira. A análise vai medir volatilidade e drawdown máximo de SOL a partir do histórico diário de preços.",
+        "confidence": 0.6
+      },
+      "tokens_per_s": 2.8104137225592676
+    }
+  ]
+}
