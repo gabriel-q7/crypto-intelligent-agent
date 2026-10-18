@@ -19,7 +19,7 @@ services:
     image: ollama/ollama:latest
     environment:
       OLLAMA_HOST: http://ollama:11434
-    entrypoint: ["ollama", "pull", "${OLLAMA_MODEL:-qwen2.5:7b}"]
+    entrypoint: ["ollama", "pull", "${OLLAMA_MODEL:-gemma4:e2b}"]
     depends_on:
       ollama:
         condition: service_healthy
@@ -34,8 +34,8 @@ services:
       OLLAMA_BASE_URL: http://ollama:11434
       # Interpolado pelo Compose: variável do shell > .env > padrão.
       # Garante que o app use o mesmo modelo baixado pelo ollama-pull.
-      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5:7b}
-      OLLAMA_REASONING: ${OLLAMA_REASONING:-}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-gemma4:e2b}
+      OLLAMA_REASONING: ${OLLAMA_REASONING-false}
     volumes:
       # Resultados de benchmark persistidos no host.
       - ./benchmarks/results:/app/benchmarks/results

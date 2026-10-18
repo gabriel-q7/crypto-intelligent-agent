@@ -10,13 +10,14 @@ load_dotenv()
 
 @dataclass(frozen=True)
 class Settings:
-    ollama_model: str = "qwen2.5:7b"
+    ollama_model: str = "gemma4:e2b"
     ollama_base_url: str = "http://localhost:11434"
     ollama_temperature: float = 0.0
     ollama_request_timeout: float = 300.0
     # Raciocínio interno ("thinking") de modelos que suportam, ex.: gemma4.
     # None = padrão do modelo; False desliga (menos tokens, menor latência).
-    ollama_reasoning: bool | None = None
+    # Padrão False: no benchmark o thinking não melhorou a acurácia e aumentou a latência.
+    ollama_reasoning: bool | None = False
 
 
 def parse_optional_bool(value: str | None) -> bool | None:
@@ -40,5 +41,10 @@ def get_settings() -> Settings:
         ollama_request_timeout=float(
             os.getenv("OLLAMA_REQUEST_TIMEOUT", defaults.ollama_request_timeout)
         ),
-        ollama_reasoning=parse_optional_bool(os.getenv("OLLAMA_REASONING")),
+        # Ausente -> padrão do projeto (False); vazio -> padrão do modelo (None).
+        ollama_reasoning=(
+            defaults.ollama_reasoning
+            if "OLLAMA_REASONING" not in os.environ
+            else parse_optional_bool(os.environ["OLLAMA_REASONING"])
+        ),
     )

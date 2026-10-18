@@ -7,7 +7,7 @@ Um agente é composto por quatro blocos. A tabela mostra o que existe na Etapa 1
 | Bloco | Papel | Etapa 1 |
 |---|---|---|
 | **Percepção** | Receber e normalizar a entrada | `CryptoQuestion` (Pydantic): pergunta, ativos, período, contexto |
-| **Raciocínio** | Interpretar a pergunta e decidir o que investigar | `ChatPromptTemplate` + `ChatOllama` (`qwen2.5:7b`) |
+| **Raciocínio** | Interpretar a pergunta e decidir o que investigar | `ChatPromptTemplate` + `ChatOllama` (`gemma4:e2b`, thinking desligado) |
 | **Ação** | Agir no mundo (APIs, ferramentas) | **Não implementado** — a saída é apenas um plano |
 | **Memória** | Guardar estado entre interações | **Não implementado** |
 

@@ -3,7 +3,7 @@
 Chain LangChain + Ollama que **interpreta** perguntas sobre criptomoedas e devolve um plano de análise em JSON validado por Pydantic. Nesta etapa **não há consulta a APIs de mercado** e o modelo é instruído a nunca inventar preços, volumes ou dados atuais.
 
 ```
-CryptoQuestion → ChatPromptTemplate → ChatOllama (qwen2.5:7b) → JsonOutputParser → CryptoAnalysisRequest
+CryptoQuestion → ChatPromptTemplate → ChatOllama (gemma4:e2b) → JsonOutputParser → CryptoAnalysisRequest
 ```
 
 ## Estrutura
@@ -71,9 +71,9 @@ OLLAMA_MODEL=gemma4:e4b docker compose run --rm app python -m scripts.analyze "O
 docker compose run --rm app python -m scripts.analyze "O que é staking de ETH?" --model gemma4:e4b
 ```
 
-Modelos já avaliados: `qwen2.5:7b`, `gemma4:e4b`, `mistral:7b` (resultados em [docs/stage-1-evidence.md](docs/stage-1-evidence.md#9-benchmark-de-modelos)).
+Modelo padrão: **`gemma4:e2b` com thinking desligado**, escolhido pelo benchmark (mais rápido e 100% de acerto). Também avaliados: `qwen2.5:7b`, `gemma4:e4b`, `mistral:7b` (resultados em [docs/stage-1-evidence.md](docs/stage-1-evidence.md#9-benchmark-de-modelos)).
 
-**Thinking:** o `gemma4` raciocina internamente antes de responder. Esses tokens não aparecem na saída, mas custam tempo: na pergunta "BTC vai subir amanhã?", 1.232 tokens gerados com thinking contra 211 sem (197 s → 88 s em CPU). Controle com `OLLAMA_REASONING=false` (ou `true`); vazio mantém o padrão do modelo. Modelos sem thinking (`qwen2.5`) ignoram `false`.
+**Thinking:** o `gemma4` raciocina internamente antes de responder. Esses tokens não aparecem na saída, mas custam tempo: na pergunta "BTC vai subir amanhã?", 1.232 tokens gerados com thinking contra 211 sem (197 s → 88 s em CPU). O projeto usa `OLLAMA_REASONING=false` por padrão; `true` liga e vazio mantém o padrão do modelo. Modelos sem thinking (`qwen2.5`) ignoram `false`.
 
 Para baixar outro modelo sem executar a aplicação: `OLLAMA_MODEL=<modelo> docker compose run --rm ollama-pull`.
 
@@ -81,7 +81,7 @@ Para baixar outro modelo sem executar a aplicação: `OLLAMA_MODEL=<modelo> dock
 
 ```bash
 # um ou mais modelos; --pull baixa os que faltarem
-docker compose run --rm app python -m scripts.benchmark --models qwen2.5:7b gemma4:e4b --runs 3
+docker compose run --rm app python -m scripts.benchmark --models gemma4:e2b qwen2.5:7b
 
 # mesmo modelo com e sem thinking
 docker compose run --rm app python -m scripts.benchmark --models gemma4:e4b --reasoning off
@@ -115,7 +115,7 @@ Os testes de integração são ignorados automaticamente (`skip`) se o Ollama ou
 
 ## Executar sem Docker (opcional)
 
-Requer Python 3.12 e Ollama local com o modelo baixado (`ollama pull qwen2.5:7b`).
+Requer Python 3.12 e Ollama local com o modelo baixado (`ollama pull gemma4:e2b`).
 
 ```bash
 python3.12 -m venv .venv && source .venv/bin/activate
@@ -127,11 +127,11 @@ OLLAMA_BASE_URL=http://localhost:11434 python -m scripts.analyze "Compare BTC e 
 
 | Variável | Padrão | Descrição |
 |---|---|---|
-| `OLLAMA_MODEL` | `qwen2.5:7b` | Modelo usado pelo `ChatOllama` e baixado pelo `ollama-pull`; pode ser sobrescrito pelo shell |
+| `OLLAMA_MODEL` | `gemma4:e2b` | Modelo usado pelo `ChatOllama` e baixado pelo `ollama-pull`; pode ser sobrescrito pelo shell |
 | `OLLAMA_BASE_URL` | `http://ollama:11434` | URL do Ollama (no Compose é sempre o nome do serviço) |
 | `OLLAMA_TEMPERATURE` | `0` | Temperatura de geração |
 | `OLLAMA_REQUEST_TIMEOUT` | `300` | Timeout por requisição (s) |
-| `OLLAMA_REASONING` | vazio | Thinking em modelos que suportam (`gemma4`): vazio = padrão do modelo, `false` = desliga, `true` = liga |
+| `OLLAMA_REASONING` | `false` | Thinking em modelos que suportam (`gemma4`): `false` = desliga, `true` = liga, vazio = padrão do modelo |
 | `OLLAMA_HOST_PORT` | `11434` | Porta do Ollama publicada no host |
 
 ## Saída
