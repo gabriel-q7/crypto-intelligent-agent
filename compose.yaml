@@ -19,7 +19,10 @@ services:
     image: ollama/ollama:latest
     environment:
       OLLAMA_HOST: http://ollama:11434
-    entrypoint: ["ollama", "pull", "${OLLAMA_MODEL:-gemma4:e2b}"]
+      CHAT_MODEL: ${OLLAMA_MODEL:-gemma4:e2b}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-nomic-embed-text}
+    # Baixa o modelo de chat e o de embeddings (FAISS); ambos ficam no volume ollama_models.
+    entrypoint: ["sh", "-c", "ollama pull \"$$CHAT_MODEL\" && ollama pull \"$$EMBEDDING_MODEL\""]
     depends_on:
       ollama:
         condition: service_healthy
@@ -36,9 +39,20 @@ services:
       # Garante que o app use o mesmo modelo baixado pelo ollama-pull.
       OLLAMA_MODEL: ${OLLAMA_MODEL:-gemma4:e2b}
       OLLAMA_REASONING: ${OLLAMA_REASONING-false}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-nomic-embed-text}
     volumes:
       # Resultados de benchmark persistidos no host.
       - ./benchmarks/results:/app/benchmarks/results
+      # Índice FAISS persistido no host (POST /knowledge/ingest).
+      - ./data:/app/data
+    ports:
+      - "${APP_HOST_PORT:-8000}:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=5)"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
     depends_on:
       ollama-pull:
         condition: service_completed_successfully

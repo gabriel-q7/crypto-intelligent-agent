@@ -1,5 +1,15 @@
 langchain-core==1.6.12
 langchain-ollama==1.1.0
+# Fase 2: APIs legadas (initialize_agent, RouterChain) isoladas em app/legacy/
+langchain-classic==1.0.8
+# Fase 2: FAISS (vector store) e divisão de documentos
+langchain-community==0.4.2
+langchain-text-splitters==1.1.3
+faiss-cpu==1.15.1
+httpx==0.28.1
+# Aplicação HTTP
+fastapi==0.150.0
+uvicorn==0.54.0
 pydantic==2.14.1
 python-dotenv==1.2.4
 pytest==9.1.1

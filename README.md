@@ -1,203 +1,176 @@
-# Crypto Intelligence Agent — Etapa 1
+# Crypto Intelligence Agent
 
-Chain LangChain + Ollama que **interpreta** perguntas sobre criptomoedas e devolve um plano de análise em JSON validado por Pydantic. Nesta etapa **não há consulta a APIs de mercado** e o modelo é instruído a nunca inventar preços, volumes ou dados atuais.
+Aplicação HTTP (FastAPI) com LangChain e Ollama para análise de criptoativos.
 
-```
-CryptoQuestion → ChatPromptTemplate → ChatOllama (gemma4:e2b) → JsonOutputParser → CryptoAnalysisRequest
-```
+- **Fase 1 — análise estruturada:** interpreta a pergunta e devolve um plano de análise + resposta mínima em JSON validado, sem dados externos.
+- **Fase 2 — agente com ferramentas:** agente ReAct clássico e chains roteadas que consultam **dados reais da CoinPaprika**, buscam conceitos numa **base de conhecimento local (FAISS)**, mantêm **memória de conversa limitada** e devolvem um `CryptoReport` validado, com fontes, horários e incertezas.
+
+Regra central: **nenhum valor de mercado é inventado.** Achados, fontes e horários vêm das respostas reais das ferramentas; valores da resposta sem correspondência nos dados são removidos; falhas viram status explícito (`failed`, `partial`, `unavailable`).
 
 ## Estrutura
 
 ```
 app/
-  config.py        configuração via variáveis de ambiente (.env)
-  errors.py        AnalysisOutputError, LLMUnavailableError
-  schemas/         CryptoQuestion, CryptoAnalysisRequest
-  prompts/         PromptTemplate + ChatPromptTemplate e instruções de sistema
-  chains/          chain em LCEL (padrão) e em @chain
-  services/        ChatOllama, validação, invoke/batch/stream com tratamento de erros
-scripts/
-  analyze.py         CLI de análise
-  demo_runnables.py  demonstração de invoke, batch e stream
-  benchmark.py       benchmark de modelos (latência, tok/s, aderência)
-  compare_benchmarks.py  comparação de resultados salvos
-benchmarks/
-  questions.json     perguntas do benchmark com respostas esperadas
-  results/           resultados (JSON) de cada execução
-tests/
-  unit/            sem modelo (LLM falso)
-  integration/     exigem Ollama + modelo (marcador `integration`)
-docs/
-  architecture.md, composition-decision.md, stage-1-evidence.md
-Report/
-  diário técnico por fase (base do relatório final)
+  main.py            aplicação FastAPI (uvicorn app.main:app)
+  api/               rotas HTTP, modelos de requisição e contêiner de dependências
+  config.py          configuração por variáveis de ambiente (.env)
+  schemas/           Fase 1 (CryptoQuestion, CryptoAnalysisRequest) e Fase 2 (CryptoReport)
+  prompts/           prompts da Fase 1 e PTCF + few-shot da Fase 2
+  chains/            Fase 1 (LCEL e @chain) e Fase 2 (sequencial, paralela, conhecimento, roteamento)
+  agents/            execução do agente ReAct e fábricas
+  legacy/            APIs legadas isoladas: initialize_agent/ZERO_SHOT_REACT_DESCRIPTION e RouterChain
+  tools/             cliente e ferramentas CoinPaprika; ferramenta de busca de conhecimento
+  knowledge/         ingestão do corpus e índice FAISS
+  memory/            memória de conversa limitada
+  observability/     callbacks de rastreamento e logging
+  services/          LLM, validação, grounding, verificação da CoinPaprika, benchmark
+knowledge/corpus/    corpus local (conceitos, sem preços)
+benchmarks/          perguntas e resultados do benchmark de modelos
+tests/unit/          offline (LLM falso, API simulada)
+tests/integration/   Ollama (marcador integration) e internet (marcador network)
+docs/                arquitetura, decisões, prompts, confiabilidade, evidências
+Report/              diário técnico por fase
 ```
 
-## Executar com Docker Compose
+## Executar
 
 ```bash
 cp .env.example .env
-docker compose up -d ollama ollama-pull   # sobe o Ollama e baixa o modelo (volume persistente)
-
-# análise padrão
-docker compose run --rm app
-
-# pergunta própria
-docker compose run --rm app python -m scripts.analyze \
-  "Compare BTC e ETH" --assets BTC ETH --period "últimos 30 dias"
-
-# mesma chain em composição imperativa (@chain)
-docker compose run --rm app python -m scripts.analyze "O que é staking de ETH?" --composition imperative
-
-# invoke (LCEL e @chain), batch e stream
-docker compose run --rm app python -m scripts.demo_runnables          # todos
-docker compose run --rm app python -m scripts.demo_runnables stream   # só um
+docker compose up -d --build app      # sobe Ollama, baixa os modelos (1ª vez) e inicia a API
+curl -X POST localhost:8000/knowledge/ingest   # constrói o índice FAISS (1ª vez; fica em ./data)
 ```
 
-A aplicação acessa o Ollama por `http://ollama:11434` (nome do serviço). Os modelos ficam no volume `ollama_models`, então o download acontece uma vez.
+API em `http://localhost:8000`; documentação interativa (Swagger) em **`http://localhost:8000/docs`**.
 
-## Trocar de modelo
+O `ollama-pull` baixa o modelo de chat (`OLLAMA_MODEL`) e o de embeddings (`EMBEDDING_MODEL`) para o volume `ollama_models`; o download acontece uma vez. A aplicação acessa o Ollama pelo nome do serviço (`http://ollama:11434`).
 
-`OLLAMA_MODEL` controla tanto o modelo baixado (`ollama-pull`) quanto o usado pela aplicação. Três formas, da mais permanente à mais pontual:
+## Endpoints
+
+| Método e rota | Fase | Descrição |
+|---|---|---|
+| `GET /health` | — | Ollama acessível, modelos baixados, índice FAISS, sessões ativas |
+| `GET /health/coinpaprika` | 2 | Verificação **real** da integração (ticker, OHLCV, perfil, global e os erros esperados) |
+| `POST /analyze` | 1 | Plano de análise + resposta mínima (`composition`: `lcel` ou `imperative`) |
+| `POST /analyze/batch` | 1 | Várias perguntas; falhas isoladas por item |
+| `POST /analyze/stream` | 1 | NDJSON com objetos parciais e o objeto final validado |
+| `POST /agent` | 2 | Agente ReAct com ferramentas; `session_id` mantém memória; `include_trace` devolve o rastro |
+| `DELETE /agent/sessions/{id}` | 2 | Apaga a memória de uma sessão |
+| `POST /route` | 2 | Roteamento: mercado (sequencial), comparação (paralela), conhecimento ou DeFi (indisponível); `router`: `modern` ou `legacy` |
+| `GET /knowledge/search?q=` | 2 | Busca semântica na base local |
+| `POST /knowledge/ingest` | 2 | Reconstrói o índice FAISS a partir de `knowledge/corpus` |
+
+Exemplos:
 
 ```bash
-# 1. Padrão do projeto: editar .env
-OLLAMA_MODEL=gemma4:e4b
+# Agente ReAct com dados reais da CoinPaprika
+curl -s -X POST localhost:8000/agent -H 'Content-Type: application/json' \
+  -d '{"question": "Qual o preço atual do Bitcoin?", "session_id": "minha-sessao", "include_trace": true}'
 
-# 2. Só nesta execução (o shell tem prioridade sobre o .env; o modelo é baixado automaticamente)
-OLLAMA_MODEL=gemma4:e4b docker compose run --rm app python -m scripts.analyze "O que é staking de ETH?"
+# Comparação em paralelo (rota escolhida automaticamente)
+curl -s -X POST localhost:8000/route -H 'Content-Type: application/json' \
+  -d '{"question": "Compare BTC, ETH e SOL nas últimas 24 horas"}'
 
-# 3. Só nesta análise, com o modelo já baixado
-docker compose run --rm app python -m scripts.analyze "O que é staking de ETH?" --model gemma4:e4b
+# Fase 1: análise estruturada
+curl -s -X POST localhost:8000/analyze -H 'Content-Type: application/json' \
+  -d '{"question": "Compare BTC e ETH", "assets": ["BTC", "ETH"], "period": "últimos 30 dias"}'
 ```
 
-Modelo padrão: **`gemma4:e2b` com thinking desligado**, escolhido pelo benchmark (mais rápido e 100% de acerto). Também avaliados: `qwen2.5:7b`, `gemma4:e4b`, `mistral:7b` (resultados em [docs/stage-1-evidence.md](docs/stage-1-evidence.md#9-benchmark-de-modelos)).
+Códigos de erro: `422` requisição inválida; `502` resposta do modelo fora do schema (Fase 1); `503` Ollama ou índice indisponível. Na Fase 2, falhas de dados **não** viram erro HTTP: o `CryptoReport` volta com `status` `failed`/`partial`/`unavailable` e a explicação.
 
-**Thinking:** o `gemma4` raciocina internamente antes de responder. Esses tokens não aparecem na saída, mas custam tempo: na pergunta "BTC vai subir amanhã?", 1.232 tokens gerados com thinking contra 211 sem (197 s → 88 s em CPU). O projeto usa `OLLAMA_REASONING=false` por padrão; `true` liga e vazio mantém o padrão do modelo. Modelos sem thinking (`qwen2.5`) ignoram `false`.
+## Saída da Fase 2 (`CryptoReport`)
 
-Para baixar outro modelo sem executar a aplicação: `OLLAMA_MODEL=<modelo> docker compose run --rm ollama-pull`.
-
-## Benchmark de modelos
-
-```bash
-# um ou mais modelos; --pull baixa os que faltarem
-docker compose run --rm app python -m scripts.benchmark --models gemma4:e2b qwen2.5:7b
-
-# mesmo modelo com e sem thinking
-docker compose run --rm app python -m scripts.benchmark --models gemma4:e4b --reasoning off
-docker compose run --rm app python -m scripts.benchmark --models gemma4:e4b --reasoning on
-
-# comparar resultados salvos (mais recente de cada modelo + thinking)
-docker compose run --rm app python -m scripts.compare_benchmarks
+```json
+{
+  "question": "Qual o preço atual do Bitcoin e como variou nas últimas 24 horas?",
+  "mode": "react_agent",
+  "status": "complete",
+  "answer": "Segundo a CoinPaprika (atualizado em 2026-10-20 00:55 UTC), o preço atual do Bitcoin (BTC) é de US$ 81.528,29, com uma variação de -1,11% nas últimas 24 horas.",
+  "key_points": [],
+  "findings": [{"statement": "Bitcoin (BTC): preço US$ 81.528,29", "source_tool": "get_market_data",
+                "source_updated_at": "2026-10-20T00:55:15Z", "retrieved_at": "2026-10-20T00:59:57Z"}],
+  "data_sources": [{"provider": "CoinPaprika", "tool": "get_market_data", "endpoint": "/tickers/btc-bitcoin",
+                    "source_updated_at": "2026-10-20T00:55:15Z", "retrieved_at": "2026-10-20T00:59:57Z"}],
+  "uncertainties": [],
+  "tool_calls": [{"tool": "get_market_data", "input": "BTC", "ok": true}],
+  "decision_summary": ["get_market_data input=BTC"],
+  "model": "gemma4:e2b"
+}
 ```
 
-Para cada modelo, o benchmark descarrega os modelos da memória, mede o *cold start* em uma execução de aquecimento (com uma pergunta fora do conjunto, para não deixar o prompt de um caso em cache) e roda as perguntas de [benchmarks/questions.json](benchmarks/questions.json) `--runs` vezes. Os resultados ficam em `benchmarks/results/<data>_<modelo>.json`, com métricas por execução e a saída de cada resposta.
-
-| Métrica | Origem |
-|---|---|
-| Cold start | `load_duration` do Ollama no aquecimento |
-| Latência média, mediana e p95 | Tempo de parede de cada chamada |
-| Tokens e tok/s do prompt | `prompt_eval_count` / `prompt_eval_duration` (taxa = soma dos tokens ÷ soma dos tempos) |
-| Tokens e tok/s da saída | `eval_count` / `eval_duration`; inclui tokens de thinking, que não aparecem na resposta |
-| JSON válido | Saída aprovada no parser e no schema |
-| `answer_status` ok / `assets` ok | Comparação com `expected_status` / `expected_assets` de cada pergunta |
-
-Para adicionar perguntas, inclua itens em `benchmarks/questions.json` (`expected_*` são opcionais).
+`status`: `complete` (dados obtidos e resposta verificada), `partial` (parte falhou), `failed` (dados essenciais não obtidos: não há análise, só a explicação), `unavailable` (capacidade fora desta fase, ex.: DeFi).
 
 ## Testes
 
 ```bash
-docker compose run --rm --no-deps app pytest            # unitários (padrão, sem modelo)
-docker compose run --rm app pytest -m integration -v    # integração (Ollama + modelo)
+docker compose run --rm --no-deps app pytest                         # offline (padrão)
+docker compose run --rm app pytest -m network                        # API real da CoinPaprika
+docker compose run --rm app pytest -m "integration or network" -v    # tudo (Ollama + modelos + internet)
 ```
 
-Os testes de integração são ignorados automaticamente (`skip`) se o Ollama ou o modelo não estiverem disponíveis.
+Os testes que precisam de rede ou de modelo ficam fora da execução padrão e são ignorados (`skip`) quando o recurso não está disponível.
+
+## Trocar de modelo
+
+`OLLAMA_MODEL` controla o modelo baixado (`ollama-pull`) e o usado pela aplicação. Edite o `.env` ou sobrescreva pelo shell (prioridade sobre o `.env`):
+
+```bash
+OLLAMA_MODEL=qwen2.5:7b docker compose up -d app
+```
+
+Modelo padrão: **`gemma4:e2b` com thinking desligado**, escolhido pelo benchmark (mais rápido e 100% de acerto). Também avaliados: `qwen2.5:7b`, `gemma4:e4b`, `mistral:7b` (resultados em [docs/stage-1-evidence.md](docs/stage-1-evidence.md#9-benchmark-de-modelos)).
+
+**Thinking:** o `gemma4` raciocina internamente antes de responder; esses tokens não aparecem na saída, mas custam tempo (1.232 contra 211 tokens na mesma pergunta; 197 s → 88 s em CPU). `OLLAMA_REASONING=false` é o padrão; `true` liga e vazio mantém o padrão do modelo.
+
+## Benchmark de modelos (manutenção)
+
+Não é exposto pela API (uma rodada leva de 10 a 40 min em CPU):
+
+```bash
+docker compose run --rm app python -m app.services.benchmark_runner --models gemma4:e2b qwen2.5:7b
+docker compose run --rm app python -m app.services.benchmark_runner --models gemma4:e4b --reasoning off --pull
+docker compose run --rm app python -m app.services.benchmark_runner --compare
+```
+
+Mede cold start, latência (média, mediana, p95), tokens e tok/s de prompt e saída, taxa de JSON válido e acerto de `answer_status`/`assets` contra [benchmarks/questions.json](benchmarks/questions.json). Resultados em `benchmarks/results/<data>_<modelo>.json`.
 
 ## Executar sem Docker (opcional)
 
-Requer Python 3.12 e Ollama local com o modelo baixado (`ollama pull gemma4:e2b`).
+Requer Python 3.12 e Ollama local com os modelos (`ollama pull gemma4:e2b && ollama pull nomic-embed-text`).
 
 ```bash
 python3.12 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-OLLAMA_BASE_URL=http://localhost:11434 python -m scripts.analyze "Compare BTC e ETH"
+OLLAMA_BASE_URL=http://localhost:11434 uvicorn app.main:app --reload
 ```
 
 ## Configuração (`.env`)
 
 | Variável | Padrão | Descrição |
 |---|---|---|
-| `OLLAMA_MODEL` | `gemma4:e2b` | Modelo usado pelo `ChatOllama` e baixado pelo `ollama-pull`; pode ser sobrescrito pelo shell |
-| `OLLAMA_BASE_URL` | `http://ollama:11434` | URL do Ollama (no Compose é sempre o nome do serviço) |
-| `OLLAMA_TEMPERATURE` | `0` | Temperatura de geração |
-| `OLLAMA_REQUEST_TIMEOUT` | `300` | Timeout por requisição (s) |
-| `OLLAMA_REASONING` | `false` | Thinking em modelos que suportam (`gemma4`): `false` = desliga, `true` = liga, vazio = padrão do modelo |
-| `OLLAMA_HOST_PORT` | `11434` | Porta do Ollama publicada no host |
+| `OLLAMA_MODEL` | `gemma4:e2b` | Modelo de chat |
+| `OLLAMA_BASE_URL` | `http://ollama:11434` | URL do Ollama |
+| `OLLAMA_TEMPERATURE` | `0` | Temperatura |
+| `OLLAMA_REQUEST_TIMEOUT` | `300` | Timeout por chamada ao modelo (s) |
+| `OLLAMA_REASONING` | `false` | Thinking (`false`, `true`, vazio = padrão do modelo) |
+| `OLLAMA_NUM_CTX` | `8192` | Janela de contexto (o padrão 4096 do Ollama trunca o prompt do agente) |
+| `COINPAPRIKA_BASE_URL` | `https://api.coinpaprika.com/v1` | API da CoinPaprika |
+| `COINPAPRIKA_API_KEY` | vazio | Opcional (planos pagos); nunca registrada em log |
+| `COINPAPRIKA_TIMEOUT` / `_MAX_RETRIES` / `_MAX_RETRY_WAIT` | `15` / `2` / `10` | Timeout, retries e espera máxima por `Retry-After` |
+| `AGENT_MAX_ITERATIONS` / `AGENT_MAX_EXECUTION_TIME` | `6` / `600` | Limites do agente ReAct |
+| `MEMORY_MAX_TURNS` / `MEMORY_MAX_CHARS` | `4` / `3000` | Limites da memória por sessão |
+| `EMBEDDING_MODEL` | `nomic-embed-text` | Embeddings da base de conhecimento |
+| `KNOWLEDGE_CORPUS_DIR` / `FAISS_INDEX_DIR` / `KNOWLEDGE_TOP_K` | `knowledge/corpus` / `data/faiss_index` / `3` | Corpus, índice e trechos por busca |
+| `LOG_LEVEL` | `INFO` | Nível de log |
+| `OLLAMA_HOST_PORT` / `APP_HOST_PORT` | `11434` / `8000` | Portas publicadas no host |
 
-## Saída
+## Documentação
 
-A saída tem duas partes: o **plano de análise** (para as próximas etapas executarem) e uma **resposta mínima** ao usuário.
+- [docs/architecture.md](docs/architecture.md) — arquitetura, compatibilidade de dependências, legado isolado, memória, FAISS
+- [docs/orchestrator-comparison.md](docs/orchestrator-comparison.md) — LangChain × LangGraph × LlamaIndex
+- [docs/prompt-design.md](docs/prompt-design.md) — PTCF, few-shot, grounding
+- [docs/reliability-decisions.md](docs/reliability-decisions.md) — erros, retries, observabilidade, limitações
+- [docs/composition-decision.md](docs/composition-decision.md), [docs/stage-1-evidence.md](docs/stage-1-evidence.md), [docs/stage-2-evidence.md](docs/stage-2-evidence.md) — decisões e evidências
 
-Pergunta conceitual — respondida com o conhecimento do modelo:
+## Fora do escopo
 
-```json
-{
-  "intent": "general_information",
-  "answer_status": "answered",
-  "assets": ["ETH"],
-  "requested_metrics": [],
-  "period": null,
-  "investigation_steps": [],
-  "missing_information": [],
-  "assumptions": [],
-  "answer": "Staking de ETH é o processo de depositar ETH para validar transações e criar novos blocos, recebendo recompensas em troca. ...",
-  "confidence": 0.9
-}
-```
-
-Pergunta que depende de dados de mercado — o agente diz que não tem os dados e entrega o plano:
-
-```json
-{
-  "intent": "comparison",
-  "answer_status": "requires_market_data",
-  "assets": ["BTC", "ETH"],
-  "requested_metrics": ["price_history", "return_pct", "volatility", "max_drawdown"],
-  "period": "últimos 30 dias",
-  "investigation_steps": ["Obter price_history diário de BTC e ETH em USD nos últimos 30 dias", "..."],
-  "missing_information": [],
-  "assumptions": ["comparação por retorno e risco, pois o critério não foi informado", "cotação em USD", "preços de fechamento diários"],
-  "answer": "Nesta fase não tenho dados de mercado atualizados e respondo apenas com o conhecimento do modelo, então não consigo comparar o desempenho e o risco de BTC e ETH nos últimos 30 dias. ...",
-  "confidence": 0.8
-}
-```
-
-- `answer_status`: `answered` (conceito respondido), `requires_market_data` (depende de dados de mercado) ou `needs_clarification` (pergunta ambígua).
-- `answer`: resposta de 2 a 4 frases. **Nunca contém valores de mercado** (ver abaixo).
-- `requested_metrics`: dados de mercado que uma etapa futura buscará em APIs (vocabulário sugerido em `METRIC_VOCABULARY`).
-- `missing_information`: apenas o que o usuário não informou e nenhuma API resolve.
-- `investigation_steps`: vazio só quando `answered`; se o modelo omitir as etapas de uma pergunta de dados, a etapa de coleta é derivada de `requested_metrics` (registrado em `assumptions`).
-- `intent` ∈ `price_analysis`, `comparison`, `trend_analysis`, `risk_assessment`, `fundamental_analysis`, `general_information`, `other`. `confidence` mede a clareza da pergunta (0–1), não uma previsão.
-
-### Por que a resposta não traz valores de mercado
-
-O modelo só conhece o que aprendeu até o fim do treinamento. Preço, volume, TVL e rendimento mudam diariamente: qualquer número que ele escrevesse estaria desatualizado (sem data) ou seria alucinado, e não há fonte para conferir nesta etapa. Por isso:
-
-1. O prompt proíbe valores de mercado e manda dizer explicitamente que não há dados atualizados.
-2. O schema aplica uma trava determinística: frases de `answer` com valor monetário (`US$ 100`, `2 bilhões de dólares`) ou percentual (`4%`) são removidas e substituídas por um aviso padrão; o ocorrido fica em `assumptions`. Fatos de protocolo (ex.: "21 milhões de BTC") são permitidos.
-
-A trava é heurística: pode remover termos como "ataque de 51%" e não detecta valores sem moeda (ex.: "65 mil").
-
-## Tratamento de erros
-
-| Situação | Erro |
-|---|---|
-| Modelo responde algo que não é JSON | `AnalysisOutputError` (via `OutputParserException`) |
-| JSON fora do schema (campo ausente, intent/answer_status inválido, confiança fora de 0–1, plano vazio sem métricas) | `AnalysisOutputError` com `raw_output` |
-| Ollama inacessível / modelo inexistente | `LLMUnavailableError` |
-
-No `batch`, falhas são isoladas por item: o lote retorna `AnalysisError` na posição que falhou.
-
-## Fora do escopo desta etapa
-
-Integrações CoinPaprika/DeFiLlama/CoinGecko, memória persistente, RAG, ferramentas e planejamento autônomo. Ver [docs/architecture.md](docs/architecture.md) para a evolução planejada.
+DeFiLlama e CoinGecko (fases futuras; a rota DeFi responde `unavailable`), memória persistente entre execuções e planejamento autônomo.

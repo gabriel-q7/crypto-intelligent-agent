@@ -1,4 +1,4 @@
-"""Benchmark de desempenho e aderência de um ou mais modelos do Ollama.
+"""Benchmark de desempenho e aderência de modelos do Ollama (ferramenta de manutenção).
 
 Para cada modelo:
 1. descarrega os modelos em memória (para medir o cold start de forma justa);
@@ -6,11 +6,14 @@ Para cada modelo:
 3. executa cada caso de ``benchmarks/questions.json`` ``--runs`` vezes;
 4. salva os resultados em ``benchmarks/results/<data>_<modelo>.json``.
 
+Não é exposto pela API HTTP: uma rodada leva de 10 a 40 minutos em CPU.
+
 Uso:
-    python -m scripts.benchmark                                  # modelo do OLLAMA_MODEL
-    python -m scripts.benchmark --models gemma4:e2b qwen2.5:7b --runs 3
-    python -m scripts.benchmark --models gemma4:e4b --pull       # baixa se faltar
-    python -m scripts.benchmark --models gemma4:e4b --reasoning off
+    python -m app.services.benchmark_runner                                  # modelo do OLLAMA_MODEL
+    python -m app.services.benchmark_runner --models gemma4:e2b qwen2.5:7b --runs 3
+    python -m app.services.benchmark_runner --models gemma4:e4b --pull       # baixa se faltar
+    python -m app.services.benchmark_runner --models gemma4:e4b --reasoning off
+    python -m app.services.benchmark_runner --compare                        # compara resultados salvos
 """
 
 import argparse
@@ -25,7 +28,7 @@ from pathlib import Path
 import httpx
 from ollama import Client, ResponseError
 
-from app.config import get_settings, parse_optional_bool
+from app.config import get_settings, project_path
 from app.services.benchmark import (
     BenchmarkCase,
     comparison_table,
@@ -35,8 +38,8 @@ from app.services.benchmark import (
 )
 from app.services.llm import build_llm
 
-DEFAULT_CASES = Path("benchmarks/questions.json")
-DEFAULT_OUTPUT = Path("benchmarks/results")
+DEFAULT_CASES = project_path("benchmarks/questions.json")
+DEFAULT_OUTPUT = project_path("benchmarks/results")
 
 # Aquecimento com pergunta fora do conjunto: se fosse um dos casos, a execução seguinte
 # reaproveitaria o prompt inteiro do cache do Ollama e mediria quase zero de leitura.
@@ -61,7 +64,30 @@ def parse_args() -> argparse.Namespace:
         choices=["default", "on", "off"],
         help="Thinking do modelo (padrão: OLLAMA_REASONING).",
     )
+    parser.add_argument(
+        "--compare", nargs="*", type=Path, metavar="ARQUIVO",
+        help="Só compara resultados salvos (sem arquivos: o mais recente de cada modelo + thinking).",
+    )
     return parser.parse_args()
+
+
+def latest_per_model(directory: Path) -> list[Path]:
+    """Resultado mais recente de cada combinação modelo + thinking."""
+    latest: dict[tuple, Path] = {}
+    # Nomes começam com o timestamp: ordem alfabética = ordem cronológica.
+    for path in sorted(directory.glob("*.json")):
+        meta = json.loads(path.read_text())["meta"]
+        latest[(meta["model"], meta.get("reasoning"))] = path
+    return list(latest.values())
+
+
+def compare(files: list[Path], output_dir: Path) -> None:
+    files = files or latest_per_model(output_dir)
+    if not files:
+        sys.exit(f"Nenhum resultado em {output_dir}.")
+    reports = [json.loads(path.read_text()) for path in files]
+    print(comparison_table([report["summary"] for report in reports]))
+    print("\nFontes: " + ", ".join(str(path) for path in files))
 
 
 def ensure_model(client: Client, model: str, pull: bool) -> None:
@@ -146,6 +172,9 @@ def save(report: dict, output_dir: Path) -> Path:
 
 def main() -> None:
     args = parse_args()
+    if args.compare is not None:
+        compare(args.compare, args.output_dir)
+        return
     settings = get_settings()
     client = Client(host=settings.ollama_base_url, timeout=settings.ollama_request_timeout)
     cases = load_cases(args.cases)

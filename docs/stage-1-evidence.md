@@ -1,5 +1,7 @@
 # Evidências — Etapa 1
 
+> **Nota (2026-10-20):** os comandos `python -m scripts.*` abaixo são o registro histórico da Fase 1. Desde a Fase 2 a aplicação é um serviço HTTP: `scripts.analyze` → `POST /analyze`; `scripts.demo_runnables` → `POST /analyze`, `/analyze/batch`, `/analyze/stream`; `scripts.benchmark` e `scripts.compare_benchmarks` → `python -m app.services.benchmark_runner` (`--compare`).
+
 Execução em 2026-10-17, Linux (Manjaro), Docker Compose 5.5.1, imagem `python:3.12-slim` (Python 3.12.15), `ollama/ollama:latest`, modelo `qwen2.5:7b` (4.7 GB), **inferência em CPU** (12 threads, sem GPU).
 
 Pacotes: `langchain-core 1.6.12`, `langchain-ollama 1.1.0`, `pydantic 2.14.1`, `pytest 9.1.1`.

@@ -5,7 +5,10 @@ requires-python = ">=3.12"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-m 'not integration'"
+# Padrão: só testes offline. Integração exige opt-in explícito:
+#   pytest -m integration   (Ollama + modelo)    pytest -m network   (internet/CoinPaprika)
+addopts = "-m 'not integration and not network'"
 markers = [
     "integration: exige Ollama em execução com o modelo configurado (pytest -m integration)",
+    "network: exige acesso à internet (API real da CoinPaprika) (pytest -m network)",
 ]

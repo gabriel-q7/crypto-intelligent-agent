@@ -16,4 +16,7 @@ RUN chown appuser:appuser /app
 
 USER appuser
 
-CMD ["python", "-m", "scripts.analyze", "Compare BTC e ETH nos últimos 30 dias", "--assets", "BTC", "ETH", "--period", "últimos 30 dias"]
+EXPOSE 8000
+
+# Aplicação HTTP (FastAPI). Documentação interativa em /docs.
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

@@ -13,3 +13,6 @@ htmlcov/
 .vscode/
 *.ipynb
 .ipynb_checkpoints/
+
+# Índice FAISS gerado localmente (POST /knowledge/ingest)
+data/
