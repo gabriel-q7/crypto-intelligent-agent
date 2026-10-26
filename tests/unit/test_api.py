@@ -137,3 +137,31 @@ def test_coinpaprika_health_checks(tmp_path, asset):
     by_name = {c["check"]: c for c in body["checks"]}
     assert by_name["ticker"]["ok"] and by_name["missing_asset_is_not_found"]["ok"]
     assert by_name["invalid_id_rejected"]["ok"]
+
+
+@pytest.mark.parametrize(
+    "model, catalog",
+    [
+        ("AnalyzeRequest", "ANALYZE"),
+        ("BatchAnalyzeRequest", "ANALYZE_BATCH"),
+        ("CryptoQuestion", "ANALYZE_STREAM"),
+        ("AgentRequest", "AGENT"),
+        ("RouteRequest", "ROUTE"),
+    ],
+)
+def test_swagger_examples_are_valid_requests(model, catalog):
+    from app.api import examples, schemas
+
+    request_model = getattr(schemas, model)
+    for name, example in getattr(examples, catalog).items():
+        request_model.model_validate(example["value"]), name
+
+
+def test_swagger_examples_published_in_openapi(tmp_path):
+    with make_client(tmp_path) as client:
+        spec = client.get("/openapi.json").json()
+    body = spec["paths"]["/agent"]["post"]["requestBody"]["content"]["application/json"]
+    assert "preco_atual" in body["examples"]
+    assert body["examples"]["preco_atual"]["value"]["question"] != "string"
+    params = {p["name"]: p for p in spec["paths"]["/knowledge/search"]["get"]["parameters"]}
+    assert "tvl" in params["q"]["examples"]

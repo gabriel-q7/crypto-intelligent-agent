@@ -9,9 +9,12 @@ import uuid
 from collections.abc import Iterator
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from typing import Annotated
+
+from fastapi import APIRouter, Body, Depends, HTTPException, Path, Query, Request
 from fastapi.responses import StreamingResponse
 
+from app.api import examples
 from app.api.container import AppContainer
 from app.api.schemas import (
     AgentRequest,
@@ -71,7 +74,9 @@ def health(container: AppContainer = Depends(get_container)) -> HealthResponse:
 
 @router.get("/health/coinpaprika", tags=["operação"])
 def coinpaprika_health(
-    asset: str = Query("btc-bitcoin", pattern=r"^[a-z0-9]+(-[a-z0-9]+)+$"),
+    asset: str = Query(
+        "btc-bitcoin", pattern=r"^[a-z0-9]+(-[a-z0-9]+)+$", openapi_examples=examples.COIN_ID
+    ),
     container: AppContainer = Depends(get_container),
 ) -> dict:
     """Verificação real dos endpoints da CoinPaprika (consome cota da API)."""
@@ -82,14 +87,18 @@ def coinpaprika_health(
 
 
 @router.post("/analyze", response_model=CryptoAnalysisRequest, tags=["fase 1"])
-def analyze(body: AnalyzeRequest, container: AppContainer = Depends(get_container)) -> CryptoAnalysisRequest:
+def analyze(
+    body: Annotated[AnalyzeRequest, Body(openapi_examples=examples.ANALYZE)],
+    container: AppContainer = Depends(get_container)) -> CryptoAnalysisRequest:
     """``invoke``: plano de análise + resposta mínima, sem dados externos."""
     question = CryptoQuestion(**body.model_dump(exclude={"composition"}))
     return run_analysis(build_analysis_chain(container.llm, body.composition), question)
 
 
 @router.post("/analyze/batch", response_model=list[BatchItem], tags=["fase 1"])
-def analyze_batch(body: BatchAnalyzeRequest, container: AppContainer = Depends(get_container)) -> list[BatchItem]:
+def analyze_batch(
+    body: Annotated[BatchAnalyzeRequest, Body(openapi_examples=examples.ANALYZE_BATCH)],
+    container: AppContainer = Depends(get_container)) -> list[BatchItem]:
     """``batch``: falhas isoladas por item."""
     results = run_batch(build_analysis_chain(container.llm), body.questions)
     return [
@@ -99,7 +108,9 @@ def analyze_batch(body: BatchAnalyzeRequest, container: AppContainer = Depends(g
 
 
 @router.post("/analyze/stream", tags=["fase 1"])
-def analyze_stream(body: CryptoQuestion, container: AppContainer = Depends(get_container)) -> StreamingResponse:
+def analyze_stream(
+    body: Annotated[CryptoQuestion, Body(openapi_examples=examples.ANALYZE_STREAM)],
+    container: AppContainer = Depends(get_container)) -> StreamingResponse:
     """``stream``: NDJSON com objetos parciais (não validados) e, por fim, o objeto validado.
 
     Limitação: só o último objeto passa pelo schema; erros após o início do stream chegam
@@ -132,7 +143,9 @@ def analyze_stream(body: CryptoQuestion, container: AppContainer = Depends(get_c
 
 
 @router.post("/agent", response_model=ReportResponse, tags=["fase 2"])
-def run_agent(body: AgentRequest, container: AppContainer = Depends(get_container)) -> ReportResponse:
+def run_agent(
+    body: Annotated[AgentRequest, Body(openapi_examples=examples.AGENT)],
+    container: AppContainer = Depends(get_container)) -> ReportResponse:
     """Agente ReAct clássico com ferramentas reais (CoinPaprika, base de conhecimento)."""
     session_id = body.session_id or uuid.uuid4().hex
     agent = container.agent(session_id)
@@ -142,13 +155,17 @@ def run_agent(body: AgentRequest, container: AppContainer = Depends(get_containe
 
 
 @router.delete("/agent/sessions/{session_id}", status_code=204, tags=["fase 2"])
-def delete_session(session_id: str, container: AppContainer = Depends(get_container)) -> None:
+def delete_session(
+    session_id: Annotated[str, Path(openapi_examples=examples.SESSION_ID)],
+    container: AppContainer = Depends(get_container)) -> None:
     if not container.sessions.delete(session_id):
         raise HTTPException(404, "sessão não encontrada")
 
 
 @router.post("/route", response_model=ReportResponse, tags=["fase 2"])
-def route(body: RouteRequest, container: AppContainer = Depends(get_container)) -> ReportResponse:
+def route(
+    body: Annotated[RouteRequest, Body(openapi_examples=examples.ROUTE)],
+    container: AppContainer = Depends(get_container)) -> ReportResponse:
     """Roteamento dinâmico: análise de mercado, comparação, conhecimento ou DeFi (indisponível)."""
     trace = TraceCallbackHandler()
     report = container.router(legacy=body.router == "legacy").invoke(
@@ -162,7 +179,7 @@ def route(body: RouteRequest, container: AppContainer = Depends(get_container)) 
 
 @router.get("/knowledge/search", response_model=list[KnowledgeHitResponse], tags=["conhecimento"])
 def knowledge_search(
-    q: str = Query(min_length=2, max_length=300),
+    q: str = Query(min_length=2, max_length=300, openapi_examples=examples.KNOWLEDGE_QUERY),
     k: int = Query(3, ge=1, le=10),
     container: AppContainer = Depends(get_container),
 ) -> list[KnowledgeHitResponse]:
