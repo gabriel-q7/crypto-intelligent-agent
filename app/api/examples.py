@@ -111,7 +111,7 @@ ROUTE = {
         {"question": "Compare o desempenho em 24 horas", "assets": ["btc", "sol"]},
     ),
     "conhecimento": _ex(
-        "Conhecimento (FAISS)",
+        "Conhecimento (Chroma)",
         {"question": "O que é staking de ETH e quais são seus riscos?"},
     ),
     "defi_indisponivel": _ex(

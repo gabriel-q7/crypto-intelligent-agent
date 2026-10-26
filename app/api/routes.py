@@ -189,7 +189,7 @@ def knowledge_search(
 
 @router.post("/knowledge/ingest", tags=["conhecimento"])
 def knowledge_ingest(container: AppContainer = Depends(get_container)) -> dict:
-    """Reconstrói o índice FAISS a partir de knowledge/corpus e recarrega a busca."""
+    """Recria a coleção Chroma a partir de knowledge/corpus e recarrega a busca."""
     _, manifest = build_index(container.knowledge_settings, container.knowledge.embeddings)
     container.knowledge.reload()
     container.knowledge.index()  # valida que o índice salvo carrega

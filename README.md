@@ -3,7 +3,7 @@
 Aplicação HTTP (FastAPI) com LangChain e Ollama para análise de criptoativos.
 
 - **Fase 1 — análise estruturada:** interpreta a pergunta e devolve um plano de análise + resposta mínima em JSON validado, sem dados externos.
-- **Fase 2 — agente com ferramentas:** agente ReAct clássico e chains roteadas que consultam **dados reais da CoinPaprika**, buscam conceitos numa **base de conhecimento local (FAISS)**, mantêm **memória de conversa limitada** e devolvem um `CryptoReport` validado, com fontes, horários e incertezas.
+- **Fase 2 — agente com ferramentas:** agente ReAct clássico e chains roteadas que consultam **dados reais da CoinPaprika**, buscam conceitos numa **base de conhecimento local (Chroma)**, mantêm **memória de conversa limitada** e devolvem um `CryptoReport` validado, com fontes, horários e incertezas.
 
 Regra central: **nenhum valor de mercado é inventado.** Achados, fontes e horários vêm das respostas reais das ferramentas; valores da resposta sem correspondência nos dados são removidos; falhas viram status explícito (`failed`, `partial`, `unavailable`).
 
@@ -20,7 +20,7 @@ app/
   agents/            execução do agente ReAct e fábricas
   legacy/            APIs legadas isoladas: initialize_agent/ZERO_SHOT_REACT_DESCRIPTION e RouterChain
   tools/             cliente e ferramentas CoinPaprika; ferramenta de busca de conhecimento
-  knowledge/         ingestão do corpus e índice FAISS
+  knowledge/         ingestão do corpus e coleção Chroma
   memory/            memória de conversa limitada
   observability/     callbacks de rastreamento e logging
   services/          LLM, validação, grounding, verificação da CoinPaprika, benchmark
@@ -37,7 +37,7 @@ Report/              diário técnico por fase
 ```bash
 cp .env.example .env
 docker compose up -d --build app      # sobe Ollama, baixa os modelos (1ª vez) e inicia a API
-curl -X POST localhost:8000/knowledge/ingest   # constrói o índice FAISS (1ª vez; fica em ./data)
+curl -X POST localhost:8000/knowledge/ingest   # cria a coleção Chroma (1ª vez; fica em ./data/chroma)
 ```
 
 API em `http://localhost:8000`; documentação interativa (Swagger) em **`http://localhost:8000/docs`**.
@@ -48,7 +48,7 @@ O `ollama-pull` baixa o modelo de chat (`OLLAMA_MODEL`) e o de embeddings (`EMBE
 
 | Método e rota | Fase | Descrição |
 |---|---|---|
-| `GET /health` | — | Ollama acessível, modelos baixados, índice FAISS, sessões ativas |
+| `GET /health` | — | Ollama acessível, modelos baixados, coleção Chroma, sessões ativas |
 | `GET /health/coinpaprika` | 2 | Verificação **real** da integração (ticker, OHLCV, perfil, global e os erros esperados) |
 | `POST /analyze` | 1 | Plano de análise + resposta mínima (`composition`: `lcel` ou `imperative`) |
 | `POST /analyze/batch` | 1 | Várias perguntas; falhas isoladas por item |
@@ -57,7 +57,7 @@ O `ollama-pull` baixa o modelo de chat (`OLLAMA_MODEL`) e o de embeddings (`EMBE
 | `DELETE /agent/sessions/{id}` | 2 | Apaga a memória de uma sessão |
 | `POST /route` | 2 | Roteamento: mercado (sequencial), comparação (paralela), conhecimento ou DeFi (indisponível); `router`: `modern` ou `legacy` |
 | `GET /knowledge/search?q=` | 2 | Busca semântica na base local |
-| `POST /knowledge/ingest` | 2 | Reconstrói o índice FAISS a partir de `knowledge/corpus` |
+| `POST /knowledge/ingest` | 2 | Recria a coleção Chroma a partir de `knowledge/corpus` |
 
 Exemplos:
 
@@ -159,13 +159,13 @@ OLLAMA_BASE_URL=http://localhost:11434 uvicorn app.main:app --reload
 | `AGENT_MAX_ITERATIONS` / `AGENT_MAX_EXECUTION_TIME` | `6` / `600` | Limites do agente ReAct |
 | `MEMORY_MAX_TURNS` / `MEMORY_MAX_CHARS` | `4` / `3000` | Limites da memória por sessão |
 | `EMBEDDING_MODEL` | `nomic-embed-text` | Embeddings da base de conhecimento |
-| `KNOWLEDGE_CORPUS_DIR` / `FAISS_INDEX_DIR` / `KNOWLEDGE_TOP_K` | `knowledge/corpus` / `data/faiss_index` / `3` | Corpus, índice e trechos por busca |
+| `KNOWLEDGE_CORPUS_DIR` / `VECTOR_STORE_DIR` / `KNOWLEDGE_COLLECTION` / `KNOWLEDGE_TOP_K` | `knowledge/corpus` / `data/chroma` / `crypto_knowledge` / `3` | Corpus, diretório e coleção do Chroma, trechos por busca |
 | `LOG_LEVEL` | `INFO` | Nível de log |
 | `OLLAMA_HOST_PORT` / `APP_HOST_PORT` | `11434` / `8000` | Portas publicadas no host |
 
 ## Documentação
 
-- [docs/architecture.md](docs/architecture.md) — arquitetura, compatibilidade de dependências, legado isolado, memória, FAISS
+- [docs/architecture.md](docs/architecture.md) — arquitetura, compatibilidade de dependências, legado isolado, memória, Chroma
 - [docs/orchestrator-comparison.md](docs/orchestrator-comparison.md) — LangChain × LangGraph × LlamaIndex
 - [docs/prompt-design.md](docs/prompt-design.md) — PTCF, few-shot, grounding
 - [docs/reliability-decisions.md](docs/reliability-decisions.md) — erros, retries, observabilidade, limitações

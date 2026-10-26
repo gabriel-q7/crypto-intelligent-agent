@@ -109,7 +109,7 @@ def test_knowledge_index_with_real_embeddings(tmp_path):
     from app.config import KnowledgeSettings
     from app.knowledge.store import build_index, load_index, search
 
-    settings = KnowledgeSettings(**{**knowledge.__dict__, "index_dir": str(tmp_path / "idx")})
+    settings = KnowledgeSettings(**{**knowledge.__dict__, "store_dir": str(tmp_path / "chroma")})
     build_index(settings)
     hits = search(load_index(settings), "o que acontece no halving do bitcoin", k=1)
     assert hits[0].source == "bitcoin.md"

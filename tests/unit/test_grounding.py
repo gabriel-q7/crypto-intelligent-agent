@@ -79,3 +79,14 @@ def test_ambiguous_separator_with_multiplier_accepts_both_readings():
     assert removed == [] and text
     _, removed = verify_figures("Market cap: $9.999 trilhões.", [OBS_BTC])
     assert removed == ["$9.999 trilhões"]
+
+
+def test_knowledge_findings_deduplicated_by_source():
+    obs = {"ok": True, "tool": "search_knowledge_base", "source": {"provider": "Chroma"},
+           "data": [{"title": "Ethereum e staking", "source": "ethereum-staking.md", "content": "a"},
+                    {"title": "Ethereum e staking", "source": "ethereum-staking.md", "content": "b"},
+                    {"title": "Riscos", "source": "risks.md", "content": "c"}]}
+    assert [f.statement for f in findings_from([obs])] == [
+        "Base de conhecimento: 'Ethereum e staking' (ethereum-staking.md)",
+        "Base de conhecimento: 'Riscos' (risks.md)",
+    ]

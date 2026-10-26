@@ -27,7 +27,7 @@ def paprika(request: httpx.Request) -> httpx.Response:
 
 
 def make_client(tmp_path, chat_responses=(), agent_responses=()) -> TestClient:
-    knowledge = KnowledgeSettings(corpus_dir="knowledge/corpus", index_dir=str(tmp_path / "idx"), embedding_model="fake")
+    knowledge = KnowledgeSettings(corpus_dir="knowledge/corpus", store_dir=str(tmp_path / "chroma"), embedding_model="fake")
     agent_settings = AgentSettings(max_iterations=3)
 
     def factory() -> AppContainer:
@@ -165,3 +165,15 @@ def test_swagger_examples_published_in_openapi(tmp_path):
     assert body["examples"]["preco_atual"]["value"]["question"] != "string"
     params = {p["name"]: p for p in spec["paths"]["/knowledge/search"]["get"]["parameters"]}
     assert "tvl" in params["q"]["examples"]
+
+
+def test_ollama_unreachable_in_route_is_503(tmp_path):
+    from langchain_core.runnables import RunnableLambda
+
+    with make_client(tmp_path) as client:
+        def down(_):
+            raise httpx.ConnectError("connection refused")
+
+        client.app.state.container._routers[False] = RunnableLambda(down)
+        response = client.post("/route", json={"question": "Preço do BTC?"})
+    assert response.status_code == 503 and response.json()["error"] == "llm_unavailable"

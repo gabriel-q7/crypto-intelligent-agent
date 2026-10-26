@@ -3,10 +3,10 @@
 import threading
 from dataclasses import replace
 
-from langchain_community.vectorstores import FAISS
 from langchain_core.embeddings import Embeddings
 from langchain_core.language_models import BaseChatModel, BaseLanguageModel
 from langchain_core.runnables import Runnable
+from langchain_core.vectorstores import VectorStore
 
 from app.agents.runner import CryptoAgent
 from app.chains.routing import build_route_handlers, build_router_chain
@@ -21,15 +21,15 @@ from app.tools.market_tools import build_market_tools
 
 
 class KnowledgeSearcher:
-    """Carrega o índice FAISS sob demanda (uma vez) e permite recarregar após nova ingestão."""
+    """Abre a coleção Chroma sob demanda (uma vez) e permite recarregar após nova ingestão."""
 
     def __init__(self, settings: KnowledgeSettings, embeddings: Embeddings | None = None) -> None:
         self.settings = settings
         self.embeddings = embeddings
-        self._index: FAISS | None = None
+        self._index: VectorStore | None = None
         self._lock = threading.Lock()
 
-    def index(self) -> FAISS:
+    def index(self) -> VectorStore:
         with self._lock:
             if self._index is None:
                 self._index = load_index(self.settings, self.embeddings)

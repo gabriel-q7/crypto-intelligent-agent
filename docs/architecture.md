@@ -6,7 +6,7 @@
 |---|---|---|---|
 | **Percepção** | Receber e normalizar a entrada | `CryptoQuestion` (Pydantic) | + validação dos argumentos das ferramentas (`AssetInput`) e extração de ativos |
 | **Raciocínio** | Interpretar e decidir | `ChatPromptTemplate` + `ChatOllama` → plano | Agente ReAct (escolhe ferramentas) e roteador (escolhe a chain), ambos com o prompt PTCF |
-| **Ação** | Agir no mundo | Não havia | Ferramentas CoinPaprika (dados reais) e busca semântica FAISS |
+| **Ação** | Agir no mundo | Não havia | Ferramentas CoinPaprika (dados reais) e busca semântica (Chroma) |
 | **Memória** | Estado entre interações | Não havia | Memória de curto prazo limitada (turnos e caracteres) com marcação de dados históricos |
 
 Modelo padrão: `gemma4:e2b` com thinking desligado (`OLLAMA_MODEL`, `OLLAMA_REASONING`), configurável; `qwen2.5:7b` continua disponível. Escolha justificada pelo benchmark da Fase 1 (`docs/stage-1-evidence.md`, seção 9).
@@ -21,7 +21,7 @@ Plano de análise + resposta mínima, sem dados externos. Continua disponível e
 
 ## 3. Fase 2 — visão geral
 
-**Forma de execução:** aplicação HTTP única (FastAPI, `uvicorn app.main:app`) rodando no Docker Compose ao lado do Ollama. Decisão do usuário em 2026-10-20: substituir os scripts avulsos (`scripts/*.py`) por um app Python padrão. As dependências compartilhadas (LLM, cliente CoinPaprika, índice FAISS, sessões de memória) são criadas uma vez no ciclo de vida da aplicação (`AppContainer`). Os endpoints são síncronos e rodam no thread pool, porque as chamadas ao Ollama e à CoinPaprika são bloqueantes.
+**Forma de execução:** aplicação HTTP única (FastAPI, `uvicorn app.main:app`) rodando no Docker Compose ao lado do Ollama. Decisão do usuário em 2026-10-20: substituir os scripts avulsos (`scripts/*.py`) por um app Python padrão. As dependências compartilhadas (LLM, cliente CoinPaprika, coleção Chroma, sessões de memória) são criadas uma vez no ciclo de vida da aplicação (`AppContainer`). Os endpoints são síncronos e rodam no thread pool, porque as chamadas ao Ollama e à CoinPaprika são bloqueantes.
 
 ```
                           ┌────────────── Agente ReAct clássico (app/agents, app/legacy) ─────────────┐
@@ -31,7 +31,7 @@ pergunta ─┬─ POST /agent ►│ PTCF + few-shot → ZERO_SHOT_REACT_DESCRI
           └─ POST /route ─►│ classificar (LLM JSON | RouterChain legado | palavras-chave) → RunnableBranch│  │
                           │   market_analysis   : identificar → buscar → validar → analisar (sequencial)│  │
                           │   asset_comparison  : identificar → [ativos ∥ global] → validar → comparar  │  │
-                          │   knowledge_retrieval: FAISS → resposta baseada nos trechos                 │  │
+                          │   knowledge_retrieval: Chroma → resposta baseada nos trechos                │  │
                           │   defi_analysis     : indisponível nesta fase (DeFiLlama)                   │  │
                           └───────────────────────────────────────────────────────────────────────────┘  │
                                                                                                          ▼
@@ -46,7 +46,7 @@ pergunta ─┬─ POST /agent ►│ PTCF + few-shot → ZERO_SHOT_REACT_DESCRI
 | `app/tools/coinpaprika.py` | Cliente HTTP: timeouts, retries, erros tipados, modelos Pydantic com `source` (endpoint, `source_updated_at`, `retrieved_at`) |
 | `app/tools/market_tools.py` | Ferramentas de entrada única para o ReAct; mesmas observações usadas pelas chains |
 | `app/tools/knowledge_tool.py` | Ferramenta de busca semântica |
-| `app/knowledge/store.py` | Corpus → chunks → embeddings (Ollama) → FAISS persistido + manifesto |
+| `app/knowledge/store.py` | Corpus → chunks → embeddings (Ollama) → coleção Chroma persistida + manifesto |
 | `app/legacy/` | **APIs legadas isoladas**: `initialize_agent` / `ZERO_SHOT_REACT_DESCRIPTION` e `LLMRouterChain` |
 | `app/agents/runner.py` | Execução do agente, montagem do `CryptoReport`, memória |
 | `app/chains/market_chains.py` | Chains sequencial, paralela, conhecimento e DeFi (LCEL) |
@@ -77,9 +77,9 @@ Trocar o legado pela alternativa moderna (ver `docs/orchestrator-comparison.md`)
 | `langchain-core` | 1.6.12 (inalterado) | Base da Fase 1 |
 | `langchain-ollama` | 1.1.0 (inalterado) | `ChatOllama` e `OllamaEmbeddings` |
 | `langchain-classic` | 1.0.8 | No LangChain 1.x as APIs legadas saíram do pacote `langchain` e foram para cá |
-| `langchain-community` | 0.4.2 | Vector store FAISS. **Em descontinuação** (aviso na importação); não há pacote dedicado `langchain-faiss`. A dependência fica isolada em `app/knowledge/store.py` |
+| `langchain-chroma` | 1.1.0 | Integração **dedicada** do Chroma (substituiu o FAISS via `langchain-community`, que está em descontinuação) |
 | `langchain-text-splitters` | 1.1.3 | Divisão do corpus |
-| `faiss-cpu` | 1.15.1 | Índice vetorial local |
+| `chromadb` | 1.5.9 | Vector store embutido e persistente. Traz `onnxruntime` e OpenTelemetry como dependências: a imagem ficou maior (~563 MB de pacotes Python) |
 | `httpx` | 0.28.1 | Cliente da CoinPaprika (já vinha como dependência transitiva; agora fixado) |
 
 Verificação: instalação limpa em `python:3.12-slim` com as versões da Fase 1 fixadas. Todos os imports legados funcionam e os 95 testes da Fase 1 continuam passando.
@@ -95,17 +95,21 @@ Verificação: instalação limpa em `python:3.12-slim` com as versões da Fase 
 
 A memória de longo prazo continua conceitual (seção 8).
 
-## 6. Base de conhecimento (FAISS)
+## 6. Base de conhecimento (Chroma)
 
 | Aspecto | Decisão |
 |---|---|
-| Corpus | `knowledge/corpus/*.md` — 7 documentos curtos sobre blockchain, Bitcoin, Ethereum/staking, DeFi/TVL, stablecoins, métricas e riscos. **Sem preços** (há teste que garante) |
-| Chunking | `RecursiveCharacterTextSplitter`, 800 caracteres, sobreposição de 120, separando por seção `##` primeiro |
-| Embeddings | `nomic-embed-text` via Ollama (274 MB, local, reaproveita o container) |
-| Índice | FAISS (`IndexFlatL2` via `langchain-community`), salvo em `data/faiss_index` (diretório montado no Compose) |
-| Reprodutibilidade | `manifest.json` registra modelo de embedding, parâmetros e hash de cada arquivo. Modelo diferente → erro pedindo reindexação; corpus alterado → aviso |
-| Segurança | O docstore do FAISS é serializado com pickle (`allow_dangerous_deserialization=True`): só índices gerados localmente são carregados |
-| Separação | Conhecimento ≠ mercado: a ferramenta e a rota de conhecimento nunca trazem preços, e valores de mercado são removidos das respostas dessa rota |
+| Corpus | `knowledge/corpus/*.md`: 7 documentos curtos (blockchain, Bitcoin, Ethereum/staking, DeFi/TVL, stablecoins, métricas, riscos). **Sem preços** (garantido por teste) |
+| Chunking | `RecursiveCharacterTextSplitter`, 800 caracteres, sobreposição de 120, divisão primeiro por seção `##` |
+| Embeddings | `nomic-embed-text` via Ollama (274 MB, local, mesmo container) |
+| Vector store | **Chroma** em modo embutido persistente (`chromadb.PersistentClient`), coleção `crypto_knowledge` com distância de cosseno (`hnsw:space=cosine`), em `data/chroma` (diretório montado no Compose). Não há serviço extra |
+| Reindexação | `POST /knowledge/ingest` apaga e recria a coleção; ids determinísticos (`arquivo.md#n`): sem duplicatas nem trechos órfãos |
+| Reprodutibilidade | `manifest.json` (modelo de embedding, coleção, parâmetros, hash por arquivo). Modelo diferente → erro pedindo reindexação; coleção ausente → erro explícito; corpus alterado → aviso |
+| Pontuação | `score` = distância de cosseno (menor = mais relevante) |
+| Telemetria | Telemetria anônima do Chroma desligada (código e `ANONYMIZED_TELEMETRY=False`) |
+| Separação | Conhecimento ≠ mercado: a ferramenta e a rota de conhecimento nunca trazem preços; valores de mercado são removidos das respostas dessa rota |
+
+**Histórico:** a Fase 2 começou com FAISS (`langchain-community` + `faiss-cpu`, índice com pickle). A troca para Chroma, decidida pelo usuário em 2026-10-26, removeu a dependência em descontinuação e o carregamento via pickle (`allow_dangerous_deserialization`). As interfaces (`KnowledgeSearcher`, ferramenta, rota, endpoints) não mudaram.
 
 ## 7. Classificação do agente na Fase 2
 

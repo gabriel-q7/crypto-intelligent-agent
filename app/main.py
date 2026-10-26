@@ -8,8 +8,10 @@ Documentação interativa: http://localhost:8000/docs
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 
+import httpx
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
+from ollama import ResponseError
 
 from app.api.container import AppContainer
 from app.api.routes import router
@@ -29,7 +31,7 @@ def create_app(container_factory: Callable[[], AppContainer] = AppContainer) -> 
     app = FastAPI(
         title="Crypto Intelligence Agent",
         version="0.2.0",
-        description="Fase 1: análise estruturada. Fase 2: agente ReAct, chains roteadas, CoinPaprika e FAISS.",
+        description="Fase 1: análise estruturada. Fase 2: agente ReAct, chains roteadas, CoinPaprika e base de conhecimento (Chroma).",
         lifespan=lifespan,
     )
     app.include_router(router)
@@ -37,6 +39,13 @@ def create_app(container_factory: Callable[[], AppContainer] = AppContainer) -> 
     @app.exception_handler(LLMUnavailableError)
     async def llm_unavailable(_: Request, exc: LLMUnavailableError) -> JSONResponse:
         return JSONResponse(status_code=503, content={"detail": str(exc), "error": "llm_unavailable"})
+
+    async def ollama_unreachable(_: Request, exc: Exception) -> JSONResponse:
+        # Chains da Fase 2: o Ollama continuou inacessível mesmo após o retry.
+        return JSONResponse(status_code=503, content={"detail": f"Ollama indisponível: {exc}", "error": "llm_unavailable"})
+
+    for error_type in (ConnectionError, httpx.TransportError, ResponseError):
+        app.add_exception_handler(error_type, ollama_unreachable)
 
     @app.exception_handler(AnalysisOutputError)
     async def invalid_model_output(_: Request, exc: AnalysisOutputError) -> JSONResponse:

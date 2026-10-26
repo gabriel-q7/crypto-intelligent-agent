@@ -21,7 +21,7 @@ services:
       OLLAMA_HOST: http://ollama:11434
       CHAT_MODEL: ${OLLAMA_MODEL:-gemma4:e2b}
       EMBEDDING_MODEL: ${EMBEDDING_MODEL:-nomic-embed-text}
-    # Baixa o modelo de chat e o de embeddings (FAISS); ambos ficam no volume ollama_models.
+    # Baixa o modelo de chat e o de embeddings (base de conhecimento); ambos ficam no volume ollama_models.
     entrypoint: ["sh", "-c", "ollama pull \"$$CHAT_MODEL\" && ollama pull \"$$EMBEDDING_MODEL\""]
     depends_on:
       ollama:
@@ -40,10 +40,12 @@ services:
       OLLAMA_MODEL: ${OLLAMA_MODEL:-gemma4:e2b}
       OLLAMA_REASONING: ${OLLAMA_REASONING-false}
       EMBEDDING_MODEL: ${EMBEDDING_MODEL:-nomic-embed-text}
+      # Desliga a telemetria anônima do Chroma (também desligada no código).
+      ANONYMIZED_TELEMETRY: "False"
     volumes:
       # Resultados de benchmark persistidos no host.
       - ./benchmarks/results:/app/benchmarks/results
-      # Índice FAISS persistido no host (POST /knowledge/ingest).
+      # Coleção Chroma persistida no host (POST /knowledge/ingest).
       - ./data:/app/data
     ports:
       - "${APP_HOST_PORT:-8000}:8000"

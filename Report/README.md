@@ -14,6 +14,7 @@ Esta pasta reúne a documentação escrita **durante** o desenvolvimento, fase a
 | Fase | Documento | Status |
 |---|---|---|
 | 1 — Chain estruturada (LangChain + Ollama, sem APIs) | [fase-01-chain-estruturada.md](fase-01-chain-estruturada.md) | Concluída |
+| 2 — Agente com ferramentas (CoinPaprika, ReAct, roteamento, memória, Chroma, API HTTP) | [fase-02-agente-ferramentas.md](fase-02-agente-ferramentas.md) | Concluída |
 
 ## Convenções
 

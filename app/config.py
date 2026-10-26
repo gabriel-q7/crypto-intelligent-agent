@@ -116,7 +116,8 @@ def get_agent_settings() -> AgentSettings:
 class KnowledgeSettings:
     embedding_model: str = "nomic-embed-text"
     corpus_dir: str = "knowledge/corpus"
-    index_dir: str = "data/faiss_index"
+    store_dir: str = "data/chroma"
+    collection: str = "crypto_knowledge"
     chunk_size: int = 800
     chunk_overlap: int = 120
     top_k: int = 3
@@ -127,7 +128,8 @@ def get_knowledge_settings() -> KnowledgeSettings:
     return KnowledgeSettings(
         embedding_model=os.getenv("EMBEDDING_MODEL") or defaults.embedding_model,
         corpus_dir=os.getenv("KNOWLEDGE_CORPUS_DIR") or defaults.corpus_dir,
-        index_dir=os.getenv("FAISS_INDEX_DIR") or defaults.index_dir,
+        store_dir=os.getenv("VECTOR_STORE_DIR") or defaults.store_dir,
+        collection=os.getenv("KNOWLEDGE_COLLECTION") or defaults.collection,
         chunk_size=_env_int("KNOWLEDGE_CHUNK_SIZE", defaults.chunk_size),
         chunk_overlap=_env_int("KNOWLEDGE_CHUNK_OVERLAP", defaults.chunk_overlap),
         top_k=_env_int("KNOWLEDGE_TOP_K", defaults.top_k),

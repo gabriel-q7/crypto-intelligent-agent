@@ -43,12 +43,25 @@ Configuração fora do código: `COINPAPRIKA_BASE_URL`, `COINPAPRIKA_API_KEY` (o
 | Comparações erradas do modelo | Rankings calculados no código (variação 24h, market cap); na rota de comparação, a conclusão (`answer`) é montada pelo código e o resumo livre do LLM é descartado |
 | Pontos-chave e incertezas do LLM | Também verificados; itens com valores não confirmados são descartados |
 | Rota DeFi | `unavailable`, explicando que o DeFiLlama não foi integrado |
-| Índice FAISS ausente | `failed` com a instrução de ingestão |
+| Coleção Chroma ausente | `failed` com a instrução de ingestão |
 
 ## 4. Retries: o que é e o que não é repetido
 
-- **Repetido:** falhas transitórias de rede ou servidor da CoinPaprika (limitadas e com backoff).
+- **Repetido:** falhas transitórias de rede ou servidor da CoinPaprika (limitadas e com backoff); falhas de **conexão com o Ollama** nas etapas JSON das chains (`with_transient_retry`: 2 tentativas, backoff exponencial com jitter, só para `ConnectionError`/`httpx.TransportError`).
 - **Não repetido:** 4xx (exceto 429 curto), validação e respostas inválidas do LLM. Repetir com temperatura 0 tende a gerar a mesma saída. O agente já tem o próprio laço de correção de formato.
+
+### Mapeamento para HTTP
+
+| Situação | Resposta |
+|---|---|
+| Requisição inválida | `422` (validação Pydantic do FastAPI) |
+| Fase 1: saída do modelo fora do schema | `502` `invalid_model_output` |
+| Ollama inacessível (após retry) | `503` `llm_unavailable` |
+| Coleção Chroma ausente | `503` `knowledge_index_unavailable` |
+| Fase 2: dado de mercado indisponível, falha parcial, DeFi | `200` com `CryptoReport.status` = `failed` / `partial` / `unavailable` — o relatório É o resultado, com a explicação |
+| Stream já iniciado | evento NDJSON `{"type": "error"}` (o status 200 já foi enviado) |
+
+O agente ReAct não usa `with_retry`: o `initialize_agent` exige um `BaseLanguageModel`, e o wrapper de retry é um `Runnable`. Falha de conexão no agente vira `CryptoReport` `failed` com o motivo.
 
 ## 5. Observabilidade
 
@@ -64,5 +77,5 @@ Configuração fora do código: `COINPAPRIKA_BASE_URL`, `COINPAPRIKA_API_KEY` (o
 4. **Números sem moeda nem %** ("cotado a 81 mil") não são verificados.
 5. **ReAct textual** com modelo pequeno: erros de formato custam iterações; o legado não tem tool calling nativo.
 6. **Plano gratuito da CoinPaprika:** sem séries históricas (402); a cota é de 20 mil chamadas/mês, e `resolve_asset` gasta uma chamada de busca por ativo.
-7. **`langchain-community` em descontinuação:** o FAISS depende dele; não há pacote dedicado. A substituição por `faiss` puro fica restrita a `app/knowledge/store.py`.
+7. **Dependências do Chroma:** `chromadb` traz `onnxruntime` e OpenTelemetry, deixando a imagem maior. (O risco anterior, `langchain-community` em descontinuação, deixou de existir com a troca de FAISS por Chroma.)
 8. **Memória só em processo:** encerra com o script; não há persistência entre sessões (fora do escopo).

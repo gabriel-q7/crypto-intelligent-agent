@@ -203,8 +203,9 @@ def findings_from(observations: Iterable[dict]) -> list[Finding]:
         elif tool == "get_global_market":
             findings.append(_finding(obs, f"Mercado global: market cap {format_usd(data['market_cap_usd'])}, volume 24h {format_usd(data['volume_24h_usd'])}, dominância BTC {format_pct(data['bitcoin_dominance_percentage']).lstrip('+')}"))
         elif tool == "search_knowledge_base":
-            for hit in data:
-                findings.append(_finding(obs, f"Base de conhecimento: '{hit['title']}' ({hit['source']})"))
+            # Vários trechos do mesmo arquivo viram um único achado.
+            for title, source in dict.fromkeys((hit["title"], hit["source"]) for hit in data):
+                findings.append(_finding(obs, f"Base de conhecimento: '{title}' ({source})"))
     return findings
 
 

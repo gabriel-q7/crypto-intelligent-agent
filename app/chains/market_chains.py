@@ -3,7 +3,7 @@
 - Sequencial (análise de mercado): identificar ativos → buscar dados → validar → gerar análise.
 - Paralela (comparação): busca concorrente de cada ativo + visão global (``RunnableParallel``),
   aceitando falhas parciais.
-- Conhecimento: busca semântica (FAISS) → resposta baseada só nos trechos recuperados.
+- Conhecimento: busca semântica (Chroma) → resposta baseada só nos trechos recuperados.
 - DeFi: capacidade indisponível nesta fase (DeFiLlama) — relatada explicitamente.
 
 Todas devolvem ``CryptoReport``. Achados, fontes e horários vêm das observações (grounding);
@@ -24,8 +24,7 @@ from pydantic import BaseModel, Field, ValidationError
 from app.knowledge.store import KnowledgeHit, KnowledgeIndexError
 from app.prompts.ptcf import json_system_prompt
 from app.schemas.analysis import strip_market_figures
-from app.schemas.report import CryptoReport, DataSource, ReportStatus
-from app.schemas.report import Finding
+from app.schemas.report import CryptoReport, DataSource, Finding, ReportStatus
 from app.services.grounding import (
     findings_from,
     format_pct,
@@ -35,6 +34,7 @@ from app.services.grounding import (
     verify_figures,
     verify_items,
 )
+from app.services.llm import with_transient_retry
 from app.tools.coinpaprika import CoinPaprikaClient, CoinPaprikaError
 from app.tools.market_tools import observe_global, observe_ticker
 
@@ -76,8 +76,12 @@ KNOWLEDGE_HINT = (
 
 
 def _ask_json(llm: BaseChatModel, system: str, human: str, model: type[BaseModel]) -> BaseModel:
-    """Chamada JSON validada; erros de parsing/validação sobem para quem chamou tratar."""
-    message = llm.invoke([SystemMessage(content=system), HumanMessage(content=human)])
+    """Chamada JSON validada.
+
+    Falha transitória de conexão: 1 nova tentativa com backoff. Erros de parsing/validação
+    sobem para quem chamou tratar (sem retry).
+    """
+    message = with_transient_retry(llm).invoke([SystemMessage(content=system), HumanMessage(content=human)])
     return model.model_validate(JsonOutputParser().invoke(message))
 
 
@@ -257,7 +261,7 @@ def build_knowledge_chain(llm: BaseChatModel, search: Callable[[str], list[Knowl
         if not hits:
             return CryptoReport(**base, status=ReportStatus.FAILED, answer="Nenhum trecho relevante encontrado na base de conhecimento.")
         excerpts = "\n\n".join(f"[{h.source}] {h.content}" for h in hits)
-        sources = [DataSource(provider="base de conhecimento local (FAISS)", tool="search_knowledge_base", endpoint=s)
+        sources = [DataSource(provider="base de conhecimento local (Chroma)", tool="search_knowledge_base", endpoint=s)
                    for s in dict.fromkeys(h.source for h in hits)]
         try:
             result = _ask_json(llm, json_system_prompt(KNOWLEDGE_HINT), f"PERGUNTA: {inputs['question']}\n\nTRECHOS:\n{excerpts}", KnowledgeAnswer)

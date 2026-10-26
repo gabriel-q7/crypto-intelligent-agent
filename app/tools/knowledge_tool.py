@@ -1,10 +1,10 @@
-"""Ferramenta de busca semântica na base de conhecimento local (FAISS)."""
+"""Ferramenta de busca semântica na base de conhecimento local (Chroma)."""
 
 import json
 from collections.abc import Callable
 
-from langchain_community.vectorstores import FAISS
 from langchain_core.tools import Tool
+from langchain_core.vectorstores import VectorStore
 
 from app.config import get_knowledge_settings
 from app.knowledge.store import KnowledgeIndexError, load_index, search
@@ -13,10 +13,10 @@ TOOL_NAME = "search_knowledge_base"
 
 
 def build_knowledge_tool(
-    index_loader: Callable[[], FAISS] = load_index, top_k: int | None = None
+    index_loader: Callable[[], VectorStore] = load_index, top_k: int | None = None
 ) -> Tool:
     top_k = top_k or get_knowledge_settings().top_k
-    cache: dict[str, FAISS] = {}
+    cache: dict[str, VectorStore] = {}
 
     def run(query: str) -> str:
         query = query.strip().strip("'\"`")
@@ -33,7 +33,7 @@ def build_knowledge_tool(
                 "ok": True,
                 "tool": TOOL_NAME,
                 "data": [{"source": h.source, "title": h.title, "content": h.content} for h in hits],
-                "source": {"provider": "base de conhecimento local (FAISS)"},
+                "source": {"provider": "base de conhecimento local (Chroma)"},
             },
             ensure_ascii=False,
         )

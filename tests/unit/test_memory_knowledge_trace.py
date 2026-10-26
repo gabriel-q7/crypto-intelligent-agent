@@ -52,12 +52,12 @@ def test_long_answers_are_truncated():
     assert "y" * 600 not in memory.render()
 
 
-# --------------------------------------------------------------------------- FAISS
+# --------------------------------------------------------------------------- Chroma
 
 
 @pytest.fixture
 def knowledge(tmp_path) -> KnowledgeSettings:
-    return KnowledgeSettings(corpus_dir="knowledge/corpus", index_dir=str(tmp_path / "idx"), embedding_model="fake")
+    return KnowledgeSettings(corpus_dir="knowledge/corpus", store_dir=str(tmp_path / "chroma"), embedding_model="fake")
 
 
 def test_index_build_persist_load_and_search(knowledge):
@@ -68,6 +68,24 @@ def test_index_build_persist_load_and_search(knowledge):
     index = load_index(knowledge, embeddings)
     hits = search(index, "halving do bitcoin", k=2)
     assert len(hits) == 2 and all(h.source.endswith(".md") for h in hits)
+
+
+def test_reindex_recreates_collection_without_duplicates(knowledge):
+    embeddings = DeterministicFakeEmbedding(size=32)
+    _, first = build_index(knowledge, embeddings)
+    store, second = build_index(knowledge, embeddings)
+    assert second["chunks"] == first["chunks"]
+    assert len(store.get()["ids"]) == first["chunks"]
+    assert second["vector_store"] == "chroma"
+
+
+def test_missing_collection_is_explicit(knowledge):
+    embeddings = DeterministicFakeEmbedding(size=8)
+    build_index(knowledge, embeddings)
+    # Manifesto presente, mas a coleção configurada não existe no Chroma.
+    other = KnowledgeSettings(**{**knowledge.__dict__, "collection": "outra"})
+    with pytest.raises(KnowledgeIndexError, match="ausente"):
+        load_index(other, embeddings)
 
 
 def test_missing_index_is_explicit(knowledge):

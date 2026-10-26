@@ -234,3 +234,40 @@ def test_comparison_conclusion_is_deterministic_not_llm_summary():
     assert "BTC teve a maior queda" not in report.answer
     assert "Variação 24h, do maior para o menor: BTC -1,06% > ETH -1,17%." in report.answer
     assert report.key_points == ["ETH caiu 1,17%."]
+
+
+def test_transient_llm_failure_is_retried_once():
+    from app.chains.market_chains import AssetExtraction, _ask_json
+
+    class Flaky(FakeListChatModel):
+        calls: int = 0
+
+        def _call(self, messages, stop=None, run_manager=None, **kwargs):
+            self.calls += 1
+            if self.calls == 1:
+                raise ConnectionError("Ollama reiniciando")
+            return super()._call(messages, stop, run_manager, **kwargs)
+
+    llm = Flaky(responses=[json.dumps({"assets": ["btc"]})])
+    assert _ask_json(llm, "s", "h", AssetExtraction).assets == ["btc"]
+    assert llm.calls == 2
+
+
+def test_invalid_llm_output_is_not_retried():
+    from pydantic import ValidationError
+
+    from app.chains.market_chains import AssetExtraction, _ask_json
+
+    class Counting(FakeListChatModel):
+        calls: int = 0
+
+        def _call(self, messages, stop=None, run_manager=None, **kwargs):
+            self.calls += 1
+            return super()._call(messages, stop, run_manager, **kwargs)
+
+    llm = Counting(responses=[json.dumps({"assets": "não é lista"})])
+    try:
+        _ask_json(llm, "s", "h", AssetExtraction)
+    except ValidationError:
+        pass
+    assert llm.calls == 1

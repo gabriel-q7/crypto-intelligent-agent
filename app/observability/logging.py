@@ -33,5 +33,5 @@ def configure_logging(level: str | None = None) -> None:
     root.handlers[:] = [handler]
     root.setLevel(level)
     # httpx registra a URL de cada requisição em INFO; o cliente já registra o essencial.
-    for noisy in ("httpx", "httpcore", "faiss"):
+    for noisy in ("httpx", "httpcore", "chromadb"):
         logging.getLogger(noisy).setLevel(logging.WARNING)
