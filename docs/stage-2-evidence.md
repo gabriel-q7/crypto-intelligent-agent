@@ -111,7 +111,7 @@ Base de conhecimento: 7 documentos → 18 trechos (800/120), `nomic-embed-text`,
 
 ## 9. Migração FAISS → Chroma (2026-10-26)
 
-Decisão do usuário: usar Chroma no lugar do FAISS. As seções 1–7 foram validadas com FAISS; a migração foi validada de novo:
+Decisão do usuário: usar Chroma no lugar do FAISS (motivação, alternativas e custos em [vector-store-decision.md](vector-store-decision.md)). As seções 1–7 foram validadas com FAISS; a migração foi validada de novo:
 
 | Verificação | Resultado |
 |---|---|

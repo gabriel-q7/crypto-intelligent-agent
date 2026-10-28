@@ -169,6 +169,7 @@ OLLAMA_BASE_URL=http://localhost:11434 uvicorn app.main:app --reload
 - [docs/orchestrator-comparison.md](docs/orchestrator-comparison.md) — LangChain × LangGraph × LlamaIndex
 - [docs/prompt-design.md](docs/prompt-design.md) — PTCF, few-shot, grounding
 - [docs/reliability-decisions.md](docs/reliability-decisions.md) — erros, retries, observabilidade, limitações
+- [docs/vector-store-decision.md](docs/vector-store-decision.md) — decisão FAISS → Chroma: motivação, alternativas, custos e validação
 - [docs/composition-decision.md](docs/composition-decision.md), [docs/stage-1-evidence.md](docs/stage-1-evidence.md), [docs/stage-2-evidence.md](docs/stage-2-evidence.md) — decisões e evidências
 
 ## Fora do escopo

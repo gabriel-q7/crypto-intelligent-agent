@@ -137,7 +137,20 @@ As etapas JSON das chains ganharam `with_retry` para falhas de conexão com o Ol
 ### 5.8 Troca de FAISS por Chroma
 
 - **Decisão do usuário (2026-10-26):** usar Chroma como base vetorial no lugar do FAISS. O enunciado pedia FAISS; a mudança é um desvio deliberado e registrado.
-- **Investigação:** `langchain-chroma` 1.1.0 (pacote dedicado) + `chromadb` 1.5.9 instalam com `langchain-core` 1.6.12 fixado. Custo: o `chromadb` traz `onnxruntime` e OpenTelemetry (~563 MB de pacotes na imagem).
+- **Registro completo da decisão:** [docs/vector-store-decision.md](../docs/vector-store-decision.md) (contexto, problemas do FAISS, motivação, alternativas, consequências, validação e como reverter).
+- **Por que mudar (problemas observados com o FAISS durante a fase):**
+  1. `langchain-community` em descontinuação, com aviso em toda execução; não existe `langchain-faiss`;
+  2. persistência via pickle, que exigia `allow_dangerous_deserialization=True`;
+  3. sem atualização incremental nem filtro por metadados, o que pesaria com o crescimento previsto da base (memória de longo prazo).
+- **Alternativas avaliadas:**
+  - manter FAISS via `langchain-community`;
+  - FAISS puro;
+  - Chroma como servidor;
+  - Qdrant, Weaviate, Milvus, pgvector.
+
+  Escolhido: **Chroma embutido persistente** (pacote dedicado, sem pickle, CRUD e metadados nativos, sem serviço extra).
+- **Investigação:** `langchain-chroma` 1.1.0 (pacote dedicado) + `chromadb` 1.5.9 instalam com `langchain-core` 1.6.12 fixado.
+- **Custo medido (2026-10-28, `python:3.12-slim` com os `requirements.txt` reais):** FAISS 305 MB / 63 pacotes → Chroma 564 MB / 108 pacotes (+259 MB). O `chromadb` traz `onnxruntime`, `grpcio`, `kubernetes` e OpenTelemetry, que o projeto não usa diretamente.
 - **Modo de uso:** Chroma embutido persistente (`PersistentClient`) em `data/chroma`, montado no Compose, sem serviço extra; coleção com distância de cosseno; telemetria anônima desligada.
 - **Reindexação:** a coleção é apagada e recriada, com ids determinísticos por trecho, para não acumular duplicatas.
 - **Efeitos colaterais positivos:**

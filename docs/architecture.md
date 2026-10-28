@@ -109,7 +109,7 @@ A memória de longo prazo continua conceitual (seção 8).
 | Telemetria | Telemetria anônima do Chroma desligada (código e `ANONYMIZED_TELEMETRY=False`) |
 | Separação | Conhecimento ≠ mercado: a ferramenta e a rota de conhecimento nunca trazem preços; valores de mercado são removidos das respostas dessa rota |
 
-**Histórico:** a Fase 2 começou com FAISS (`langchain-community` + `faiss-cpu`, índice com pickle). A troca para Chroma, decidida pelo usuário em 2026-10-26, removeu a dependência em descontinuação e o carregamento via pickle (`allow_dangerous_deserialization`). As interfaces (`KnowledgeSearcher`, ferramenta, rota, endpoints) não mudaram.
+**Histórico (registro completo em [vector-store-decision.md](vector-store-decision.md)):** a Fase 2 começou com FAISS (`langchain-community` + `faiss-cpu`, índice com pickle). A troca para Chroma, decidida pelo usuário em 2026-10-26, removeu a dependência em descontinuação e o carregamento via pickle (`allow_dangerous_deserialization`). As interfaces (`KnowledgeSearcher`, ferramenta, rota, endpoints) não mudaram.
 
 ## 7. Classificação do agente na Fase 2
 
