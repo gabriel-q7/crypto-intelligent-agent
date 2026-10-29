@@ -52,6 +52,9 @@ class FakeClient:
             with self._lock:
                 self.active -= 1
 
+    def close(self) -> None:
+        pass
+
     def get_global(self) -> GlobalMarket:
         return GlobalMarket(market_cap_usd=2.9e12, volume_24h_usd=5e11, bitcoin_dominance_percentage=57.4,
                             cryptocurrencies_number=1, market_cap_ath_usd=None,

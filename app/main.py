@@ -14,6 +14,7 @@ from fastapi.responses import JSONResponse
 from ollama import ResponseError
 
 from app.api.container import AppContainer
+from app.api.conversation_routes import router as conversation_router
 from app.api.routes import router
 from app.errors import AnalysisOutputError, LLMUnavailableError
 from app.knowledge.store import KnowledgeIndexError
@@ -30,11 +31,15 @@ def create_app(container_factory: Callable[[], AppContainer] = AppContainer) -> 
 
     app = FastAPI(
         title="Crypto Intelligence Agent",
-        version="0.2.0",
-        description="Fase 1: análise estruturada. Fase 2: agente ReAct, chains roteadas, CoinPaprika e base de conhecimento (Chroma).",
+        version="0.3.0",
+        description=(
+            "Fase 1: análise estruturada. Fase 2: agente ReAct, chains roteadas, CoinPaprika e base de "
+            "conhecimento (Chroma). Fase 3: conversas persistentes com memória (SQLite + Mem0/Chroma)."
+        ),
         lifespan=lifespan,
     )
     app.include_router(router)
+    app.include_router(conversation_router)
 
     @app.exception_handler(LLMUnavailableError)
     async def llm_unavailable(_: Request, exc: LLMUnavailableError) -> JSONResponse:

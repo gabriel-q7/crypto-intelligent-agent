@@ -11,13 +11,19 @@ from app.agents.factory import KnowledgeSearcher, build_agent, build_router
 from app.agents.runner import CryptoAgent
 from app.config import (
     AgentSettings,
+    ConversationSettings,
     KnowledgeSettings,
     Settings,
     get_agent_settings,
+    get_conversation_settings,
     get_knowledge_settings,
     get_settings,
+    project_path,
 )
+from app.conversation.chatbot import ConversationService
 from app.memory.conversation import BoundedConversationMemory
+from app.memory.long_term import LazyMemoryBackend, Mem0Backend, MemoryBackend
+from app.persistence.sqlite_store import ConversationStore
 from app.services.llm import build_llm
 from app.tools.coinpaprika import CoinPaprikaClient
 
@@ -60,6 +66,12 @@ class AppContainer:
     coinpaprika: CoinPaprikaClient | None = None
     knowledge: KnowledgeSearcher | None = None
     sessions: SessionStore | None = None
+    # Fase 3: conversa persistente.
+    conversation_settings: ConversationSettings = field(default_factory=get_conversation_settings)
+    conversation_store: ConversationStore | None = None
+    memory_backend: MemoryBackend | None = None
+    conversation: ConversationService | None = None
+    background_maintenance: bool = True
     _routers: dict[bool, Runnable] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -67,6 +79,16 @@ class AppContainer:
         self.coinpaprika = self.coinpaprika or CoinPaprikaClient()
         self.knowledge = self.knowledge or KnowledgeSearcher(self.knowledge_settings)
         self.sessions = self.sessions or SessionStore(self.agent_settings)
+        self.conversation_store = self.conversation_store or ConversationStore(
+            project_path(self.conversation_settings.db_path)
+        )
+        self.memory_backend = self.memory_backend or LazyMemoryBackend(
+            lambda: Mem0Backend(self.settings, self.conversation_settings, self.knowledge_settings)
+        )
+        self.conversation = self.conversation or ConversationService(
+            self.conversation_store, self.memory_backend, self.llm, self.coinpaprika, self.knowledge,
+            self.conversation_settings, background=self.background_maintenance,
+        )
 
     def agent(self, session_id: str) -> CryptoAgent:
         return build_agent(
@@ -80,4 +102,5 @@ class AppContainer:
         return self._routers[legacy]
 
     def close(self) -> None:
+        self.conversation.close()
         self.coinpaprika.close()

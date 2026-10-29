@@ -305,7 +305,9 @@ class CoinPaprikaClient:
                 "percent_change_1h": usd.get("percent_change_1h"),
                 "percent_change_24h": usd.get("percent_change_24h"),
                 "percent_change_7d": usd.get("percent_change_7d"),
-                "percent_change_30d": usd.get("percent_change_30d"),
+                # Plano gratuito devolve 0 fixo em 30d/1y (verificado em 2026-10-28 para BTC, ETH
+                # e SOL): é preenchimento, não dado. 0.0 exato vira "indisponível".
+                "percent_change_30d": usd.get("percent_change_30d") or None,
                 "ath_price_usd": usd.get("ath_price"),
                 "ath_date": usd.get("ath_date"),
                 "percent_from_ath": usd.get("percent_from_price_ath"),

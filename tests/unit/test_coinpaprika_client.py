@@ -154,3 +154,12 @@ def test_global_epoch_timestamp_converted():
                "cryptocurrencies_number": 11618, "market_cap_ath_value": 4.8e12, "last_updated": 1792457364}
     market = make_client(lambda req: httpx.Response(200, json=payload))[0].get_global()
     assert market.source.source_updated_at.year == 2026
+
+
+def test_free_plan_zero_30d_change_is_unavailable():
+    """O plano gratuito devolve percent_change_30d = 0 para todos os ativos (preenchimento)."""
+    client, _ = make_client(lambda req: httpx.Response(200, json=TICKER))
+    assert client.get_ticker("btc-bitcoin").percent_change_30d is None
+    real = {**TICKER, "quotes": {"USD": {**TICKER["quotes"]["USD"], "percent_change_30d": -2.5}}}
+    client, _ = make_client(lambda req: httpx.Response(200, json=real))
+    assert client.get_ticker("btc-bitcoin").percent_change_30d == -2.5

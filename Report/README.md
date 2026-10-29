@@ -15,6 +15,7 @@ Esta pasta reúne a documentação escrita **durante** o desenvolvimento, fase a
 |---|---|---|
 | 1 — Chain estruturada (LangChain + Ollama, sem APIs) | [fase-01-chain-estruturada.md](fase-01-chain-estruturada.md) | Concluída |
 | 2 — Agente com ferramentas (CoinPaprika, ReAct, roteamento, memória, Chroma, API HTTP) | [fase-02-agente-ferramentas.md](fase-02-agente-ferramentas.md) | Concluída |
+| 3 — Memória conversacional (SQLite, Mem0/Chroma, intenção e contexto, sessões persistentes) | [fase-03-memoria-conversacional.md](fase-03-memoria-conversacional.md) | Concluída |
 
 ## Convenções
 

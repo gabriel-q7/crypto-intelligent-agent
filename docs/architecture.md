@@ -2,12 +2,12 @@
 
 ## 1. Anatomia do agente
 
-| Bloco | Papel | Fase 1 | Fase 2 |
-|---|---|---|---|
-| **Percepção** | Receber e normalizar a entrada | `CryptoQuestion` (Pydantic) | + validação dos argumentos das ferramentas (`AssetInput`) e extração de ativos |
-| **Raciocínio** | Interpretar e decidir | `ChatPromptTemplate` + `ChatOllama` → plano | Agente ReAct (escolhe ferramentas) e roteador (escolhe a chain), ambos com o prompt PTCF |
-| **Ação** | Agir no mundo | Não havia | Ferramentas CoinPaprika (dados reais) e busca semântica (Chroma) |
-| **Memória** | Estado entre interações | Não havia | Memória de curto prazo limitada (turnos e caracteres) com marcação de dados históricos |
+| Bloco | Papel | Fase 1 | Fase 2 | Fase 3 |
+|---|---|---|---|---|
+| **Percepção** | Receber e normalizar a entrada | `CryptoQuestion` (Pydantic) | + validação dos argumentos das ferramentas (`AssetInput`) e extração de ativos | Intenção + entidades da mensagem no contexto da conversa (`app/intent/`) |
+| **Raciocínio** | Interpretar e decidir | `ChatPromptTemplate` + `ChatOllama` → plano | Agente ReAct (escolhe ferramentas) e roteador (escolhe a chain), ambos com o prompt PTCF | Resolução de contexto (continuação, correção, resultado anterior) antes de executar |
+| **Ação** | Agir no mundo | Não havia | Ferramentas CoinPaprika (dados reais) e busca semântica (Chroma) | Mesmas ferramentas e chains, agora com período e contexto conversacional |
+| **Memória** | Estado entre interações | Não havia | Memória de curto prazo limitada (turnos e caracteres) com marcação de dados históricos | Janela + resumo (SQLite) e memória episódica/semântica (Mem0 → Chroma), por sessão e persistente |
 
 Modelo padrão: `gemma4:e2b` com thinking desligado (`OLLAMA_MODEL`, `OLLAMA_REASONING`), configurável; `qwen2.5:7b` continua disponível. Escolha justificada pelo benchmark da Fase 1 (`docs/stage-1-evidence.md`, seção 9).
 
@@ -116,6 +116,37 @@ A memória de longo prazo continua conceitual (seção 8).
 - **Agente ReAct:** reativo com ferramentas. Ciclo observar → agir limitado por `AGENT_MAX_ITERATIONS` e `AGENT_MAX_EXECUTION_TIME`.
 - **Chains roteadas:** fluxos determinísticos escolhidos por um classificador. Planejamento fixo por rota, sem autonomia.
 - **Planejamento autônomo:** fora do escopo. O plano da Fase 1 (`investigation_steps`) ainda não é executado automaticamente.
+
+## 8. Fase 3 — conversa com memória persistente
+
+```
+POST /conversations/{id}/messages
+  │ trava por sessão
+  ├─ SQLite: grava a mensagem do usuário (sessions / messages)
+  ├─ app/intent: regras + LLM JSON → ExtractedRequest → resolver(contexto ativo, análises da sessão) → ResolvedRequest
+  ├─ memória: janela (últimas 10) + resumo versionado (SQLite) + memórias da sessão (Mem0 → Chroma, run_id=sessão)
+  ├─ context_builder: orçamento de tokens, prioridade fixa, sem duplicação, histórico rotulado
+  ├─ execução: chains LCEL da Fase 2 (mercado | comparação | DeFi indisponível | conhecimento)
+  │            ou comparação com resultado anterior (código) ou pedido de esclarecimento
+  ├─ SQLite: resposta + análise + contexto ativo; Mem0: episódio da análise (infer=False)
+  └─ segundo plano: resumo incremental, reindexação pendente, extração semântica (Mem0 infer=True + filtro)
+```
+
+| Módulo | Responsabilidade |
+|---|---|
+| `app/persistence/sqlite_store.py` | Sessões, mensagens ordenadas (`UNIQUE(session_id, seq)`), resumos com versão otimista, análises, contexto ativo; WAL + `BEGIN IMMEDIATE` |
+| `app/memory/short_term.py` | Janela e resumo incremental (LCEL); fatos que precisam sobreviver extraídos dos metadados |
+| `app/memory/long_term.py` | Interface `MemoryBackend`; `Mem0Backend` (Chroma + histórico SQLite), `InMemoryBackend` (testes), `LazyMemoryBackend` |
+| `app/intent/` | `ConversationIntent` (7 intenções), regras pt/en, LLM JSON, resolver de contexto |
+| `app/conversation/` | `context_builder` (orçamento) e `ConversationService` (o turno) |
+| `app/api/conversation_routes.py` | `/conversations` (criar, consultar/retomar, enviar, histórico, resumo, apagar) |
+
+**Limites de compatibilidade:**
+- a Fase 3 **não usa** `initialize_agent`, `RouterChain` nem `ConversationBufferMemory` (depreciados; ver [memory-decision.md](memory-decision.md));
+- o legado da Fase 2 continua isolado em `app/legacy/` e só atende `/agent` e `/route?router=legacy`;
+- `/agent` mantém a memória em processo da Fase 2, separada das conversas persistentes.
+
+Estratégia completa: [memory-strategy.md](memory-strategy.md). Avaliação: [conversation-evaluation.md](conversation-evaluation.md).
 
 ## 8. Evolução prevista
 

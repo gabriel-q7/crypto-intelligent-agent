@@ -3,6 +3,7 @@
 Aplicação HTTP (FastAPI) com LangChain e Ollama para análise de criptoativos.
 
 - **Fase 1 — análise estruturada:** interpreta a pergunta e devolve um plano de análise + resposta mínima em JSON validado, sem dados externos.
+- **Fase 3 — conversa com memória:** sessões persistentes (SQLite) com janela, resumo incremental e memória episódica/semântica (Mem0 sobre Chroma); interpreta continuações, correções e referências a resultados anteriores.
 - **Fase 2 — agente com ferramentas:** agente ReAct clássico e chains roteadas que consultam **dados reais da CoinPaprika**, buscam conceitos numa **base de conhecimento local (Chroma)**, mantêm **memória de conversa limitada** e devolvem um `CryptoReport` validado, com fontes, horários e incertezas.
 
 Regra central: **nenhum valor de mercado é inventado.** Achados, fontes e horários vêm das respostas reais das ferramentas; valores da resposta sem correspondência nos dados são removidos; falhas viram status explícito (`failed`, `partial`, `unavailable`).
@@ -55,6 +56,12 @@ O `ollama-pull` baixa o modelo de chat (`OLLAMA_MODEL`) e o de embeddings (`EMBE
 | `POST /analyze/stream` | 1 | NDJSON com objetos parciais e o objeto final validado |
 | `POST /agent` | 2 | Agente ReAct com ferramentas; `session_id` mantém memória; `include_trace` devolve o rastro |
 | `DELETE /agent/sessions/{id}` | 2 | Apaga a memória de uma sessão |
+| `POST /conversations` | 3 | Cria uma conversa persistente (devolve `session_id`) |
+| `GET /conversations/{id}` | 3 | Consulta/retoma a conversa (também após reinício da API) |
+| `POST /conversations/{id}/messages` | 3 | Envia uma mensagem: intenção, contexto, execução e resposta com evidências |
+| `GET /conversations/{id}/messages` | 3 | Histórico ordenado (`after_seq`, `limit`) |
+| `GET /conversations/{id}/summary` | 3 | Resumo incremental da sessão e fatos preservados |
+| `DELETE /conversations/{id}` | 3 | Apaga a conversa (SQLite) e suas memórias (Chroma) |
 | `POST /route` | 2 | Roteamento: mercado (sequencial), comparação (paralela), conhecimento ou DeFi (indisponível); `router`: `modern` ou `legacy` |
 | `GET /knowledge/search?q=` | 2 | Busca semântica na base local |
 | `POST /knowledge/ingest` | 2 | Recria a coleção Chroma a partir de `knowledge/corpus` |
@@ -76,6 +83,28 @@ curl -s -X POST localhost:8000/analyze -H 'Content-Type: application/json' \
 ```
 
 Códigos de erro: `422` requisição inválida; `502` resposta do modelo fora do schema (Fase 1); `503` Ollama ou índice indisponível. Na Fase 2, falhas de dados **não** viram erro HTTP: o `CryptoReport` volta com `status` `failed`/`partial`/`unavailable` e a explicação.
+
+## Conversa com memória (Fase 3)
+
+```bash
+SID=$(curl -s -X POST localhost:8000/conversations -H 'Content-Type: application/json' -d '{}' | python3 -c 'import sys,json;print(json.load(sys.stdin)["session_id"])')
+curl -s -X POST localhost:8000/conversations/$SID/messages -H 'Content-Type: application/json' -d '{"message": "Compare BTC e ETH no mercado atual"}'
+curl -s -X POST localhost:8000/conversations/$SID/messages -H 'Content-Type: application/json' -d '{"message": "Considere os últimos 30 dias"}'
+```
+
+A segunda mensagem herda BTC e ETH e acrescenta o período. A resposta traz:
+- a intenção e as entidades resolvidas, com a origem de cada uma (`context_sources`);
+- análises anteriores referenciadas e memórias usadas;
+- fontes e horários dos dados;
+- limitações (ex.: 30 dias indisponíveis no plano gratuito);
+- o uso do orçamento de contexto.
+
+Memória:
+- **SQLite** é a fonte da verdade (sessões, mensagens, resumos, análises);
+- **Mem0 sobre Chroma** guarda memórias episódicas e semânticas por sessão;
+- detalhes em [docs/memory-strategy.md](docs/memory-strategy.md).
+
+O `session_id` **não é credencial**: não há autenticação nesta fase.
 
 ## Saída da Fase 2 (`CryptoReport`)
 
@@ -161,6 +190,12 @@ OLLAMA_BASE_URL=http://localhost:11434 uvicorn app.main:app --reload
 | `EMBEDDING_MODEL` | `nomic-embed-text` | Embeddings da base de conhecimento |
 | `KNOWLEDGE_CORPUS_DIR` / `VECTOR_STORE_DIR` / `KNOWLEDGE_COLLECTION` / `KNOWLEDGE_TOP_K` | `knowledge/corpus` / `data/chroma` / `crypto_knowledge` / `3` | Corpus, diretório e coleção do Chroma, trechos por busca |
 | `LOG_LEVEL` | `INFO` | Nível de log |
+| `CONVERSATION_DB_PATH` | `data/conversations.sqlite3` | SQLite das conversas |
+| `MEMORY_WINDOW_MESSAGES` / `SUMMARY_TRIGGER_MESSAGES` | `10` / `4` | Janela curta e gatilho do resumo |
+| `CONTEXT_BUDGET_TOKENS` | `3000` | Orçamento do contexto conversacional (tokens estimados) |
+| `MEMORY_STORE_DIR` / `MEMORY_COLLECTION` / `MEMORY_HISTORY_DB` | `data/memory_chroma` / `conversation_memory` / `data/mem0_history.sqlite3` | Memória longa (Mem0 sobre Chroma) |
+| `MEMORY_TOP_K` / `MEMORY_MIN_SCORE` / `MEMORY_EXTRACTION` | `3` / `0.3` / `true` | Recuperação e extração semântica |
+| `STALE_AFTER_MINUTES` | `15` | Resultado anterior mais antigo é marcado como "não atual" |
 | `OLLAMA_HOST_PORT` / `APP_HOST_PORT` | `11434` / `8000` | Portas publicadas no host |
 
 ## Documentação
@@ -169,6 +204,10 @@ OLLAMA_BASE_URL=http://localhost:11434 uvicorn app.main:app --reload
 - [docs/orchestrator-comparison.md](docs/orchestrator-comparison.md) — LangChain × LangGraph × LlamaIndex
 - [docs/prompt-design.md](docs/prompt-design.md) — PTCF, few-shot, grounding
 - [docs/reliability-decisions.md](docs/reliability-decisions.md) — erros, retries, observabilidade, limitações
+- [docs/memory-strategy.md](docs/memory-strategy.md) — memória (CoALA, SQLite × Chroma, retenção, orçamento, isolamento)
+- [docs/memory-decision.md](docs/memory-decision.md) — sem APIs depreciadas; Mem0 após spikes de LangMem, Mem0 e Letta
+- [docs/memory-tools-comparison.md](docs/memory-tools-comparison.md) — LangMem × Mem0 × Letta
+- [docs/conversation-evaluation.md](docs/conversation-evaluation.md) — cenários multi-turno A–H e resultados reais
 - [docs/vector-store-decision.md](docs/vector-store-decision.md) — decisão FAISS → Chroma: motivação, alternativas, custos e validação
 - [docs/composition-decision.md](docs/composition-decision.md), [docs/stage-1-evidence.md](docs/stage-1-evidence.md), [docs/stage-2-evidence.md](docs/stage-2-evidence.md) — decisões e evidências
 

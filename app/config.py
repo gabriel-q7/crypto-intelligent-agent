@@ -134,3 +134,49 @@ def get_knowledge_settings() -> KnowledgeSettings:
         chunk_overlap=_env_int("KNOWLEDGE_CHUNK_OVERLAP", defaults.chunk_overlap),
         top_k=_env_int("KNOWLEDGE_TOP_K", defaults.top_k),
     )
+
+
+@dataclass(frozen=True)
+class ConversationSettings:
+    # SQLite: fonte da verdade de sessões, mensagens, resumos e análises.
+    db_path: str = "data/conversations.sqlite3"
+    # Janela curta: últimas N mensagens (usuário + assistente) enviadas ao modelo.
+    window_messages: int = 10
+    # Resumo: disparado quando há pelo menos N mensagens fora da janela ainda não resumidas.
+    summary_trigger_messages: int = 4
+    summary_max_chars: int = 1500
+    # Orçamento de contexto da conversa (tokens estimados) dentro de OLLAMA_NUM_CTX.
+    context_budget_tokens: int = 3000
+    # Memória longa (Mem0 sobre Chroma): diretório e coleção próprios, separados do corpus.
+    memory_store_dir: str = "data/memory_chroma"
+    memory_collection: str = "conversation_memory"
+    # Histórico interno do Mem0 (eventos ADD/UPDATE/DELETE), em SQLite separado.
+    memory_history_db: str = "data/mem0_history.sqlite3"
+    # Dimensão do nomic-embed-text.
+    embedding_dims: int = 768
+    memory_top_k: int = 3
+    # Score mínimo de similaridade do Mem0 para uma memória entrar no contexto.
+    memory_min_score: float = 0.3
+    # Extração semântica (Mem0 infer=True) em segundo plano; desligável.
+    memory_extraction: bool = True
+    # Resultado anterior com dados mais antigos que isso é sempre rotulado como histórico.
+    stale_after_minutes: int = 15
+
+
+def get_conversation_settings() -> ConversationSettings:
+    defaults = ConversationSettings()
+    return ConversationSettings(
+        db_path=os.getenv("CONVERSATION_DB_PATH") or defaults.db_path,
+        window_messages=_env_int("MEMORY_WINDOW_MESSAGES", defaults.window_messages),
+        summary_trigger_messages=_env_int("SUMMARY_TRIGGER_MESSAGES", defaults.summary_trigger_messages),
+        summary_max_chars=_env_int("SUMMARY_MAX_CHARS", defaults.summary_max_chars),
+        context_budget_tokens=_env_int("CONTEXT_BUDGET_TOKENS", defaults.context_budget_tokens),
+        memory_store_dir=os.getenv("MEMORY_STORE_DIR") or defaults.memory_store_dir,
+        memory_collection=os.getenv("MEMORY_COLLECTION") or defaults.memory_collection,
+        memory_history_db=os.getenv("MEMORY_HISTORY_DB") or defaults.memory_history_db,
+        embedding_dims=_env_int("EMBEDDING_DIMS", defaults.embedding_dims),
+        memory_top_k=_env_int("MEMORY_TOP_K", defaults.memory_top_k),
+        memory_min_score=_env_float("MEMORY_MIN_SCORE", defaults.memory_min_score),
+        memory_extraction=parse_optional_bool(os.getenv("MEMORY_EXTRACTION")) is not False,
+        stale_after_minutes=_env_int("STALE_AFTER_MINUTES", defaults.stale_after_minutes),
+    )

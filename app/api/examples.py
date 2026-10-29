@@ -140,3 +140,27 @@ COIN_ID = {
 }
 
 SESSION_ID = {"demo": _ex("Sessão dos exemplos do /agent", "demo")}
+
+CREATE_CONVERSATION = {
+    "com_titulo": _ex("Nova conversa com título", {"title": "Pesquisa BTC x ETH"}),
+    "sem_titulo": _ex("Nova conversa sem título", {}),
+}
+
+CONVERSATION_MESSAGE = {
+    "a1_comparacao": _ex("Cenário A, turno 1: comparação", {"message": "Compare BTC e ETH no mercado atual"}),
+    "a2_periodo": _ex(
+        "Cenário A, turno 2: continuação",
+        {"message": "Considere os últimos 30 dias"},
+        "Envie depois do turno 1: mantém BTC e ETH e acrescenta o período.",
+    ),
+    "b_defi": _ex("Cenário B: nova dimensão (DeFi)", {"message": "E quanto a DeFi?"}),
+    "c_anterior": _ex("Cenário C: resultado anterior", {"message": "Agora compare com o resultado anterior"}),
+    "d1_btc7": _ex("Cenário D, turno 1", {"message": "Analise BTC nos últimos 7 dias"}),
+    "d2_correcao": _ex("Cenário D, turno 2: correção", {"message": "Eu quis dizer 30 dias, não 7"}),
+    "preferencia": _ex(
+        "Preferência (memória semântica)",
+        {"message": "Prefiro sempre análises com foco em risco"},
+        "Extraída em segundo plano pelo Mem0 e recuperada nos próximos turnos desta sessão.",
+    ),
+    "conceito": _ex("Pergunta conceitual", {"message": "O que é TVL?"}),
+}

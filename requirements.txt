@@ -6,6 +6,8 @@ langchain-classic==1.0.8
 langchain-chroma==1.1.0
 chromadb==1.5.9
 langchain-text-splitters==1.1.3
+# Fase 3: memória longa (episódica e semântica) sobre Chroma + SQLite; ver docs/memory-decision.md
+mem0ai==2.2.1
 httpx==0.28.1
 # Aplicação HTTP
 fastapi==0.150.0

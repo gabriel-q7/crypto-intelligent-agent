@@ -42,6 +42,8 @@ services:
       EMBEDDING_MODEL: ${EMBEDDING_MODEL:-nomic-embed-text}
       # Desliga a telemetria anônima do Chroma (também desligada no código).
       ANONYMIZED_TELEMETRY: "False"
+      # Fase 3: telemetria do Mem0 desligada (posthog).
+      MEM0_TELEMETRY: "False"
     volumes:
       # Resultados de benchmark persistidos no host.
       - ./benchmarks/results:/app/benchmarks/results

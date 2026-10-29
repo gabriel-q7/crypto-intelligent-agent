@@ -163,6 +163,26 @@ def validate_step() -> Runnable:
     return RunnableLambda(validate, name="validate_results")
 
 
+# Variações que a CoinPaprika gratuita entrega por período. 30d vem como 0 de preenchimento
+# (tratado como ausente no cliente); outros períodos exigem histórico (HTTP 402 no plano gratuito).
+PERIOD_FIELDS = {1: "percent_change_24h", 7: "percent_change_7d", 30: "percent_change_30d"}
+CONTEXT_HEADER = "CONTEXTO DA CONVERSA (histórico; NÃO são dados atuais):"
+
+
+def period_coverage(observations: list[dict], period_days: int | None) -> tuple[str | None, str | None]:
+    """(campo disponível para o período, motivo da indisponibilidade)."""
+    if not period_days:
+        return None, None
+    field = PERIOD_FIELDS.get(period_days)
+    tickers = [o["data"] for o in observations if o.get("ok") and o.get("tool") == "get_market_data"]
+    if field and tickers and all(t.get(field) is not None for t in tickers):
+        return field, None
+    return None, (
+        f"variação de {period_days} dias indisponível: o plano gratuito da CoinPaprika não fornece histórico "
+        "(OHLCV histórico → HTTP 402) e devolve 0 fixo na variação de 30 dias; exibindo as variações de 24h e 7 dias"
+    )
+
+
 def generate_step(llm: BaseChatModel, route: str, min_assets: int = 1) -> Runnable:
     def generate(inputs: dict) -> CryptoReport:
         observations, uncertainties = inputs["observations"], list(inputs["uncertainties"])
@@ -184,9 +204,22 @@ def generate_step(llm: BaseChatModel, route: str, min_assets: int = 1) -> Runnab
 
         data = [{k: o[k] for k in ("tool", "data", "source")} for o in observations if o.get("ok")]
         human = f"PERGUNTA: {inputs['question']}\n\nDADOS (CoinPaprika):\n{json.dumps(data, ensure_ascii=False)}"
+        period_days = inputs.get("period_days")
+        period_field, period_gap = period_coverage(observations, period_days)
+        if period_days:
+            human += f"\nPERÍODO SOLICITADO: {period_days} dias" + (f" (indisponível: {period_gap})" if period_gap else "")
+        if inputs.get("conversation_context"):
+            human += f"\n\n{CONTEXT_HEADER}\n{inputs['conversation_context']}"
+        if period_gap:
+            uncertainties.append(period_gap)
         # Ordenações calculadas no código: o modelo errava comparações (qual caiu mais, qual vale mais).
         ranking_sentences = []
-        for label, field, fmt in (("variação 24h", "percent_change_24h", format_pct), ("market cap", "market_cap_usd", format_usd)):
+        rank_fields = [("variação 24h", "percent_change_24h", format_pct), ("market cap", "market_cap_usd", format_usd)]
+        if period_field and period_field != "percent_change_24h":
+            rank_fields.insert(0, (f"variação {period_days}d", period_field, format_pct))
+        elif period_gap:
+            rank_fields.insert(1, ("variação 7d", "percent_change_7d", format_pct))
+        for label, field, fmt in rank_fields:
             rows = ranking(observations, field)
             if len(rows) >= 2:
                 text = " > ".join(f"{symbol} {fmt(value)}" for symbol, value in rows)
@@ -208,6 +241,11 @@ def generate_step(llm: BaseChatModel, route: str, min_assets: int = 1) -> Runnab
             # O resumo livre do LLM é descartado; os pontos-chave (verificados) permanecem.
             stamp = max((o["source"].get("source_updated_at") or "" for o in data if o.get("source")), default="")
             answer = "Comparação com dados da CoinPaprika" + (f" (atualizados até {stamp})" if stamp else "") + ". " + " ".join(ranking_sentences)
+        elif period_field and period_field != "percent_change_24h":
+            changes = "; ".join(f"{t['symbol']} {format_pct(t[period_field])}" for t in (o["data"] for o in data if o["tool"] == "get_market_data"))
+            answer = f"Variação em {period_days} dias (CoinPaprika): {changes}. " + answer
+        if period_gap:
+            answer = f"Não há dados de {period_days} dias nesta fonte ({period_gap.split(': ', 1)[1]}). " + answer
         key_points, removed_points = verify_items(analysis.key_points, observations)
         # Incertezas do LLM também passam pela verificação (ele às vezes coloca preços nelas).
         llm_uncertainties, removed_unc = verify_items(analysis.uncertainties, observations)
@@ -216,7 +254,7 @@ def generate_step(llm: BaseChatModel, route: str, min_assets: int = 1) -> Runnab
         failures = [o for o in observations if not o.get("ok")]
         return CryptoReport(
             **base,
-            status=ReportStatus.PARTIAL if failures or not answer else ReportStatus.COMPLETE,
+            status=ReportStatus.PARTIAL if failures or not answer or period_gap else ReportStatus.COMPLETE,
             answer=answer or "A análise gerada continha apenas valores não confirmados e foi descartada.",
             key_points=key_points,
             uncertainties=[*uncertainties, *llm_uncertainties],
@@ -264,7 +302,10 @@ def build_knowledge_chain(llm: BaseChatModel, search: Callable[[str], list[Knowl
         sources = [DataSource(provider="base de conhecimento local (Chroma)", tool="search_knowledge_base", endpoint=s)
                    for s in dict.fromkeys(h.source for h in hits)]
         try:
-            result = _ask_json(llm, json_system_prompt(KNOWLEDGE_HINT), f"PERGUNTA: {inputs['question']}\n\nTRECHOS:\n{excerpts}", KnowledgeAnswer)
+            human = f"PERGUNTA: {inputs['question']}\n\nTRECHOS:\n{excerpts}"
+            if inputs.get("conversation_context"):
+                human += f"\n\n{CONTEXT_HEADER}\n{inputs['conversation_context']}"
+            result = _ask_json(llm, json_system_prompt(KNOWLEDGE_HINT), human, KnowledgeAnswer)
         except (ValidationError, ValueError) as exc:
             logger.warning("knowledge answer invalid: %s", exc)
             return CryptoReport(**base, status=ReportStatus.PARTIAL, data_sources=sources,
