@@ -45,6 +45,20 @@ API em `http://localhost:8000`; documentação interativa (Swagger) em **`http:/
 
 O `ollama-pull` baixa o modelo de chat (`OLLAMA_MODEL`) e o de embeddings (`EMBEDDING_MODEL`) para o volume `ollama_models`; o download acontece uma vez. A aplicação acessa o Ollama pelo nome do serviço (`http://ollama:11434`).
 
+### Atalhos (Makefile)
+
+```bash
+make help              # lista todos os alvos
+make up                # .env (se faltar) + Ollama + modelos + API
+make ingest            # cria a coleção de conhecimento (1ª vez)
+make health            # saúde da API
+make test              # testes offline   (make test ARGS="-k intent")
+make test-integration  # Ollama + Mem0 + CoinPaprika reais
+make benchmark MODELS="gemma4:e2b qwen2.5:7b" REASONING=off
+make logs | make restart | make down
+make clean-data CONFIRM=yes   # apaga conversas, memórias e coleção em ./data
+```
+
 ## Endpoints
 
 | Método e rota | Fase | Descrição |
