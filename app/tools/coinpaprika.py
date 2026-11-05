@@ -305,8 +305,9 @@ class CoinPaprikaClient:
                 "percent_change_1h": usd.get("percent_change_1h"),
                 "percent_change_24h": usd.get("percent_change_24h"),
                 "percent_change_7d": usd.get("percent_change_7d"),
-                # Plano gratuito devolve 0 fixo em 30d/1y (verificado em 2026-10-28 para BTC, ETH
-                # e SOL): é preenchimento, não dado. 0.0 exato vira "indisponível".
+                # Plano gratuito devolvia 0 fixo em 30d/1y (verificado em 2026-10-28 para BTC, ETH
+                # e SOL): preenchimento, não dado. 0.0 exato vira "indisponível". Em 2026-11-05 a
+                # API passou a devolver valores reais (ex.: BTC -6,0%), que passam normalmente.
                 "percent_change_30d": usd.get("percent_change_30d") or None,
                 "ath_price_usd": usd.get("ath_price"),
                 "ath_date": usd.get("ath_date"),

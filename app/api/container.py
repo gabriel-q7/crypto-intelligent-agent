@@ -13,17 +13,26 @@ from app.config import (
     AgentSettings,
     ConversationSettings,
     KnowledgeSettings,
+    MarketDataSettings,
+    RetrievalSettings,
     Settings,
     get_agent_settings,
     get_conversation_settings,
     get_knowledge_settings,
+    get_market_data_settings,
+    get_retrieval_settings,
     get_settings,
     project_path,
 )
 from app.conversation.chatbot import ConversationService
+from app.market_data.ingestion import MarketDataIngestor
+from app.market_data.store import MarketDataStore
+from app.market_data.text_to_query import TextToQueryService
 from app.memory.conversation import BoundedConversationMemory
 from app.memory.long_term import LazyMemoryBackend, Mem0Backend, MemoryBackend
 from app.persistence.sqlite_store import ConversationStore
+from app.retrieval.agent import RetrievalAgent
+from app.retrieval.rewriter import QueryRewriter
 from app.services.llm import build_llm
 from app.tools.coinpaprika import CoinPaprikaClient
 
@@ -72,6 +81,12 @@ class AppContainer:
     memory_backend: MemoryBackend | None = None
     conversation: ConversationService | None = None
     background_maintenance: bool = True
+    # Fase 4: banco de snapshots (Text-to-Query) e Retrieval Agent com Query Rewriting.
+    market_settings: MarketDataSettings = field(default_factory=get_market_data_settings)
+    retrieval_settings: RetrievalSettings = field(default_factory=get_retrieval_settings)
+    market_store: MarketDataStore | None = None
+    text_to_query: TextToQueryService | None = None
+    retrieval: RetrievalAgent | None = None
     _routers: dict[bool, Runnable] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -89,11 +104,19 @@ class AppContainer:
             self.conversation_store, self.memory_backend, self.llm, self.coinpaprika, self.knowledge,
             self.conversation_settings, background=self.background_maintenance,
         )
+        self.market_store = self.market_store or MarketDataStore(project_path(self.market_settings.db_path))
+        self.text_to_query = self.text_to_query or TextToQueryService(self.llm, self.market_store, self.market_settings)
+        self.retrieval = self.retrieval or RetrievalAgent(
+            self.knowledge.index, QueryRewriter(self.llm), self.retrieval_settings
+        )
+
+    def market_ingestor(self) -> MarketDataIngestor:
+        return MarketDataIngestor(self.coinpaprika, self.market_store)
 
     def agent(self, session_id: str) -> CryptoAgent:
         return build_agent(
             self.coinpaprika, self.knowledge, self.agent_settings, self.sessions.get(session_id),
-            self.settings, self.agent_llm,
+            self.settings, self.agent_llm, retrieval=self.retrieval, market_db=self.text_to_query,
         )
 
     def router(self, legacy: bool = False) -> Runnable:

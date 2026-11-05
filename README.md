@@ -3,8 +3,9 @@
 Aplicação HTTP (FastAPI) com LangChain e Ollama para análise de criptoativos.
 
 - **Fase 1 — análise estruturada:** interpreta a pergunta e devolve um plano de análise + resposta mínima em JSON validado, sem dados externos.
-- **Fase 3 — conversa com memória:** sessões persistentes (SQLite) com janela, resumo incremental e memória episódica/semântica (Mem0 sobre Chroma); interpreta continuações, correções e referências a resultados anteriores.
 - **Fase 2 — agente com ferramentas:** agente ReAct clássico e chains roteadas que consultam **dados reais da CoinPaprika**, buscam conceitos numa **base de conhecimento local (Chroma)**, mantêm **memória de conversa limitada** e devolvem um `CryptoReport` validado, com fontes, horários e incertezas.
+- **Fase 3 — conversa com memória:** sessões persistentes (SQLite) com janela, resumo incremental e memória episódica/semântica (Mem0 sobre Chroma); interpreta continuações, correções e referências a resultados anteriores.
+- **Fase 4 — ferramentas externas e RAG existente:** banco SQLite de **snapshots reais da CoinPaprika** consultado por **Text-to-Query** (SQL validado, somente leitura), **Retrieval Agent** com **Query Rewriting** sobre a coleção Chroma existente e ferramenta de cálculo determinístico, todos integrados ao agente ReAct.
 
 Regra central: **nenhum valor de mercado é inventado.** Achados, fontes e horários vêm das respostas reais das ferramentas; valores da resposta sem correspondência nos dados são removidos; falhas viram status explícito (`failed`, `partial`, `unavailable`).
 
@@ -20,8 +21,11 @@ app/
   chains/            Fase 1 (LCEL e @chain) e Fase 2 (sequencial, paralela, conhecimento, roteamento)
   agents/            execução do agente ReAct e fábricas
   legacy/            APIs legadas isoladas: initialize_agent/ZERO_SHOT_REACT_DESCRIPTION e RouterChain
-  tools/             cliente e ferramentas CoinPaprika; ferramenta de busca de conhecimento
+  tools/             cliente e ferramentas CoinPaprika; busca de conhecimento; cálculo; Text-to-Query (Fase 4)
   knowledge/         ingestão do corpus e coleção Chroma
+  market_data/       Fase 4: banco de snapshots (SQLite), coleta, validação SQL e Text-to-Query
+  retrieval/         Fase 4: Retrieval Agent e Query Rewriting
+  persistence/ intent/ conversation/   Fase 3: conversas, intenção e contexto
   memory/            memória de conversa limitada
   observability/     callbacks de rastreamento e logging
   services/          LLM, validação, grounding, verificação da CoinPaprika, benchmark
@@ -39,6 +43,7 @@ Report/              diário técnico por fase
 cp .env.example .env
 docker compose up -d --build app      # sobe Ollama, baixa os modelos (1ª vez) e inicia a API
 curl -X POST localhost:8000/knowledge/ingest   # cria a coleção Chroma (1ª vez; fica em ./data/chroma)
+curl -X POST localhost:8000/market-data/ingest -H 'Content-Type: application/json' -d '{}'   # snapshots de mercado (Fase 4)
 ```
 
 API em `http://localhost:8000`; documentação interativa (Swagger) em **`http://localhost:8000/docs`**.
@@ -51,12 +56,14 @@ O `ollama-pull` baixa o modelo de chat (`OLLAMA_MODEL`) e o de embeddings (`EMBE
 make help              # lista todos os alvos
 make up                # .env (se faltar) + Ollama + modelos + API
 make ingest            # cria a coleção de conhecimento (1ª vez)
+make market-ingest     # coleta snapshots reais para o banco SQLite (Fase 4; repita para formar histórico)
+make market-coverage   # o que o banco de snapshots cobre
 make health            # saúde da API
 make test              # testes offline   (make test ARGS="-k intent")
 make test-integration  # Ollama + Mem0 + CoinPaprika reais
 make benchmark MODELS="gemma4:e2b qwen2.5:7b" REASONING=off
 make logs | make restart | make down
-make clean-data CONFIRM=yes   # apaga conversas, memórias e coleção em ./data
+make clean-data CONFIRM=yes   # apaga conversas, memórias, snapshots e coleção em ./data
 ```
 
 ## Endpoints
@@ -79,6 +86,11 @@ make clean-data CONFIRM=yes   # apaga conversas, memórias e coleção em ./data
 | `POST /route` | 2 | Roteamento: mercado (sequencial), comparação (paralela), conhecimento ou DeFi (indisponível); `router`: `modern` ou `legacy` |
 | `GET /knowledge/search?q=` | 2 | Busca semântica na base local |
 | `POST /knowledge/ingest` | 2 | Recria a coleção Chroma a partir de `knowledge/corpus` |
+| `POST /market-data/ingest` | 4 | Coleta snapshots reais da CoinPaprika para o SQLite (`{"assets": [...]}` ou lista padrão) |
+| `GET /market-data/coverage` | 4 | Ativos, quantidade de snapshots e janela de tempo coberta |
+| `GET /market-data/snapshots` | 4 | Snapshots armazenados (`symbol`, `limit`) |
+| `POST /market-data/query` | 4 | Text-to-Query: pergunta → SQL validado → linhas reais, com SQL, parâmetros e status |
+| `POST /knowledge/retrieve` | 4 | Retrieval Agent: busca com Query Rewriting (`mode`: `auto`, `always`, `never`) e os dois rankings |
 
 Exemplos:
 
@@ -90,6 +102,14 @@ curl -s -X POST localhost:8000/agent -H 'Content-Type: application/json' \
 # Comparação em paralelo (rota escolhida automaticamente)
 curl -s -X POST localhost:8000/route -H 'Content-Type: application/json' \
   -d '{"question": "Compare BTC, ETH e SOL nas últimas 24 horas"}'
+
+# Fase 4: filtro no banco de snapshots (Text-to-Query)
+curl -s -X POST localhost:8000/market-data/query -H 'Content-Type: application/json' \
+  -d '{"question": "Quais são os 3 maiores ativos por market cap no banco?"}'
+
+# Fase 4: Query Rewriting (pergunta sem o termo "halving")
+curl -s -X POST localhost:8000/knowledge/retrieve -H 'Content-Type: application/json' \
+  -d '{"question": "Por que a recompensa dos mineradores cai pela metade?"}'
 
 # Fase 1: análise estruturada
 curl -s -X POST localhost:8000/analyze -H 'Content-Type: application/json' \
@@ -148,6 +168,7 @@ O `session_id` **não é credencial**: não há autenticação nesta fase.
 docker compose run --rm --no-deps app pytest                         # offline (padrão)
 docker compose run --rm app pytest -m network                        # API real da CoinPaprika
 docker compose run --rm app pytest -m "integration or network" -v    # tudo (Ollama + modelos + internet)
+docker compose run --rm app pytest -m "integration or network" tests/integration/test_phase4_live.py -v   # só Fase 4
 ```
 
 Os testes que precisam de rede ou de modelo ficam fora da execução padrão e são ignorados (`skip`) quando o recurso não está disponível.
@@ -210,6 +231,11 @@ OLLAMA_BASE_URL=http://localhost:11434 uvicorn app.main:app --reload
 | `MEMORY_STORE_DIR` / `MEMORY_COLLECTION` / `MEMORY_HISTORY_DB` | `data/memory_chroma` / `conversation_memory` / `data/mem0_history.sqlite3` | Memória longa (Mem0 sobre Chroma) |
 | `MEMORY_TOP_K` / `MEMORY_MIN_SCORE` / `MEMORY_EXTRACTION` | `3` / `0.3` / `true` | Recuperação e extração semântica |
 | `STALE_AFTER_MINUTES` | `15` | Resultado anterior mais antigo é marcado como "não atual" |
+| `MARKET_DB_PATH` | `data/market.sqlite3` | Banco de snapshots de mercado (Fase 4), separado das conversas |
+| `MARKET_DATA_ASSETS` | 10 ids (BTC, ETH, USDT, BNB, SOL, XRP, USDC, ADA, DOGE, TRX) | Ativos coletados quando a requisição não lista nenhum |
+| `TEXT_TO_SQL_MAX_ROWS` / `TEXT_TO_SQL_TIMEOUT` | `50` / `2` | Teto de linhas e tempo máximo (s) por consulta gerada |
+| `RETRIEVAL_REWRITE_MODE` | `auto` | Query Rewriting: `auto`, `always` ou `never` |
+| `RETRIEVAL_REWRITE_DISTANCE` / `RETRIEVAL_MAX_DISTANCE` | `0.33` / `0.38` | Distância que dispara a reescrita / máxima para um trecho contar como evidência |
 | `OLLAMA_HOST_PORT` / `APP_HOST_PORT` | `11434` / `8000` | Portas publicadas no host |
 
 ## Documentação
@@ -223,8 +249,12 @@ OLLAMA_BASE_URL=http://localhost:11434 uvicorn app.main:app --reload
 - [docs/memory-tools-comparison.md](docs/memory-tools-comparison.md) — LangMem × Mem0 × Letta
 - [docs/conversation-evaluation.md](docs/conversation-evaluation.md) — cenários multi-turno A–H e resultados reais
 - [docs/vector-store-decision.md](docs/vector-store-decision.md) — decisão FAISS → Chroma: motivação, alternativas, custos e validação
+- [docs/tools-catalog.md](docs/tools-catalog.md) — catálogo de ferramentas (hardcoded, semânticas, API, Text-to-Query, retrieval)
+- [docs/text-to-query.md](docs/text-to-query.md) — banco de snapshots, coleta, geração, validação e execução de SQL
+- [docs/retrieval-agent.md](docs/retrieval-agent.md) — Retrieval Agent e Query Rewriting sobre a coleção existente
+- [docs/phase-4-evidence.md](docs/phase-4-evidence.md) — testes e diagnóstico real de falha de recuperação
 - [docs/composition-decision.md](docs/composition-decision.md), [docs/stage-1-evidence.md](docs/stage-1-evidence.md), [docs/stage-2-evidence.md](docs/stage-2-evidence.md) — decisões e evidências
 
 ## Fora do escopo
 
-DeFiLlama e CoinGecko (fases futuras; a rota DeFi responde `unavailable`), memória persistente entre execuções e planejamento autônomo.
+DeFiLlama e CoinGecko (fases futuras; a rota DeFi responde `unavailable`), agendamento automático da coleta de snapshots, Multi-Query e HyDE, e planejamento autônomo.

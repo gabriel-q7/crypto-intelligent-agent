@@ -62,3 +62,4 @@ class HealthResponse(BaseModel):
     models_available: dict[str, bool]
     knowledge_index: bool
     active_sessions: int
+    market_snapshots: int | None = Field(default=None, description="Snapshots no banco de mercado (Fase 4); None se ilegível.")

@@ -11,7 +11,7 @@ from langchain_core.language_models.fake_chat_models import FakeListChatModel
 
 from app.agents.factory import KnowledgeSearcher
 from app.api.container import AppContainer, SessionStore
-from app.config import AgentSettings, CoinPaprikaSettings, KnowledgeSettings
+from app.config import AgentSettings, CoinPaprikaSettings, KnowledgeSettings, MarketDataSettings
 from app.main import create_app
 from app.tools.coinpaprika import CoinPaprikaClient
 from tests.conftest import VALID_OUTPUT
@@ -40,6 +40,7 @@ def make_client(tmp_path, chat_responses=(), agent_responses=()) -> TestClient:
                                           transport=httpx.MockTransport(paprika), sleep=lambda _: None),
             knowledge=KnowledgeSearcher(knowledge, DeterministicFakeEmbedding(size=32)),
             sessions=SessionStore(agent_settings, max_sessions=2),
+            market_settings=MarketDataSettings(db_path=str(tmp_path / "market.sqlite3")),
         )
 
     return TestClient(create_app(factory))

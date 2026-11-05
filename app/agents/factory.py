@@ -6,6 +6,7 @@ from dataclasses import replace
 from langchain_core.embeddings import Embeddings
 from langchain_core.language_models import BaseChatModel, BaseLanguageModel
 from langchain_core.runnables import Runnable
+from langchain_core.tools import BaseTool
 from langchain_core.vectorstores import VectorStore
 
 from app.agents.runner import CryptoAgent
@@ -13,11 +14,16 @@ from app.chains.routing import build_route_handlers, build_router_chain
 from app.config import AgentSettings, KnowledgeSettings, Settings, get_settings
 from app.knowledge.store import KnowledgeHit, load_index, search
 from app.legacy.router_chain import build_legacy_router, legacy_classify
+from app.market_data.text_to_query import TextToQueryService
 from app.memory.conversation import BoundedConversationMemory
+from app.retrieval.agent import RetrievalAgent
 from app.services.llm import build_llm
+from app.tools.calculation_tools import build_calculation_tools
 from app.tools.coinpaprika import CoinPaprikaClient
 from app.tools.knowledge_tool import build_knowledge_tool
+from app.tools.market_db_tool import build_market_db_tool
 from app.tools.market_tools import build_market_tools
+from app.tools.retrieval_tool import build_retrieval_tool
 
 
 class KnowledgeSearcher:
@@ -48,6 +54,27 @@ def chat_settings(settings: Settings | None = None, model: str | None = None) ->
     return replace(settings, ollama_model=model) if model else settings
 
 
+def build_agent_tools(
+    client: CoinPaprikaClient,
+    knowledge: KnowledgeSearcher,
+    retrieval: RetrievalAgent | None = None,
+    market_db: TextToQueryService | None = None,
+) -> list[BaseTool]:
+    """Ferramentas do agente principal.
+
+    Fase 2: CoinPaprika (API) + busca de conhecimento. Fase 4: cálculo determinístico,
+    Text-to-Query no banco de snapshots e Retrieval Agent (com Query Rewriting) no lugar da
+    busca simples — mesmo nome de ferramenta, ``search_knowledge_base``.
+    """
+    knowledge_tool = (
+        build_retrieval_tool(retrieval) if retrieval else build_knowledge_tool(knowledge.index, knowledge.settings.top_k)
+    )
+    tools: list[BaseTool] = [*build_market_tools(client), knowledge_tool, *build_calculation_tools()]
+    if market_db:
+        tools.append(build_market_db_tool(market_db))
+    return tools
+
+
 def build_agent(
     client: CoinPaprikaClient,
     knowledge: KnowledgeSearcher,
@@ -55,11 +82,13 @@ def build_agent(
     memory: BoundedConversationMemory | None = None,
     settings: Settings | None = None,
     llm: BaseLanguageModel | None = None,
+    retrieval: RetrievalAgent | None = None,
+    market_db: TextToQueryService | None = None,
 ) -> CryptoAgent:
     settings = settings or get_settings()
     # Protocolo ReAct é texto: sem modo JSON.
     llm = llm or build_llm(settings, json_mode=False)
-    tools = [*build_market_tools(client), build_knowledge_tool(knowledge.index, knowledge.settings.top_k)]
+    tools = build_agent_tools(client, knowledge, retrieval, market_db)
     return CryptoAgent(llm, tools, agent_settings, memory, model_name=settings.ollama_model)
 
 

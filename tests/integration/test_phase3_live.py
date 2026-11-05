@@ -68,7 +68,9 @@ def test_live_multi_turn_restart_and_isolation(dirs):
     a2 = svc.handle(session.id, "Considere os últimos 30 dias")
     show("A2", a2)
     assert a2.entities.assets == ["BTC", "ETH"] and a2.entities.period_days == 30
-    assert "30 dias" in a2.answer and not a2.clarification_needed
+    # Em 2026-10-28 o plano gratuito devolvia 0 em 30d (limitação "30 dias"); em 2026-11-05 a
+    # CoinPaprika passou a devolver a variação real ("Variação 30d"). As duas respostas são corretas.
+    assert ("30 dias" in a2.answer or "Variação 30d" in a2.answer) and not a2.clarification_needed
 
     d = svc.handle(session.id, "Eu quis dizer 7 dias, não 30")
     show("D", d)

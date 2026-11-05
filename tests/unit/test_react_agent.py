@@ -43,7 +43,7 @@ def test_executor_uses_legacy_zero_shot_react_with_ptcf_prompt():
 
 def test_few_shots_cover_required_scenarios():
     titles = {e.title for e in FEW_SHOT_EXAMPLES}
-    assert titles == {"consulta de mercado", "comparação de ativos", "informação ausente", "falha da API"}
+    assert titles == {"consulta de mercado", "comparação de ativos", "informação ausente", "falha da API", "banco de snapshots"}
     assert "{{" in react_prefix()  # JSON dos exemplos escapado para o PromptTemplate
 
 

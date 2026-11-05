@@ -2,12 +2,12 @@
 
 ## 1. Anatomia do agente
 
-| Bloco | Papel | Fase 1 | Fase 2 | Fase 3 |
-|---|---|---|---|---|
-| **Percepção** | Receber e normalizar a entrada | `CryptoQuestion` (Pydantic) | + validação dos argumentos das ferramentas (`AssetInput`) e extração de ativos | Intenção + entidades da mensagem no contexto da conversa (`app/intent/`) |
-| **Raciocínio** | Interpretar e decidir | `ChatPromptTemplate` + `ChatOllama` → plano | Agente ReAct (escolhe ferramentas) e roteador (escolhe a chain), ambos com o prompt PTCF | Resolução de contexto (continuação, correção, resultado anterior) antes de executar |
-| **Ação** | Agir no mundo | Não havia | Ferramentas CoinPaprika (dados reais) e busca semântica (Chroma) | Mesmas ferramentas e chains, agora com período e contexto conversacional |
-| **Memória** | Estado entre interações | Não havia | Memória de curto prazo limitada (turnos e caracteres) com marcação de dados históricos | Janela + resumo (SQLite) e memória episódica/semântica (Mem0 → Chroma), por sessão e persistente |
+| Bloco | Papel | Fase 1 | Fase 2 | Fase 3 | Fase 4 |
+|---|---|---|---|---|---|
+| **Percepção** | Receber e normalizar a entrada | `CryptoQuestion` (Pydantic) | + validação dos argumentos das ferramentas (`AssetInput`) e extração de ativos | Intenção + entidades da mensagem no contexto da conversa (`app/intent/`) | Reescrita da pergunta no vocabulário dos documentos (Query Rewriting) |
+| **Raciocínio** | Interpretar e decidir | `ChatPromptTemplate` + `ChatOllama` → plano | Agente ReAct (escolhe ferramentas) e roteador (escolhe a chain), ambos com o prompt PTCF | Resolução de contexto (continuação, correção, resultado anterior) antes de executar | O ReAct escolhe também entre banco de snapshots, retrieval e cálculo; o LLM gera SQL, validado antes da execução |
+| **Ação** | Agir no mundo | Não havia | Ferramentas CoinPaprika (dados reais) e busca semântica (Chroma) | Mesmas ferramentas e chains, agora com período e contexto conversacional | + `query_market_database` (SQLite, somente leitura), `calculate_percent_change`, Retrieval Agent; coleta de snapshots |
+| **Memória** | Estado entre interações | Não havia | Memória de curto prazo limitada (turnos e caracteres) com marcação de dados históricos | Janela + resumo (SQLite) e memória episódica/semântica (Mem0 → Chroma), por sessão e persistente | Sem mudança; o banco de snapshots é **dado de mercado**, não memória |
 
 Modelo padrão: `gemma4:e2b` com thinking desligado (`OLLAMA_MODEL`, `OLLAMA_REASONING`), configurável; `qwen2.5:7b` continua disponível. Escolha justificada pelo benchmark da Fase 1 (`docs/stage-1-evidence.md`, seção 9).
 
@@ -45,7 +45,7 @@ pergunta ─┬─ POST /agent ►│ PTCF + few-shot → ZERO_SHOT_REACT_DESCRI
 |---|---|
 | `app/tools/coinpaprika.py` | Cliente HTTP: timeouts, retries, erros tipados, modelos Pydantic com `source` (endpoint, `source_updated_at`, `retrieved_at`) |
 | `app/tools/market_tools.py` | Ferramentas de entrada única para o ReAct; mesmas observações usadas pelas chains |
-| `app/tools/knowledge_tool.py` | Ferramenta de busca semântica |
+| `app/tools/knowledge_tool.py` | Ferramenta de busca semântica (Fase 2; no agente principal, substituída pelo Retrieval Agent na Fase 4) |
 | `app/knowledge/store.py` | Corpus → chunks → embeddings (Ollama) → coleção Chroma persistida + manifesto |
 | `app/legacy/` | **APIs legadas isoladas**: `initialize_agent` / `ZERO_SHOT_REACT_DESCRIPTION` e `LLMRouterChain` |
 | `app/agents/runner.py` | Execução do agente, montagem do `CryptoReport`, memória |
@@ -148,7 +148,42 @@ POST /conversations/{id}/messages
 
 Estratégia completa: [memory-strategy.md](memory-strategy.md). Avaliação: [conversation-evaluation.md](conversation-evaluation.md).
 
-## 8. Evolução prevista
+## 9. Fase 4 — ferramentas externas e RAG existente
+
+```
+POST /agent ─► ReAct (PTCF, regra 6: pergunta → ferramenta)
+                 ├─ get_market_data / _details / _global / search_crypto_asset ─► CoinPaprika ao vivo (Fase 2)
+                 ├─ query_market_database ─► TextToQueryService
+                 │      cobertura → find_period → LLM (SqlGeneration) → validate_sql (sqlglot)
+                 │      → execute_query (mode=ro + authorizer + timeout) → linhas + status
+                 ├─ search_knowledge_base ─► RetrievalAgent
+                 │      busca original → [fraca] QueryRewriter (LLM) → busca reescrita
+                 │      → evidência (distância + palavra âncora) → trechos com metadados
+                 └─ calculate_percent_change ─► cálculo local
+               grounding: achados/fontes por ferramenta (CoinPaprika ≠ snapshots SQLite ≠ documentos) → CryptoReport
+
+POST /market-data/ingest ─► MarketDataIngestor ─► CoinPaprikaClient (reuso) ─► data/market.sqlite3
+```
+
+| Módulo | Responsabilidade |
+|---|---|
+| `app/market_data/store.py` | Schema (`assets`, `market_snapshots`, view `latest_snapshots`), deduplicação por horário da fonte, cobertura, conexão somente leitura |
+| `app/market_data/ingestion.py` | Coleta por ativo com o cliente existente; falha não grava nada |
+| `app/market_data/sql_guard.py` | Validação do SQL (parser) e execução protegida (authorizer, timeout) |
+| `app/market_data/text_to_query.py` | Fluxo Text-to-Query e status explícitos |
+| `app/retrieval/` | `QueryRewriter` e `RetrievalAgent` sobre a coleção `crypto_knowledge` existente |
+| `app/tools/{market_db_tool,retrieval_tool,calculation_tools}.py` | Ferramentas de entrada única para o ReAct |
+| `app/api/phase4_routes.py` | `/market-data/*` e `/knowledge/retrieve` |
+
+**Limites:**
+- a ingestão e a indexação do corpus **não mudaram**, e a coleção não é recriada na inicialização;
+- a coleção do Mem0 (`data/memory_chroma`) não é tocada;
+- `/route` e `/conversations` seguem com a busca simples;
+- o banco de snapshots é um arquivo separado do SQLite de conversas.
+
+Detalhes: [tools-catalog.md](tools-catalog.md), [text-to-query.md](text-to-query.md), [retrieval-agent.md](retrieval-agent.md). Evidências: [phase-4-evidence.md](phase-4-evidence.md).
+
+## 10. Evolução prevista
 
 1. **DeFiLlama / CoinGecko:** novas ferramentas no formato de observação existente; a rota `defi_analysis` passa a ter handler real.
 2. **Execução do plano da Fase 1:** `requested_metrics` → ferramentas (planejamento hierárquico: objetivo → etapas → chamadas).

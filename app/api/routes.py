@@ -60,6 +60,10 @@ def health(container: AppContainer = Depends(get_container)) -> HealthResponse:
         index_ok = True
     except Exception:  # noqa: BLE001 - qualquer falha de carga = índice indisponível
         index_ok = False
+    try:
+        snapshots: int | None = container.market_store.coverage().snapshots
+    except Exception:  # noqa: BLE001 - banco ilegível não derruba o health
+        snapshots = None
     ok = reachable and all(models.values()) and index_ok
     return HealthResponse(
         status="ok" if ok else "degraded",
@@ -69,6 +73,7 @@ def health(container: AppContainer = Depends(get_container)) -> HealthResponse:
         models_available=models,
         knowledge_index=index_ok,
         active_sessions=len(container.sessions),
+        market_snapshots=snapshots,
     )
 
 

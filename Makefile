@@ -16,7 +16,7 @@ REASONING ?=
 export
 
 .PHONY: help env build up down restart logs ps shell pull-models \
-        ingest health check-api docs \
+        ingest health check-api docs market-ingest market-coverage \
         test test-network test-integration test-all \
         benchmark benchmark-compare clean-data
 
@@ -69,6 +69,12 @@ check-api: ## Verificação real da CoinPaprika (consome cota da API)
 docs: ## Mostra a URL da documentação interativa (Swagger)
 	@echo "$(API_URL)/docs"
 
+market-ingest: ## Coleta snapshots reais da CoinPaprika para o banco SQLite (Fase 4)
+	curl -sf -X POST $(API_URL)/market-data/ingest -H 'Content-Type: application/json' -d '{}' | python3 -m json.tool
+
+market-coverage: ## Cobertura do banco de snapshots (ativos, quantidade, janela de tempo)
+	curl -sf $(API_URL)/market-data/coverage | python3 -m json.tool
+
 ## ---------------------------------------------------------------- testes
 
 test: ## Testes offline (sem modelo, sem rede). Filtro: ARGS="-k nome"
@@ -90,11 +96,11 @@ benchmark: ## Benchmark de modelos. Ex.: MODELS="gemma4:e2b qwen2.5:7b" REASONIN
 benchmark-compare: ## Compara os resultados de benchmark salvos
 	$(RUN) --no-deps app python -m app.services.benchmark_runner --compare
 
-clean-data: ## APAGA ./data (conversas, memórias, coleção Chroma). Exige CONFIRM=yes
+clean-data: ## APAGA ./data (conversas, memórias, snapshots, coleção Chroma). Exige CONFIRM=yes
 	@if [ "$(CONFIRM)" != "yes" ]; then \
-		echo "Isto apaga conversas (SQLite), memórias (Mem0/Chroma) e a coleção de conhecimento em ./data."; \
+		echo "Isto apaga conversas (SQLite), memórias (Mem0/Chroma), snapshots de mercado e a coleção de conhecimento em ./data."; \
 		echo "Para confirmar: make clean-data CONFIRM=yes"; exit 1; \
 	fi
 	$(COMPOSE) stop app
-	rm -rf data/conversations.sqlite3* data/memory_chroma data/mem0_history.sqlite3* data/chroma
-	@echo "./data limpo. Rode 'make up' e depois 'make ingest'."
+	rm -rf data/conversations.sqlite3* data/memory_chroma data/mem0_history.sqlite3* data/chroma data/market.sqlite3*
+	@echo "./data limpo. Rode 'make up', 'make ingest' e 'make market-ingest'."

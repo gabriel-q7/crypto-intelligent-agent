@@ -85,6 +85,10 @@ def _ask_json(llm: BaseChatModel, system: str, human: str, model: type[BaseModel
     return model.model_validate(JsonOutputParser().invoke(message))
 
 
+# Nome público para reuso fora das chains (Fase 4: Text-to-Query e reescrita de consulta).
+ask_json = _ask_json
+
+
 # --------------------------------------------------------------------------- etapas
 
 

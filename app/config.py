@@ -180,3 +180,58 @@ def get_conversation_settings() -> ConversationSettings:
         memory_extraction=parse_optional_bool(os.getenv("MEMORY_EXTRACTION")) is not False,
         stale_after_minutes=_env_int("STALE_AFTER_MINUTES", defaults.stale_after_minutes),
     )
+
+
+# Fase 4: ids CoinPaprika coletados por padrão em POST /market-data/ingest.
+DEFAULT_MARKET_ASSETS = (
+    "btc-bitcoin", "eth-ethereum", "usdt-tether", "bnb-binance-coin", "sol-solana",
+    "xrp-xrp", "usdc-usd-coin", "ada-cardano", "doge-dogecoin", "trx-tron",
+)
+
+
+@dataclass(frozen=True)
+class MarketDataSettings:
+    # Banco SQLite próprio dos snapshots de mercado (separado das conversas da Fase 3).
+    db_path: str = "data/market.sqlite3"
+    default_assets: tuple[str, ...] = DEFAULT_MARKET_ASSETS
+    # Text-to-Query: teto de linhas devolvidas e tempo máximo de execução de uma consulta.
+    query_max_rows: int = 50
+    query_timeout_s: float = 2.0
+
+
+def get_market_data_settings() -> MarketDataSettings:
+    defaults = MarketDataSettings()
+    assets = os.getenv("MARKET_DATA_ASSETS")
+    return MarketDataSettings(
+        db_path=os.getenv("MARKET_DB_PATH") or defaults.db_path,
+        default_assets=tuple(a.strip() for a in assets.split(",") if a.strip()) if assets else defaults.default_assets,
+        query_max_rows=_env_int("TEXT_TO_SQL_MAX_ROWS", defaults.query_max_rows),
+        query_timeout_s=_env_float("TEXT_TO_SQL_TIMEOUT", defaults.query_timeout_s),
+    )
+
+
+@dataclass(frozen=True)
+class RetrievalSettings:
+    # auto: reescreve só quando a busca original é fraca; always/never: para avaliação.
+    rewrite_mode: str = "auto"
+    # Distâncias de cosseno (0 = idêntico), calibradas com nomic-embed-text sobre o corpus atual
+    # (docs/phase-4-evidence.md): buscas boas tiveram melhor trecho em 0,20-0,31; falhas de
+    # vocabulário, 0,34-0,39; assunto ausente do corpus, acima de 0,43.
+    # Melhor trecho acima disso: a pergunta é reescrita (modo auto).
+    rewrite_trigger_distance: float = 0.33
+    # Trechos acima disso não contam como evidência; sem nenhum abaixo → no_relevant_documents.
+    relevance_max_distance: float = 0.38
+    top_k: int = 3
+
+
+def get_retrieval_settings() -> RetrievalSettings:
+    defaults = RetrievalSettings()
+    mode = (os.getenv("RETRIEVAL_REWRITE_MODE") or defaults.rewrite_mode).strip().lower()
+    if mode not in {"auto", "always", "never"}:
+        raise ValueError(f"RETRIEVAL_REWRITE_MODE inválido: {mode!r} (auto, always, never)")
+    return RetrievalSettings(
+        rewrite_mode=mode,
+        rewrite_trigger_distance=_env_float("RETRIEVAL_REWRITE_DISTANCE", defaults.rewrite_trigger_distance),
+        relevance_max_distance=_env_float("RETRIEVAL_MAX_DISTANCE", defaults.relevance_max_distance),
+        top_k=_env_int("KNOWLEDGE_TOP_K", defaults.top_k),
+    )

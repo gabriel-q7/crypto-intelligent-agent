@@ -9,7 +9,7 @@ from langchain_core.language_models.fake import FakeListLLM
 
 from app.agents.factory import KnowledgeSearcher
 from app.api.container import AppContainer
-from app.config import ConversationSettings, KnowledgeSettings
+from app.config import MarketDataSettings, ConversationSettings, KnowledgeSettings
 from app.knowledge.store import build_index
 from app.main import create_app
 from app.memory.long_term import InMemoryBackend
@@ -39,6 +39,7 @@ class Harness:
                 knowledge_settings=self.knowledge, llm=self.llm, agent_llm=FakeListLLM(responses=["Final Answer: ok"]),
                 coinpaprika=self.market, knowledge=KnowledgeSearcher(self.knowledge, self.embeddings),
                 conversation_settings=settings, memory_backend=self.memory, background_maintenance=False,
+                market_settings=MarketDataSettings(db_path=str(self.tmp_path / "market.sqlite3")),
             )
 
         return TestClient(create_app(factory))

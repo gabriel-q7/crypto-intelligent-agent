@@ -53,3 +53,29 @@ O "Final Answer" é só o texto. Achados, fontes, horários e status vêm de có
 | Conhecimento | `{"answer", "used_sources"}` | "Responda só com base nos TRECHOS" |
 
 **Rankings calculados e conclusão determinística na comparação:** nos testes reais, o modelo errou comparações mesmo com números corretos ("BTC teve a maior queda" quando foi o ETH; "ETH tem market cap maior"). Primeiro, a ordenação por variação 24h e por market cap passou a ser calculada no código, enviada ao modelo e registrada como achado. **Mesmo assim**, em nova execução real, o resumo do `gemma4:e2b` voltou a inverter a ordem, contradizendo o ranking que recebeu. Decisão final: na rota `asset_comparison`, o `answer` é montado pelo código a partir dos rankings ("Variação 24h, do maior para o menor: SOL -0,50% > BTC -1,06% > ETH -1,17%..."), e o resumo livre do LLM é descartado; os pontos-chave do LLM, verificados, permanecem em `key_points`.
+
+## Fase 4 — acréscimos
+
+**PTCF do agente (`app/prompts/ptcf.py`):**
+- **Contexto:** descreve `query_market_database` como banco **local de snapshots**, não ao vivo.
+- **Regra 6:** mapa pergunta → ferramenta (mercado atual → `get_market_data`; filtro ou ranking no banco → `query_market_database`; conceito → `search_knowledge_base`; mista → combinar só as necessárias).
+- **Regra 7:** afirmações conceituais só a partir dos trechos recuperados, inclusive em pergunta mista, com a parte conceitual completa como entrada.
+- **Regra 8:** respostas do banco dizem que são snapshots e citam o horário da coleta.
+- **Novo few-shot "banco de snapshots":** ativo fictício EXC, como nos demais exemplos.
+
+| Exemplo | Comportamento ensinado |
+|---|---|
+| Banco de snapshots | Filtro entre ativos → `query_market_database` com a pergunta completa → resposta que diz "dados armazenados, não cotação ao vivo" |
+
+**Prompts novos (modo JSON + Pydantic):**
+
+| Prompt | Arquivo | Saída | Cuidados registrados |
+|---|---|---|---|
+| Geração de SQL | `app/market_data/text_to_query.py` | `SqlGeneration {metrics, filters, sql, unsupported_reason}` | Schema descrito no prompt (views primeiro); 3 exemplos (filtro, ranking, média histórica) + 1 recusa (TVL). **Não** listar os símbolos do banco: o modelo copiava a lista como filtro (`docs/phase-4-evidence.md`, 2.2) |
+| Query Rewriting | `app/retrieval/rewriter.py` | `QueryRewrite {main_concept, intent, rewritten_query, added_terms}` | Exemplo de tema **fora** do corpus ("rug pull"): o exemplo anterior era o próprio caso avaliado e inflava o resultado (1.6). Pede termos específicos em `added_terms` (viram palavras âncora) e proíbe termos genéricos |
+
+Em ambos, o que o LLM produz é validado antes de ter efeito:
+- o SQL passa pelo parser e pelo authorizer;
+- a reescrita passa pelo critério de palavra âncora.
+
+O prompt não é a última linha de defesa.

@@ -25,8 +25,10 @@ ferramentas (Observation) e a data de referência.
 Limitações das fontes:
 - Dados de mercado ATUAIS só existem nas Observations de get_market_data, get_market_details e \
 get_global_market (CoinPaprika). Fora delas você NÃO conhece preços, volumes ou variações atuais.
-- Histórico de preços (séries) e dados DeFi/TVL por protocolo NÃO estão disponíveis nesta fase.
-- search_knowledge_base traz apenas conceitos, nunca preços.
+- query_market_database consulta o BANCO LOCAL de snapshots já coletados (SQLite): serve para \
+filtros e rankings entre vários ativos; os valores são do horário do snapshot, não ao vivo.
+- Histórico de preços além dos snapshots armazenados e dados DeFi/TVL por protocolo NÃO estão disponíveis.
+- search_knowledge_base traz apenas conceitos (documentos locais), nunca preços.
 - Valores citados no histórico da conversa são antigos: consulte as ferramentas de novo."""
 
 RULES = """Regras:
@@ -35,8 +37,15 @@ RULES = """Regras:
 3. Ao citar um valor, informe a fonte (CoinPaprika) e o horário de atualização (source_updated_at).
 4. Para comparar ativos, consulte cada um separadamente.
 5. Se a pergunta não identificar o ativo ou for ambígua, peça a informação em vez de chutar.
-6. Perguntas conceituais: use search_knowledge_base.
-7. Não faça previsões de preço nem recomendações de investimento."""
+6. Escolha só as ferramentas necessárias: preço/métricas atuais de um ativo → get_market_data; \
+filtro ou ranking no banco ("quais ativos...", "nossa base") → query_market_database; conceito → \
+search_knowledge_base; pergunta mista → combine as necessárias.
+7. Afirmações conceituais (explicar, diferença, "o que é", "como funciona") precisam vir dos trechos \
+de search_knowledge_base, MESMO numa pergunta que também pede dados de mercado; envie a parte \
+conceitual completa como entrada. Se a busca não encontrar documentos relevantes, diga que a base \
+local não cobre o assunto.
+8. Ao usar query_market_database, diga que são snapshots armazenados e cite o horário da coleta.
+9. Não faça previsões de preço nem recomendações de investimento."""
 
 REACT_FORMAT = """Formato da resposta final: o "Final Answer" é um texto em português de 2 a 5 frases \
 com a resposta, os valores citados (com fonte e horário) e as incertezas. O sistema monta \
@@ -83,6 +92,16 @@ Final Answer: Nas últimas 24 horas, DEF subiu 2,5% enquanto EXC caiu -1,2% (Coi
         """Question: Esse ativo está caro?
 Thought: A pergunta não diz qual ativo; não devo chutar.
 Final Answer: Não consigo responder sem saber qual ativo você quer analisar. Informe o nome ou símbolo (ex.: BTC) e eu consulto os dados atuais.""",
+    ),
+    FewShotExample(
+        "banco de snapshots",
+        """Question: Quais ativos da nossa base subiram mais de 10%?
+Thought: É um filtro entre vários ativos no banco local; uso o Text-to-Query.
+Action: query_market_database
+Action Input: Quais ativos subiram mais de 10%?
+Observation: {"ok": true, "tool": "query_market_database", "data": {"status": "ok", "rows": [{"symbol": "EXC", "name": "ExemploCoin", "percent_change_24h": 12.5}], "row_count": 1}, "source": {"provider": "SQLite local (snapshots coletados da CoinPaprika)", "retrieved_at": "2026-01-15T10:00:00Z"}}
+Thought: Tenho o resultado do banco.
+Final Answer: No banco de snapshots (coleta de 2026-01-15 10:00 UTC), só o EXC atende ao filtro, com alta de 12,5% em 24 horas. São dados armazenados, não cotação ao vivo.""",
     ),
     FewShotExample(
         "falha da API",

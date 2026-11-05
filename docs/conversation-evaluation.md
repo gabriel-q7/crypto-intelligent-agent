@@ -87,6 +87,7 @@ Verificação de depreciação: um teste importa todos os módulos da Fase 3 num
 2. **"Resultado anterior" pega a análise mais recente** com os mesmos ativos. Logo após uma nova análise, isso dá diferença de 0,00% (API real, 2.1). É correto ao pé da letra, mas pouco útil; não há heurística para "o resultado de antes desta conversa".
 3. **Resumo depende da configuração:** com a janela padrão (10) e o gatilho (4), a conversa real de 12 mensagens ainda não tinha resumo. O cenário G foi validado com janela 4 e gatilho 2 (offline e integração).
 4. **Histórico de preços:** 30 dias ou mais é sempre `partial`, com a limitação; o plano gratuito não tem séries.
+   *Atualização de 2026-11-05 (Fase 4):* a CoinPaprika passou a devolver `percent_change_30d` real no plano gratuito, e "últimos 30 dias" agora traz a variação 30d da fonte. O teste de integração aceita os dois comportamentos. Séries históricas continuam indisponíveis (402).
 5. **Memória semântica em inglês:** o Mem0 às vezes grava o fato em inglês ("The user corrected…"), independentemente do prompt.
 6. **Recuperação seletiva:** com `MEMORY_MIN_SCORE=0.3`, consultas genéricas ("E nas últimas 24 horas?") não recuperam memórias. Análises já presentes na janela são deduplicadas de propósito.
 7. **Sem autenticação:** o `session_id` não é credencial.

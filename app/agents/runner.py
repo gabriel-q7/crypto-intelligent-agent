@@ -8,6 +8,7 @@ O LLM decide as ferramentas e redige o "Final Answer". Todo o resto é determin�
 """
 
 import logging
+import re
 from collections.abc import Callable
 from datetime import UTC, datetime
 
@@ -28,6 +29,13 @@ from app.services.grounding import findings_from, parse_observation, sources_fro
 logger = logging.getLogger(__name__)
 
 MARKET_TOOLS = {"get_market_data", "get_market_details", "get_global_market"}
+KNOWLEDGE_TOOL = "search_knowledge_base"
+# Pedido de explicação conceitual (Fase 4): exige evidência documental da base local.
+CONCEPT_REQUEST = re.compile(
+    r"\b(expli\w+|diferen[cç]as?|o que (?:é|e|são|sao|significa)|como funciona\w*|defin\w+|"
+    r"explain\w*|difference|what (?:is|are)|how does)\b",
+    re.IGNORECASE,
+)
 STOPPED_PREFIX = "Agent stopped"
 
 
@@ -94,6 +102,16 @@ def assemble_report(
         if not answer:
             answer = "A resposta gerada continha apenas valores não confirmados e foi descartada."
             status = ReportStatus.FAILED if market_calls or removed else status
+
+    knowledge_ok = any(c.tool == KNOWLEDGE_TOOL and c.ok for c in calls)
+    if CONCEPT_REQUEST.search(question) and calls and not knowledge_ok:
+        # Pergunta mista respondida sem trechos da base: a parte conceitual não tem fonte.
+        uncertainties.append(
+            "a parte conceitual da resposta não foi verificada na base de conhecimento local "
+            "(search_knowledge_base não foi usada ou não encontrou documentos)"
+        )
+        if status is ReportStatus.COMPLETE:
+            status = ReportStatus.PARTIAL
 
     if not calls:
         uncertainties.append("nenhuma ferramenta foi usada: resposta baseada apenas no conhecimento do modelo")

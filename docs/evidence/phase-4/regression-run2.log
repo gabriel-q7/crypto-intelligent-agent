@@ -1,0 +1,16 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.15, pytest-9.1.1, pluggy-1.7.0 -- /usr/local/bin/python3.12
+rootdir: /app
+configfile: pyproject.toml
+plugins: anyio-4.16.0, langsmith-0.14.17
+collecting ... collected 7 items
+
+tests/integration/test_phase3_live.py::test_live_multi_turn_restart_and_isolation PASSED [ 14%]
+tests/integration/test_phase4_live.py::test_live_ingestion_persists_real_snapshots PASSED [ 28%]
+tests/integration/test_phase4_live.py::test_live_text_to_query_on_populated_database PASSED [ 42%]
+tests/integration/test_phase4_live.py::test_live_retrieval_uses_existing_collection_without_rewrite_when_suitable PASSED [ 57%]
+tests/integration/test_phase4_live.py::test_live_query_rewriting_fixes_vocabulary_mismatch PASSED [ 71%]
+tests/integration/test_phase4_live.py::test_live_rewrite_does_not_fabricate_evidence_for_absent_topic PASSED [ 85%]
+tests/integration/test_phase4_live.py::test_live_agent_selects_new_tools PASSED [100%]
+
+======================== 7 passed in 595.53s (0:09:55) =========================

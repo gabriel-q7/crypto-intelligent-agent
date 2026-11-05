@@ -1,0 +1,92 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.15, pytest-9.1.1, pluggy-1.7.0 -- /usr/local/bin/python3.12
+rootdir: /app
+configfile: pyproject.toml
+testpaths: tests
+plugins: anyio-4.16.0, langsmith-0.14.17
+collecting ... collected 329 items / 311 deselected / 18 selected
+
+tests/integration/test_ollama_chain.py::test_invoke_returns_valid_analysis[build_lcel_chain] PASSED [  5%]
+tests/integration/test_ollama_chain.py::test_invoke_returns_valid_analysis[build_imperative_chain] PASSED [ 11%]
+tests/integration/test_ollama_chain.py::test_conceptual_question_is_answered PASSED [ 16%]
+tests/integration/test_ollama_chain.py::test_batch PASSED                [ 22%]
+tests/integration/test_ollama_chain.py::test_stream PASSED               [ 27%]
+tests/integration/test_phase2_live.py::test_live_ticker_has_price_and_timestamps PASSED [ 33%]
+tests/integration/test_phase2_live.py::test_live_missing_asset_and_paid_endpoint_are_explicit PASSED [ 38%]
+tests/integration/test_phase2_live.py::test_live_global_and_ohlcv PASSED [ 44%]
+tests/integration/test_phase2_live.py::test_react_agent_calls_coinpaprika_and_uses_real_values PASSED [ 50%]
+tests/integration/test_phase2_live.py::test_router_comparison_parallel_live PASSED [ 55%]
+tests/integration/test_phase2_live.py::test_knowledge_index_with_real_embeddings PASSED [ 61%]
+tests/integration/test_phase3_live.py::test_live_multi_turn_restart_and_isolation FAILED [ 66%]
+tests/integration/test_phase4_live.py::test_live_ingestion_persists_real_snapshots PASSED [ 72%]
+tests/integration/test_phase4_live.py::test_live_text_to_query_on_populated_database PASSED [ 77%]
+tests/integration/test_phase4_live.py::test_live_retrieval_uses_existing_collection_without_rewrite_when_suitable PASSED [ 83%]
+tests/integration/test_phase4_live.py::test_live_query_rewriting_fixes_vocabulary_mismatch FAILED [ 88%]
+tests/integration/test_phase4_live.py::test_live_rewrite_does_not_fabricate_evidence_for_absent_topic PASSED [ 94%]
+tests/integration/test_phase4_live.py::test_live_agent_selects_new_tools PASSED [100%]
+
+=================================== FAILURES ===================================
+__________________ test_live_multi_turn_restart_and_isolation __________________
+
+dirs = PosixPath('/tmp/pytest-of-appuser/pytest-0/phase30')
+
+    def test_live_multi_turn_restart_and_isolation(dirs):
+        svc = service(dirs)
+        session = svc.store.create_session("live")
+        other = svc.store.create_session("outra")
+    
+        a1 = svc.handle(session.id, "Compare BTC e ETH no mercado atual")
+        show("A1", a1)
+        assert a1.effective_intent.value == "asset_comparison" and a1.status in {"complete", "partial"}
+        assert {s.endpoint for s in a1.data_sources} >= {"/tickers/btc-bitcoin", "/tickers/eth-ethereum"}
+    
+        a2 = svc.handle(session.id, "Considere os últimos 30 dias")
+        show("A2", a2)
+        assert a2.entities.assets == ["BTC", "ETH"] and a2.entities.period_days == 30
+>       assert "30 dias" in a2.answer and not a2.clarification_needed
+E       AssertionError: assert ('30 dias' in 'Comparação com dados da CoinPaprika (atualizados até 2026-11-05T00:54:25Z). Variação 30d, do maior para o menor: BTC -6,00% > ETH -10,19%. Variação 24h, do maior para o menor: ETH +7,23% > BTC +5,00%. Market cap, do maior para o menor: BTC US$ 1.622.482.267.583,00 > ETH US$ 296.402.875.400,00.')
+E        +  where 'Comparação com dados da CoinPaprika (atualizados até 2026-11-05T00:54:25Z). Variação 30d, do maior para o menor: BTC -6,00% > ETH -10,19%. Variação 24h, do maior para o menor: ETH +7,23% > BTC +5,00%. Market cap, do maior para o menor: BTC US$ 1.622.482.267.583,00 > ETH US$ 296.402.875.400,00.' = ConversationReply(session_id='1c2a1199bca849db90098418267692c3', user_seq=3, assistant_seq=4, answer='Comparação com dados da CoinPaprika (atualizados até 2026-11-05T00:54:25Z). Variação 30d, do maior para o menor: BTC -6,00% > ETH -10,19%. Variação 24h, do maior para o menor: ETH +7,23% > BTC +5,00%. Market cap, do maior para o menor: BTC US$ 1.622.482.267.583,00 > ETH US$ 296.402.875.400,00.', status='complete', intent=<ConversationIntent.FOLLOW_UP: 'follow_up'>, effective_intent=<ConversationIntent.ASSET_COMPARISON: 'asset_comparison'>, entities=ResolvedEntities(assets=['BTC', 'ETH'], protocols=[], networks=[], metrics=[], period='30 dias', period_days=30), context_sources={'assets': 'active_context', 'period': 'current_message'}, referenced_analyses=[], retrieved_memories=[], data_sources=[DataSource(provider='CoinPaprika', tool='get_market_data', endpoint='/tickers/btc-bitcoin', source_updated_at=datetime.datetime(2026, 11, 5, 0, 54, 13, tzinfo=TzInfo(0)), retrieved_at=datetime.datetime(2026, 11, 5, 0, 57, 49, 305805, tzinfo=TzInfo(0))), DataSource(provider='CoinPaprika', tool='get_market_data', endpoint='/tickers/eth-ethereum', source_updated_at=datetime.datetime(2026, 11, ...datetime.datetime(2026, 11, 5, 0, 57, 49, 305805, tzinfo=TzInfo(0))), DataSource(provider='CoinPaprika', tool='get_market_data', endpoint='/tickers/eth-ethereum', source_updated_at=datetime.datetime(2026, 11, 5, 0, 54, 13, tzinfo=TzInfo(0)), retrieved_at=datetime.datetime(2026, 11, 5, 0, 57, 49, 307120, tzinfo=TzInfo(0))), DataSource(provider='CoinPaprika', tool='get_global_market', endpoint='/global', source_updated_at=datetime.datetime(2026, 11, 5, 0, 54, 25, tzinfo=TzInfo(0)), retrieved_at=datetime.datetime(2026, 11, 5, 0, 57, 49, 305009, tzinfo=TzInfo(0)))], uncertainties=['Os dados apresentados são históricos, com a última atualização registrada em 2026-11-05T00:54:25Z (CoinPaprika). Não há dados de mercado em tempo real disponíveis.'], tool_calls=[], decision_summary=['intenção=follow_up → execução=asset_comparison'], model=None, generated_at=datetime.datetime(2026, 11, 5, 0, 58, 42, 119356, tzinfo=datetime.timezone.utc)), context_usage=ContextUsage(tokens=167, budget_tokens=3000, included={'current_message': 1, 'active_context': 1, 'recent_messages': 2, 'memories': 0}, dropped={}), generated_at=datetime.datetime(2026, 11, 5, 0, 58, 42, 437545, tzinfo=datetime.timezone.utc)).answer
+
+tests/integration/test_phase3_live.py:71: AssertionError
+----------------------------- Captured stdout call -----------------------------
+
+[A1] asset_comparison complete assets=['BTC', 'ETH'] period=None sources={'assets': 'current_message'}
+    Comparação com dados da CoinPaprika (atualizados até 2026-11-05T00:54:25Z). Variação 24h, do maior para o menor: ETH +7,23% > BTC +5,00%. Market cap, do maior para o menor: BTC US$ 1.622.482.267.583,00 > ETH US$ 296.402.875.400,00.
+
+[A2] asset_comparison complete assets=['BTC', 'ETH'] period=30 sources={'assets': 'active_context', 'period': 'current_message'}
+    Comparação com dados da CoinPaprika (atualizados até 2026-11-05T00:54:25Z). Variação 30d, do maior para o menor: BTC -6,00% > ETH -10,19%. Variação 24h, do maior para o menor: ETH +7,23% > BTC +5,00%. Market cap, do maior para o menor: BTC US$ 1.622.482.267.583,00 > ETH US$ 296.402.875.400,00.
+------------------------------ Captured log call -------------------------------
+WARNING  mem0.memory.main:main.py:544 The 'chroma' vector store does not support keyword search. Hybrid (BM25) scoring will be disabled and search will use semantic similarity only. To enable hybrid search, switch to a store with keyword_search support (e.g. qdrant, elasticsearch, pgvector).
+WARNING  mem0.utils.spacy_models:spacy_models.py:88 Failed to load spaCy lemma model: spaCy is not installed. Install it with: pip install mem0ai[nlp]
+WARNING  mem0.utils.spacy_models:spacy_models.py:63 Failed to load spaCy full model: spaCy is not installed. Install it with: pip install mem0ai[nlp]
+_____________ test_live_query_rewriting_fixes_vocabulary_mismatch ______________
+
+knowledge = <app.agents.factory.KnowledgeSearcher object at 0x7f079b821e50>
+llm = ChatOllama(metadata={'lc_versions': {'langchain-core': '1.6.12'}}, model='gemma4:e2b', reasoning=False, num_ctx=8192, temperature=0.0, format='json', base_url='http://ollama:11434', client_kwargs={'timeout': 300.0})
+
+    @pytest.mark.integration
+    def test_live_query_rewriting_fixes_vocabulary_mismatch(knowledge, llm):
+        """Caso real de docs/phase-4-evidence.md: a pergunta não usa 'halving'; o trecho da seção
+        Halving (bitcoin.md#1) fica em 3º na busca original e deve subir com a reescrita."""
+        agent = RetrievalAgent(knowledge.index, QueryRewriter(llm), get_retrieval_settings())
+        result = agent.retrieve("Por que a recompensa dos mineradores cai pela metade?")
+        original_ids = [d.chunk_id for d in result.original_documents]
+        used_ids = [d.chunk_id for d in result.documents]
+        print(json.dumps({"rewritten_query": result.rewritten_query, "original": original_ids, "used": used_ids,
+                          "decision": result.decision}, ensure_ascii=False))
+        assert original_ids[0] != "bitcoin.md#1"
+>       assert result.rewrite_applied and used_ids[0] == "bitcoin.md#1"
+E       assert (True and 'ethereum-staking.md#7' == 'bitcoin.md#1'
+E        +  where True = RetrievalResult(status='ok', original_query='Por que a recompensa dos mineradores cai pela metade?', rewritten_query='recompensa mineradores redução recompensa metade mecanismo de recompensa bitcoin ethereum', rewrite=QueryRewrite(main_concept='recompensa de mineração', intent='entender a causa da redução da recompensa dos mineradores', rewritten_query='recompensa mineradores redução recompensa metade mecanismo de recompensa bitcoin ethereum', added_terms=['recompensa mineradores', 'recompensa metade', 'mineradores', 'bitcoin', 'ethereum']), rewrite_applied=True, decision="melhor distância original 0.345 > 0.33; reescrita: 3 trecho(s) válido(s) (âncoras ['recompensa', 'mineracao', 'mineradores', 'metade', 'bitcoin', 'ethereum']); usada a consulta reescrita", query_used='recompensa mineradores redução recompensa metade mecanismo de recompensa bitcoin ethereum', rewrite_trigger_distance=0.33, relevance_max_distance=0.38, documents=[RetrievedDocument(chunk_id='ethereum-staking.md#7', source='ethereum-staking.md', title='Ethereum e staking', score=0.2745, question_distance=0.3861, anchor_terms=['mineracao', 'ethereum'], rank=1, content='# Ethereum e staking\n\nEthereum (ETH) é uma bl...do registro.\n\n- **Proof of Work (PoW):** mineradores competem resolvendo um problema computacional; quem resolve primeiro propõe o bloco e recebe a recompensa. A segurança vem do custo de energia e hardware. Usado pelo Bitcoin.\n- **Proof of Stake (PoS):** validadores bloqueiam (fazem stake de) moedas como garantia e são escolhidos para propor e atestar blocos. Comportamento malicioso pode ser punido com perda de parte do stake (slashing). Usado pelo Ethereum desde 2022.', metadata={'title': 'Fundamentos de blockchain', 'source': 'blockchain-basics.md'}), RetrievedDocument(chunk_id='bitcoin.md#1', source='bitcoin.md', title='Bitcoin', score=0.2907, question_distance=0.3528, anchor_terms=['recompensa', 'metade'], rank=3, content='## Halving\n\nO halving reduz pela metade a recompensa por bloco a cada 210.000 blocos, aproximadamente a cada quatro anos. A recompensa começou em 50 BTC e passou para 25, 12,5, 6,25 e 3,125 BTC após o halving de abril de 2024. O efeito do halving sobre o preço não é garantido e só pode ser avaliado com dados de mercado.\n\n## Unidade\n\nA menor unidade é o satoshi: 1 BTC = 100.000.000 satoshis.', metadata={'title': 'Bitcoin', 'source': 'bitcoin.md'})]).rewrite_applied
+E         
+E         - bitcoin.md#1
+E         + ethereum-staking.md#7)
+
+tests/integration/test_phase4_live.py:130: AssertionError
+----------------------------- Captured stdout call -----------------------------
+{"rewritten_query": "recompensa mineradores redução recompensa metade mecanismo de recompensa bitcoin ethereum", "original": ["blockchain-basics.md#3", "bitcoin.md#0", "bitcoin.md#1"], "used": ["ethereum-staking.md#7", "blockchain-basics.md#3", "bitcoin.md#1"], "decision": "melhor distância original 0.345 > 0.33; reescrita: 3 trecho(s) válido(s) (âncoras ['recompensa', 'mineracao', 'mineradores', 'metade', 'bitcoin', 'ethereum']); usada a consulta reescrita"}
+=========================== short test summary info ============================
+FAILED tests/integration/test_phase3_live.py::test_live_multi_turn_restart_and_isolation
+FAILED tests/integration/test_phase4_live.py::test_live_query_rewriting_fixes_vocabulary_mismatch
+=========== 2 failed, 16 passed, 311 deselected in 493.17s (0:08:13) ===========
+

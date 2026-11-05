@@ -93,6 +93,21 @@ AGENT = {
         {"question": "Esse ativo está caro?"},
         "Sem ativo identificado: o agente pede a informação em vez de chutar.",
     ),
+    "banco_snapshots": _ex(
+        "Fase 4: filtro no banco de snapshots (Text-to-Query)",
+        {"question": "Quais ativos da nossa base tiveram alta de preço maior que 2% em 24 horas?", "include_trace": True},
+        "Usa query_market_database. Rode antes POST /market-data/ingest.",
+    ),
+    "conceito_reescrita": _ex(
+        "Fase 4: conceito com vocabulário diferente do corpus (Query Rewriting)",
+        {"question": "Por que a recompensa dos mineradores cai pela metade?", "include_trace": True},
+        "A pergunta não usa 'halving': o Retrieval Agent reescreve a consulta e o trecho da seção Halving sobe para o 1º lugar.",
+    ),
+    "combinada": _ex(
+        "Fase 4: mercado + conceito",
+        {"question": "Compare Bitcoin e Ethereum pelas métricas de mercado e explique a diferença entre proof of work e proof of stake.", "include_trace": True},
+        "Combina get_market_data e search_knowledge_base.",
+    ),
 }
 
 ROUTE = {
@@ -164,3 +179,43 @@ CONVERSATION_MESSAGE = {
     ),
     "conceito": _ex("Pergunta conceitual", {"message": "O que é TVL?"}),
 }
+
+
+# --------------------------------------------------------------------------- Fase 4
+
+MARKET_INGEST = {
+    "padrao": _ex("Lista padrão (10 ativos)", {}, "Usa MARKET_DATA_ASSETS; consome 10 requisições da CoinPaprika."),
+    "escolhidos": _ex("Ativos escolhidos", {"assets": ["btc-bitcoin", "ETH", "solana"]}, "Aceita id, símbolo ou nome."),
+}
+
+MARKET_QUERY = {
+    "alta": _ex("Alta maior que 2% em 24h", {"question": "Quais ativos tiveram alta de preço maior que 2% nas últimas 24 horas?"}),
+    "ranking": _ex("Ranking por market cap", {"question": "Quais são os 3 maiores ativos por market cap no banco?"}),
+    "historico": _ex(
+        "Período sem cobertura",
+        {"question": "Qual ativo mais subiu nos últimos 90 dias?"},
+        "Os snapshots não cobrem 90 dias: status insufficient_coverage, sem executar.",
+    ),
+    "nao_suportado": _ex("Dado inexistente no banco", {"question": "Qual o TVL da Uniswap?"}, "status unsupported."),
+}
+
+KNOWLEDGE_RETRIEVE = {
+    "reescrita": _ex(
+        "Falha de vocabulário (diagnóstico real)",
+        {"question": "Por que a recompensa dos mineradores cai pela metade?", "mode": "auto"},
+        "Sem a palavra 'halving', o trecho certo fica em 3º; com a reescrita, em 1º.",
+    ),
+    "parcial": _ex(
+        "Termo em inglês (melhora parcial)",
+        {"question": "O que é impermanent loss?", "mode": "auto"},
+        "O corpus diz 'perda impermanente' num trecho sobre DEX/AMM; a reescrita traz trechos de DeFi, mas não esse.",
+    ),
+    "adequada": _ex("Pergunta já adequada", {"question": "Explique como funciona proof of stake"}, "Sem reescrita."),
+    "comparar": _ex(
+        "Forçar reescrita (avaliação)",
+        {"question": "O que acontece se eu perder minha seed phrase?", "mode": "always"},
+    ),
+    "ausente": _ex("Assunto fora do corpus", {"question": "Como funciona a queima de moedas?"}, "Sem documentos relevantes."),
+}
+
+SYMBOL = {"btc": _ex("Bitcoin", "BTC"), "todos": _ex("Todos os ativos", None)}

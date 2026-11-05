@@ -206,6 +206,27 @@ def findings_from(observations: Iterable[dict]) -> list[Finding]:
             # Vários trechos do mesmo arquivo viram um único achado.
             for title, source in dict.fromkeys((hit["title"], hit["source"]) for hit in data):
                 findings.append(_finding(obs, f"Base de conhecimento: '{title}' ({source})"))
+        elif tool == "query_market_database":
+            findings += _database_findings(obs, data)
+        elif tool == "calculate_percent_change":
+            findings.append(_finding(obs, f"Cálculo local: de {data['old']:g} para {data['new']:g} = {format_pct(data['percent_change'])}"))
+    return findings
+
+
+def _database_findings(obs: dict, data: dict, max_rows: int = 10) -> list[Finding]:
+    """Linhas do banco de snapshots, marcadas como dado armazenado (não cotação ao vivo)."""
+    snapshot = (obs.get("source") or {}).get("retrieved_at") or "?"
+    prefix = f"Banco de snapshots (coleta mais recente {snapshot})"
+    rows = data.get("rows") or []
+    if not rows:
+        return [_finding(obs, f"{prefix}: nenhum registro atende à consulta")]
+    findings = []
+    for row in rows[:max_rows]:
+        label = row.get("symbol") or row.get("name") or ""
+        values = ", ".join(f"{k}={v}" for k, v in row.items() if k not in {"symbol", "name"} and v is not None)
+        findings.append(_finding(obs, f"{prefix}: {label} {values}".strip()))
+    if len(rows) > max_rows:
+        findings.append(_finding(obs, f"{prefix}: mais {len(rows) - max_rows} linha(s) omitidas"))
     return findings
 
 
