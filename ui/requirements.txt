@@ -1,0 +1,3 @@
+# Interface (Fase 5): só consome a API FastAPI; nenhuma lógica de agente aqui.
+streamlit==1.65.0
+httpx==0.28.1

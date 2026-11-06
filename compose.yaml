@@ -61,5 +61,18 @@ services:
       ollama-pull:
         condition: service_completed_successfully
 
+  # Fase 5: interface Streamlit. Só consome a API (BACKEND_URL); nenhuma lógica de agente.
+  ui:
+    build: ./ui
+    environment:
+      BACKEND_URL: http://app:8000
+      BACKEND_TIMEOUT: ${BACKEND_TIMEOUT:-600}
+    ports:
+      - "${UI_HOST_PORT:-8501}:8501"
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_healthy
+
 volumes:
   ollama_models:

@@ -1,4 +1,7 @@
-langchain-core==1.6.12
+langchain-core==1.7.6
+# Fase 5: agente integrado com tool calling nativo (create_agent, sobre LangGraph); substitui
+# create_openai_tools_agent/AgentExecutor (langchain-classic, legado). Ver docs/agent-integration.md
+langchain==1.4.9
 langchain-ollama==1.1.0
 # Fase 2: APIs legadas (initialize_agent, RouterChain) isoladas em app/legacy/
 langchain-classic==1.0.8

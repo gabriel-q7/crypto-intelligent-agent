@@ -10,6 +10,7 @@ from fastapi import APIRouter, Body, Depends, HTTPException, Path, Query, Reques
 
 from app.api import examples
 from app.api.container import AppContainer
+from app.integrated.schemas import AgentMessageRequest, AgentReply
 from app.conversation.schemas import (
     SESSION_ID_PATTERN,
     ConversationReply,
@@ -67,6 +68,21 @@ def send_message(
 ) -> ConversationReply:
     _session_or_404(container, session_id)
     return container.conversation.handle(session_id, body.message)
+
+
+@router.post("/{session_id}/agent", response_model=AgentReply, tags=["fase 5: agente integrado"])
+def send_agent_message(
+    session_id: SessionId,
+    body: Annotated[AgentMessageRequest, Body(openapi_examples=examples.AGENT_MESSAGE)],
+    container: AppContainer = Depends(get_container),
+) -> AgentReply:
+    """Agente integrado: escolhe ferramentas (API, SQL, RAG, cálculo), usa o histórico persistente
+    da sessão e verifica a resposta (NLI + coerência) antes de entregar, com no máximo 1 correção."""
+    _session_or_404(container, session_id)
+    reply = container.integrated.handle(session_id, body.message)
+    if not body.include_trace:
+        reply.trajectory = [s.model_copy(update={"output": ""}) for s in reply.trajectory]
+    return reply
 
 
 @router.get("/{session_id}/messages", response_model=HistoryResponse)

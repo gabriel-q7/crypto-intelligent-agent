@@ -1,0 +1,491 @@
+{
+  "name": "crypto-agent-phase5",
+  "version": 2,
+  "description": "Avaliação do agente integrado (Fase 5): respostas, trajetórias de ferramentas e verificação. Campos: inputs = o que o alvo executa; outputs = comportamento esperado (não o texto exato).",
+  "examples": [
+    {
+      "id": "api-01",
+      "category": "api",
+      "inputs": {
+        "mode": "agent",
+        "question": "Qual é o preço atual do Bitcoin?"
+      },
+      "outputs": {
+        "expected_categories": [
+          "api"
+        ],
+        "required_tools": [
+          "get_market_data"
+        ],
+        "forbidden_tools": [
+          "query_market_database"
+        ],
+        "expected_assets": [
+          "BTC"
+        ],
+        "answer_must_include_any": [
+          "US$",
+          "$",
+          "USD"
+        ],
+        "uncertainty_expected": false,
+        "criteria": "Informa o preço atual do BTC vindo da CoinPaprika, com fonte/horário, sem inventar outros valores."
+      }
+    },
+    {
+      "id": "api-02",
+      "category": "api",
+      "inputs": {
+        "mode": "agent",
+        "question": "Qual a dominância atual do Bitcoin no mercado cripto?"
+      },
+      "outputs": {
+        "expected_categories": [
+          "api"
+        ],
+        "required_tools": [
+          "get_global_market"
+        ],
+        "forbidden_tools": [
+          "query_market_database",
+          "search_knowledge_base"
+        ],
+        "answer_must_include_any": [
+          "%",
+          "domin"
+        ],
+        "uncertainty_expected": false,
+        "criteria": "Usa a visão global do mercado e informa a dominância do BTC em %."
+      }
+    },
+    {
+      "id": "sql-01",
+      "category": "sql",
+      "inputs": {
+        "mode": "agent",
+        "question": "Quais são os 3 maiores ativos por market cap na nossa base de snapshots?"
+      },
+      "outputs": {
+        "expected_categories": [
+          "sql"
+        ],
+        "required_tools": [
+          "query_market_database"
+        ],
+        "forbidden_tools": [],
+        "answer_must_include_any": [
+          "BTC",
+          "Bitcoin"
+        ],
+        "uncertainty_expected": false,
+        "criteria": "Lista 3 ativos a partir do banco SQLite e deixa claro que são snapshots armazenados (não cotação ao vivo)."
+      }
+    },
+    {
+      "id": "sql-02",
+      "category": "sql",
+      "inputs": {
+        "mode": "agent",
+        "question": "Quais ativos da nossa base caíram nos últimos 7 dias?"
+      },
+      "outputs": {
+        "expected_categories": [
+          "sql"
+        ],
+        "required_tools": [
+          "query_market_database"
+        ],
+        "forbidden_tools": [],
+        "uncertainty_expected": false,
+        "criteria": "Filtra no banco de snapshots os ativos com variação de 7 dias negativa (métrica do provedor)."
+      }
+    },
+    {
+      "id": "rag-01",
+      "category": "rag",
+      "inputs": {
+        "mode": "agent",
+        "question": "Explique como funciona proof of stake."
+      },
+      "outputs": {
+        "expected_categories": [
+          "rag"
+        ],
+        "required_tools": [
+          "search_knowledge_base"
+        ],
+        "forbidden_tools": [
+          "get_market_data",
+          "query_market_database"
+        ],
+        "answer_must_include_any": [
+          "validador",
+          "stake",
+          "garantia"
+        ],
+        "uncertainty_expected": false,
+        "criteria": "Explica PoS com base nos documentos locais (validadores, stake como garantia, slashing)."
+      }
+    },
+    {
+      "id": "rag-02",
+      "category": "rag",
+      "inputs": {
+        "mode": "agent",
+        "question": "Por que a recompensa dos mineradores cai pela metade de tempos em tempos?"
+      },
+      "outputs": {
+        "expected_categories": [
+          "rag"
+        ],
+        "required_tools": [
+          "search_knowledge_base"
+        ],
+        "forbidden_tools": [
+          "query_market_database"
+        ],
+        "answer_must_include_any": [
+          "halving",
+          "210.000",
+          "210000",
+          "metade"
+        ],
+        "uncertainty_expected": false,
+        "criteria": "Explica o halving do Bitcoin (a cada 210.000 blocos) com base no documento local; caso de vocabulário diferente do corpus."
+      }
+    },
+    {
+      "id": "api-sql-01",
+      "category": "api+sql",
+      "inputs": {
+        "mode": "agent",
+        "question": "Compare o preço atual do BTC na CoinPaprika com o preço médio dos snapshots de BTC armazenados na nossa base."
+      },
+      "outputs": {
+        "expected_categories": [
+          "api",
+          "sql"
+        ],
+        "required_tools": [
+          "get_market_data",
+          "query_market_database"
+        ],
+        "forbidden_tools": [],
+        "expected_assets": [
+          "BTC"
+        ],
+        "uncertainty_expected": false,
+        "criteria": "Combina o preço ao vivo (API) com a média dos snapshots (SQL), distinguindo claramente as duas fontes."
+      }
+    },
+    {
+      "id": "api-rag-01",
+      "category": "api+rag",
+      "inputs": {
+        "mode": "agent",
+        "question": "Qual o preço atual do Ethereum e qual mecanismo de consenso ele usa?"
+      },
+      "outputs": {
+        "expected_categories": [
+          "api",
+          "rag"
+        ],
+        "required_tools": [
+          "get_market_data",
+          "search_knowledge_base"
+        ],
+        "forbidden_tools": [
+          "query_market_database"
+        ],
+        "expected_assets": [
+          "ETH"
+        ],
+        "answer_must_include_any": [
+          "Proof of Stake",
+          "PoS"
+        ],
+        "uncertainty_expected": false,
+        "criteria": "Preço atual do ETH (API) e consenso Proof of Stake (documento), cada parte com sua fonte."
+      }
+    },
+    {
+      "id": "api-rag-02",
+      "category": "api+rag",
+      "inputs": {
+        "mode": "agent",
+        "question": "Compare Bitcoin e Ethereum pelas métricas de mercado atuais e explique a diferença entre proof of work e proof of stake."
+      },
+      "outputs": {
+        "expected_categories": [
+          "api",
+          "rag"
+        ],
+        "required_tools": [
+          "get_market_data",
+          "search_knowledge_base"
+        ],
+        "forbidden_tools": [],
+        "expected_assets": [
+          "BTC",
+          "ETH"
+        ],
+        "uncertainty_expected": false,
+        "criteria": "Métricas reais de BTC e ETH + explicação PoW × PoS fundamentada nos documentos. Caso que o ReAct da Fase 4 não resolvia."
+      }
+    },
+    {
+      "id": "verify-contradiction",
+      "category": "factual_verification",
+      "inputs": {
+        "mode": "verify",
+        "question": "Qual o preço atual do Bitcoin?",
+        "evidence_tools": [
+          {
+            "tool": "get_market_data",
+            "args": {
+              "asset": "BTC"
+            }
+          }
+        ],
+        "answer": "Segundo a CoinPaprika, o Bitcoin (BTC) está cotado a US$ 1.000.000,00 neste momento."
+      },
+      "outputs": {
+        "expected_verification": [
+          "contradicted"
+        ],
+        "expected_labels": [
+          "contradiction"
+        ],
+        "criteria": "A afirmação plantada contradiz o preço real: o verificador deve classificar como contradiction."
+      }
+    },
+    {
+      "id": "verify-unsupported",
+      "category": "factual_verification",
+      "inputs": {
+        "mode": "verify",
+        "question": "Quantas transações por segundo a Solana processa?",
+        "evidence_tools": [
+          {
+            "tool": "search_knowledge_base",
+            "args": {
+              "question": "Solana transações por segundo desempenho"
+            }
+          }
+        ],
+        "answer": "A Solana processa 65.000 transações por segundo usando Proof of History."
+      },
+      "outputs": {
+        "expected_verification": [
+          "unsupported",
+          "partially_verified"
+        ],
+        "expected_labels": [
+          "neutral"
+        ],
+        "criteria": "A base local não fala de Solana: a afirmação deve ficar neutral (não sustentada), e não contradiction."
+      }
+    },
+    {
+      "id": "verify-supported",
+      "category": "factual_verification",
+      "inputs": {
+        "mode": "verify",
+        "question": "Qual o preço atual do Ethereum e qual seu consenso?",
+        "evidence_tools": [
+          {
+            "tool": "get_market_data",
+            "args": {
+              "asset": "ETH"
+            }
+          },
+          {
+            "tool": "search_knowledge_base",
+            "args": {
+              "question": "consenso do Ethereum The Merge proof of stake"
+            }
+          }
+        ],
+        "answer": "O Ethereum (ETH) está cotado a {ETH.price_usd_fmt} segundo a CoinPaprika. O Ethereum usa Proof of Stake desde 2022."
+      },
+      "outputs": {
+        "expected_verification": [
+          "verified"
+        ],
+        "expected_labels": [
+          "entailment"
+        ],
+        "criteria": "Preço preenchido com o valor real e consenso sustentado pelo documento: verified."
+      }
+    },
+    {
+      "id": "logic-calculation",
+      "category": "logical_verification",
+      "inputs": {
+        "mode": "verify",
+        "question": "Quanto variou um ativo que foi de 100 para 110 dólares?",
+        "evidence_tools": [
+          {
+            "tool": "calculate_percent_change",
+            "args": {
+              "old_value": 100,
+              "new_value": 110
+            }
+          }
+        ],
+        "answer": "O preço foi de US$ 100,00 para US$ 110,00, uma alta de 25%."
+      },
+      "outputs": {
+        "expected_verification": [
+          "contradicted"
+        ],
+        "expected_findings": [
+          "calculation"
+        ],
+        "criteria": "Cálculo inconsistente (o certo é 10%): a verificação lógica deve apontar calculation."
+      }
+    },
+    {
+      "id": "logic-direction",
+      "category": "logical_verification",
+      "inputs": {
+        "mode": "verify",
+        "question": "Como o Bitcoin variou nas últimas 24 horas?",
+        "evidence_tools": [
+          {
+            "tool": "get_market_data",
+            "args": {
+              "asset": "BTC"
+            }
+          }
+        ],
+        "answer": "O BTC {BTC.opposite_verb} {BTC.abs_change_24h_fmt} nas últimas 24 horas."
+      },
+      "outputs": {
+        "expected_verification": [
+          "contradicted"
+        ],
+        "expected_findings": [
+          "direction_mismatch"
+        ],
+        "criteria": "Valor absoluto certo com sentido invertido (subiu × caiu): a verificação lógica deve detectar direction_mismatch."
+      }
+    },
+    {
+      "id": "memory-followup",
+      "category": "memory",
+      "inputs": {
+        "mode": "agent",
+        "setup": [
+          "Vou acompanhar o Ethereum nesta conversa."
+        ],
+        "question": "Qual o preço atual dele?"
+      },
+      "outputs": {
+        "expected_categories": [
+          "api"
+        ],
+        "required_tools": [
+          "get_market_data"
+        ],
+        "forbidden_tools": [],
+        "expected_assets": [
+          "ETH"
+        ],
+        "uncertainty_expected": false,
+        "criteria": "Informa o preço atual do Ethereum (o ativo citado na mensagem anterior da conversa), com fonte. Não precisa mencionar o histórico."
+      }
+    },
+    {
+      "id": "memory-restart",
+      "category": "memory",
+      "inputs": {
+        "mode": "agent",
+        "setup": [
+          "Meu ativo de interesse é a Solana."
+        ],
+        "restart": true,
+        "question": "Qual é o market cap atual do meu ativo de interesse?"
+      },
+      "outputs": {
+        "expected_categories": [
+          "api"
+        ],
+        "required_tools": [
+          "get_market_data"
+        ],
+        "forbidden_tools": [],
+        "expected_assets": [
+          "SOL"
+        ],
+        "uncertainty_expected": false,
+        "criteria": "Informa o market cap atual da Solana (o ativo de interesse dito antes na conversa), com fonte. Não precisa mencionar o histórico nem o reinício."
+      }
+    },
+    {
+      "id": "error-not-found",
+      "category": "error_handling",
+      "inputs": {
+        "mode": "agent",
+        "question": "Qual o preço atual da moeda XYZQWE?"
+      },
+      "outputs": {
+        "expected_categories": [
+          "api"
+        ],
+        "required_tools": [],
+        "forbidden_tools": [
+          "query_market_database"
+        ],
+        "expected_error_kinds": [
+          "not_found"
+        ],
+        "uncertainty_expected": true,
+        "criteria": "O ativo não existe: informa que não foi encontrado, sem inventar preço."
+      }
+    },
+    {
+      "id": "error-coverage",
+      "category": "error_handling",
+      "inputs": {
+        "mode": "agent",
+        "question": "Na nossa base de snapshots, qual ativo mais subiu nos últimos 90 dias?"
+      },
+      "outputs": {
+        "expected_categories": [
+          "sql"
+        ],
+        "required_tools": [
+          "query_market_database"
+        ],
+        "forbidden_tools": [],
+        "expected_error_kinds": [
+          "insufficient_coverage"
+        ],
+        "uncertainty_expected": true,
+        "criteria": "Os snapshots não cobrem 90 dias: comunica a limitação e não inventa histórico."
+      }
+    },
+    {
+      "id": "ambiguous-01",
+      "category": "error_handling",
+      "inputs": {
+        "mode": "agent",
+        "question": "Esse ativo está caro?"
+      },
+      "outputs": {
+        "expected_categories": [],
+        "required_tools": [],
+        "forbidden_tools": [
+          "get_market_data",
+          "query_market_database"
+        ],
+        "uncertainty_expected": true,
+        "criteria": "Sem ativo identificado: pede esclarecimento em vez de chutar e não faz recomendação."
+      }
+    }
+  ],
+  "changelog": [
+    "v2 (2026-11-06): critérios de memory-followup e memory-restart reescritos — na v1 o LLM-juiz entendia que a resposta precisava 'demonstrar' o uso do histórico; o comportamento esperado não mudou."
+  ]
+}

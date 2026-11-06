@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from langchain_core.language_models import BaseChatModel, BaseLanguageModel
 from langchain_core.runnables import Runnable
 
-from app.agents.factory import KnowledgeSearcher, build_agent, build_router
+from app.agents.factory import KnowledgeSearcher, build_agent, build_agent_tools, build_router
 from app.agents.runner import CryptoAgent
 from app.config import (
     AgentSettings,
@@ -21,10 +21,15 @@ from app.config import (
     get_knowledge_settings,
     get_market_data_settings,
     get_retrieval_settings,
+    get_verification_settings,
     get_settings,
     project_path,
 )
 from app.conversation.chatbot import ConversationService
+from app.integrated.agent import build_integrated_agent
+from app.integrated.history import SessionHistoryAdapter
+from app.integrated.service import IntegratedAgentService
+from app.integrated.tools import structured_tools
 from app.market_data.ingestion import MarketDataIngestor
 from app.market_data.store import MarketDataStore
 from app.market_data.text_to_query import TextToQueryService
@@ -35,6 +40,7 @@ from app.retrieval.agent import RetrievalAgent
 from app.retrieval.rewriter import QueryRewriter
 from app.services.llm import build_llm
 from app.tools.coinpaprika import CoinPaprikaClient
+from app.verification.service import VerificationService
 
 
 class SessionStore:
@@ -87,6 +93,10 @@ class AppContainer:
     market_store: MarketDataStore | None = None
     text_to_query: TextToQueryService | None = None
     retrieval: RetrievalAgent | None = None
+    # Fase 5: agente integrado (tool calling nativo) + verificação de respostas.
+    # tool_llm: ChatOllama sem modo JSON (tool calling); a verificação usa ``llm`` (modo JSON).
+    tool_llm: BaseChatModel | None = None
+    integrated: IntegratedAgentService | None = None
     _routers: dict[bool, Runnable] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -109,6 +119,19 @@ class AppContainer:
         self.retrieval = self.retrieval or RetrievalAgent(
             self.knowledge.index, QueryRewriter(self.llm), self.retrieval_settings
         )
+
+        if self.integrated is None:
+            verification = get_verification_settings()
+            self.tool_llm = self.tool_llm or build_llm(self.settings, json_mode=False)
+            tools = structured_tools(build_agent_tools(self.coinpaprika, self.knowledge, self.retrieval, self.text_to_query))
+            self.integrated = IntegratedAgentService(
+                build_integrated_agent(self.tool_llm, tools),
+                VerificationService(self.llm, verification.coherence_llm, verification.evidence_per_claim),
+                self.conversation_store,
+                SessionHistoryAdapter(self.conversation_store, self.memory_backend, self.conversation_settings),
+                self.conversation,
+                model_name=self.settings.ollama_model,
+            )
 
     def market_ingestor(self) -> MarketDataIngestor:
         return MarketDataIngestor(self.coinpaprika, self.market_store)

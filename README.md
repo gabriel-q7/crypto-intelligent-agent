@@ -1,11 +1,12 @@
 # Crypto Intelligence Agent
 
-Aplicação HTTP (FastAPI) com LangChain e Ollama para análise de criptoativos.
+Aplicação HTTP (FastAPI) com LangChain e Ollama para análise de criptoativos, com interface Streamlit.
 
 - **Fase 1 — análise estruturada:** interpreta a pergunta e devolve um plano de análise + resposta mínima em JSON validado, sem dados externos.
 - **Fase 2 — agente com ferramentas:** agente ReAct clássico e chains roteadas que consultam **dados reais da CoinPaprika**, buscam conceitos numa **base de conhecimento local (Chroma)**, mantêm **memória de conversa limitada** e devolvem um `CryptoReport` validado, com fontes, horários e incertezas.
 - **Fase 3 — conversa com memória:** sessões persistentes (SQLite) com janela, resumo incremental e memória episódica/semântica (Mem0 sobre Chroma); interpreta continuações, correções e referências a resultados anteriores.
 - **Fase 4 — ferramentas externas e RAG existente:** banco SQLite de **snapshots reais da CoinPaprika** consultado por **Text-to-Query** (SQL validado, somente leitura), **Retrieval Agent** com **Query Rewriting** sobre a coleção Chroma existente e ferramenta de cálculo determinístico, todos integrados ao agente ReAct.
+- **Fase 5 — agente integrado e verificado:** um agente com tool calling nativo (`create_agent`, LangChain 1.x) que combina API, SQL, RAG e cálculo, usa o histórico persistente da Fase 3 (SQLite + Mem0), **verifica cada resposta** (afirmações × evidência real com NLI local + coerência lógica) e faz no máximo **uma correção**. Rastreamento e avaliação com **LangSmith** e interface **Streamlit**.
 
 Regra central: **nenhum valor de mercado é inventado.** Achados, fontes e horários vêm das respostas reais das ferramentas; valores da resposta sem correspondência nos dados são removidos; falhas viram status explícito (`failed`, `partial`, `unavailable`).
 
@@ -26,6 +27,11 @@ app/
   market_data/       Fase 4: banco de snapshots (SQLite), coleta, validação SQL e Text-to-Query
   retrieval/         Fase 4: Retrieval Agent e Query Rewriting
   persistence/ intent/ conversation/   Fase 3: conversas, intenção e contexto
+  integrated/        Fase 5: agente integrado (create_agent), ferramentas estruturadas, histórico, turno
+  verification/      Fase 5: afirmações, evidência, NLI, coerência lógica, política de correção
+  evaluation/        Fase 5: alvo, avaliadores (resposta e trajetória) e runner LangSmith
+ui/                  Fase 5: interface Streamlit (só consome a API)
+evaluation/          dataset de avaliação versionado (phase5_dataset.json)
   memory/            memória de conversa limitada
   observability/     callbacks de rastreamento e logging
   services/          LLM, validação, grounding, verificação da CoinPaprika, benchmark
@@ -46,7 +52,9 @@ curl -X POST localhost:8000/knowledge/ingest   # cria a coleção Chroma (1ª ve
 curl -X POST localhost:8000/market-data/ingest -H 'Content-Type: application/json' -d '{}'   # snapshots de mercado (Fase 4)
 ```
 
-API em `http://localhost:8000`; documentação interativa (Swagger) em **`http://localhost:8000/docs`**.
+API em `http://localhost:8000`; documentação interativa (Swagger) em **`http://localhost:8000/docs`**. Interface: **`http://localhost:8501`** (serviço `ui`, sobe com `make up` ou `docker compose up -d --build app ui`).
+
+Streamlit fora do Docker: `pip install -r ui/requirements.txt && BACKEND_URL=http://localhost:8000 streamlit run ui/app.py`.
 
 O `ollama-pull` baixa o modelo de chat (`OLLAMA_MODEL`) e o de embeddings (`EMBEDDING_MODEL`) para o volume `ollama_models`; o download acontece uma vez. A aplicação acessa o Ollama pelo nome do serviço (`http://ollama:11434`).
 
@@ -54,7 +62,7 @@ O `ollama-pull` baixa o modelo de chat (`OLLAMA_MODEL`) e o de embeddings (`EMBE
 
 ```bash
 make help              # lista todos os alvos
-make up                # .env (se faltar) + Ollama + modelos + API
+make up                # .env (se faltar) + Ollama + modelos + API + interface (:8501)
 make ingest            # cria a coleção de conhecimento (1ª vez)
 make market-ingest     # coleta snapshots reais para o banco SQLite (Fase 4; repita para formar histórico)
 make market-coverage   # o que o banco de snapshots cobre
@@ -62,6 +70,7 @@ make health            # saúde da API
 make test              # testes offline   (make test ARGS="-k intent")
 make test-integration  # Ollama + Mem0 + CoinPaprika reais
 make benchmark MODELS="gemma4:e2b qwen2.5:7b" REASONING=off
+make eval PREFIX=fase5   # experimento no LangSmith (exige LANGSMITH_API_KEY) | make eval-local
 make logs | make restart | make down
 make clean-data CONFIRM=yes   # apaga conversas, memórias, snapshots e coleção em ./data
 ```
@@ -90,6 +99,7 @@ make clean-data CONFIRM=yes   # apaga conversas, memórias, snapshots e coleçã
 | `GET /market-data/coverage` | 4 | Ativos, quantidade de snapshots e janela de tempo coberta |
 | `GET /market-data/snapshots` | 4 | Snapshots armazenados (`symbol`, `limit`) |
 | `POST /market-data/query` | 4 | Text-to-Query: pergunta → SQL validado → linhas reais, com SQL, parâmetros e status |
+| `POST /conversations/{id}/agent` | 5 | Agente integrado: ferramentas (API/SQL/RAG/cálculo), histórico persistente, verificação e até 1 correção; `include_trace` devolve as saídas das ferramentas |
 | `POST /knowledge/retrieve` | 4 | Retrieval Agent: busca com Query Rewriting (`mode`: `auto`, `always`, `never`) e os dois rankings |
 
 Exemplos:
@@ -169,6 +179,7 @@ docker compose run --rm --no-deps app pytest                         # offline (
 docker compose run --rm app pytest -m network                        # API real da CoinPaprika
 docker compose run --rm app pytest -m "integration or network" -v    # tudo (Ollama + modelos + internet)
 docker compose run --rm app pytest -m "integration or network" tests/integration/test_phase4_live.py -v   # só Fase 4
+docker compose run --rm app pytest -m "integration or network" tests/integration/test_phase5_live.py -v   # só Fase 5 (~12 min)
 ```
 
 Os testes que precisam de rede ou de modelo ficam fora da execução padrão e são ignorados (`skip`) quando o recurso não está disponível.
@@ -236,6 +247,9 @@ OLLAMA_BASE_URL=http://localhost:11434 uvicorn app.main:app --reload
 | `TEXT_TO_SQL_MAX_ROWS` / `TEXT_TO_SQL_TIMEOUT` | `50` / `2` | Teto de linhas e tempo máximo (s) por consulta gerada |
 | `RETRIEVAL_REWRITE_MODE` | `auto` | Query Rewriting: `auto`, `always` ou `never` |
 | `RETRIEVAL_REWRITE_DISTANCE` / `RETRIEVAL_MAX_DISTANCE` | `0.33` / `0.38` | Distância que dispara a reescrita / máxima para um trecho contar como evidência |
+| `LANGSMITH_TRACING` / `LANGSMITH_API_KEY` / `LANGSMITH_PROJECT` | `false` / vazio / `crypto-intelligence-agent` | Rastreamento e avaliação no LangSmith (opcional; a chave fica só no `.env`) |
+| `VERIFICATION_COHERENCE_LLM` / `VERIFICATION_EVIDENCE_PER_CLAIM` | `true` / `3` | Checagem de coerência por LLM; evidências comparadas por afirmação |
+| `UI_HOST_PORT` / `BACKEND_TIMEOUT` | `8501` / `600` | Porta da interface; timeout (s) da interface ao chamar a API |
 | `OLLAMA_HOST_PORT` / `APP_HOST_PORT` | `11434` / `8000` | Portas publicadas no host |
 
 ## Documentação
@@ -253,6 +267,10 @@ OLLAMA_BASE_URL=http://localhost:11434 uvicorn app.main:app --reload
 - [docs/text-to-query.md](docs/text-to-query.md) — banco de snapshots, coleta, geração, validação e execução de SQL
 - [docs/retrieval-agent.md](docs/retrieval-agent.md) — Retrieval Agent e Query Rewriting sobre a coleção existente
 - [docs/phase-4-evidence.md](docs/phase-4-evidence.md) — testes e diagnóstico real de falha de recuperação
+- [docs/agent-integration.md](docs/agent-integration.md) — agente integrado (create_agent), ferramentas, histórico, compatibilidade de tool calling
+- [docs/response-verification.md](docs/response-verification.md) — afirmações, NLI, coerência lógica, status e correção
+- [docs/langsmith-evaluation.md](docs/langsmith-evaluation.md) — tracing, dataset, avaliadores e experimentos
+- [docs/phase-5-evidence.md](docs/phase-5-evidence.md) — exemplos reais, testes e resultados da avaliação
 - [docs/composition-decision.md](docs/composition-decision.md), [docs/stage-1-evidence.md](docs/stage-1-evidence.md), [docs/stage-2-evidence.md](docs/stage-2-evidence.md) — decisões e evidências
 
 ## Fora do escopo

@@ -219,3 +219,21 @@ KNOWLEDGE_RETRIEVE = {
 }
 
 SYMBOL = {"btc": _ex("Bitcoin", "BTC"), "todos": _ex("Todos os ativos", None)}
+
+
+# --------------------------------------------------------------------------- Fase 5
+
+AGENT_MESSAGE = {
+    "api": _ex("API (preço atual)", {"message": "Qual é o preço atual do Bitcoin?"}),
+    "sql": _ex("SQL (banco de snapshots)", {"message": "Quais ativos da nossa base tiveram alta maior que 2% em 24 horas?"}),
+    "rag": _ex("RAG (conceito)", {"message": "Explique como funciona proof of stake."}),
+    "api_rag": _ex(
+        "API + RAG",
+        {"message": "Qual o preço atual do Ethereum e qual mecanismo de consenso ele usa?", "include_trace": True},
+    ),
+    "api_sql": _ex(
+        "API + SQL",
+        {"message": "Compare o preço atual do BTC com a média dos snapshots armazenados.", "include_trace": True},
+    ),
+    "follow_up": _ex("Follow-up", {"message": "E o volume dele nas últimas 24 horas?"}, "Envie depois de uma pergunta sobre um ativo."),
+}

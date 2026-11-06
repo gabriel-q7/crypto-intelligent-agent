@@ -18,7 +18,7 @@ export
 .PHONY: help env build up down restart logs ps shell pull-models \
         ingest health check-api docs market-ingest market-coverage \
         test test-network test-integration test-all \
-        benchmark benchmark-compare clean-data
+        benchmark benchmark-compare clean-data ui ui-logs eval-upload eval eval-local
 
 ## ---------------------------------------------------------------- ambiente
 
@@ -33,9 +33,16 @@ env: ## Cria o .env a partir do .env.example (não sobrescreve)
 build: ## Reconstrói a imagem da aplicação
 	$(COMPOSE) build app
 
-up: env ## Sobe Ollama + modelos + API (http://localhost:8000/docs)
-	$(COMPOSE) up -d --build app
+up: env ## Sobe Ollama + modelos + API + interface (API :8000/docs, UI :8501)
+	$(COMPOSE) up -d --build app ui
 	@echo "API: $(API_URL)/docs"
+	@echo "UI:  http://localhost:$(or $(UI_HOST_PORT),8501)"
+
+ui: ## Sobe (ou reconstrói) só a interface Streamlit
+	$(COMPOSE) up -d --build ui
+
+ui-logs: ## Acompanha os logs da interface
+	$(COMPOSE) logs -f ui
 
 down: ## Para e remove os containers (volumes e ./data são preservados)
 	$(COMPOSE) down
@@ -83,10 +90,21 @@ test: ## Testes offline (sem modelo, sem rede). Filtro: ARGS="-k nome"
 test-network: ## Testes com a API real da CoinPaprika
 	$(RUN) app pytest -m network -v $(ARGS)
 
-test-integration: ## Integração com Ollama + Mem0 + CoinPaprika reais (~12 min em CPU)
+test-integration: ## Integração com Ollama + Mem0 + CoinPaprika reais (~35 min em CPU)
 	$(RUN) app pytest -m "integration or network" -v $(ARGS)
 
 test-all: test test-integration ## Offline + integração
+
+## ---------------------------------------------------------------- avaliação (Fase 5)
+
+eval-upload: ## Cria/atualiza o dataset de avaliação no LangSmith (exige LANGSMITH_API_KEY)
+	$(RUN) app python -m app.evaluation.runner --upload
+
+eval: ## Experimento no LangSmith. Ex.: make eval PREFIX=fase5-final [IDS="api-01 rag-02"]
+	$(RUN) app python -m app.evaluation.runner --run --prefix $(or $(PREFIX),fase5) $(if $(IDS),--ids $(IDS))
+
+eval-local: ## Mesma avaliação sem LangSmith (resultados em docs/evidence/phase-5/)
+	$(RUN) app python -m app.evaluation.runner --local --prefix $(or $(PREFIX),local) $(if $(IDS),--ids $(IDS))
 
 ## ---------------------------------------------------------------- manutenção
 

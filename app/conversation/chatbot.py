@@ -93,6 +93,19 @@ class ConversationService:
         if self._executor:
             self._executor.shutdown(wait=True)
 
+    # ------------------------------------------------------------------ ganchos públicos (Fase 5)
+    # O agente integrado usa a mesma trava por sessão, a mesma manutenção (resumo, extração no
+    # Mem0) e a mesma indexação episódica: uma única implementação de memória.
+
+    def session_lock(self, session_id: str) -> threading.Lock:
+        return self._lock(session_id)
+
+    def schedule_maintenance(self, session_id: str, message: str) -> None:
+        self._schedule_maintenance(session_id, message, rule_signals(message))
+
+    def index_analysis(self, analysis: StoredAnalysis) -> None:
+        self._index_analysis(analysis)
+
     def wait_maintenance(self) -> None:
         """Usado em testes e no desligamento: espera resumos e extrações em andamento."""
         for future in list(self.pending):

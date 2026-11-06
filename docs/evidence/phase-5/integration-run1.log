@@ -1,0 +1,68 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.15, pytest-9.1.1, pluggy-1.7.0 -- /usr/local/bin/python3.12
+rootdir: /app
+configfile: pyproject.toml
+plugins: anyio-4.16.0, langsmith-0.14.17
+collecting ... collected 7 items
+
+tests/integration/test_phase5_live.py::test_model_tool_calling_bind_select_execute_incorporate PASSED
+tests/integration/test_phase5_live.py::test_agent_api_sql_rag_and_combinations {"q": "Qual é o preço atual do Bitcoin?", "tools": ["get_market_data"], "status": "complete", "verification": {"status": "verified", "entailment": 2, "contradiction": 0, "neutral": 0, "logical_errors": 0}, "corrected": false, "answer": "O preço atual do Bitcoin (BTC) é de $76,215.03 USD, conforme dados da CoinPaprika atualizados em 2026-11-06T00:49:38.274236Z. A variação de 24 horas foi de -5.58%.", "elapsed_s": 46.6}
+{"q": "Quais são os 3 maiores ativos por market cap na nossa base de snapshots?", "tools": ["query_market_database"], "status": "complete", "verification": {"status": "verified", "entailment": 2, "contradiction": 0, "neutral": 0, "logical_errors": 0}, "corrected": true, "answer": "Os 3 ativos com maior market cap na base de snapshots são: Bitcoin (BTC) com um market cap de $1.526.180.435.175.0, Ethereum (ETH) com um market cap de $272.878.228.201.0 e Tether (USDT) com um market cap de $177.517.706.995.0. Estes dados foram obtidos do banco de snapshots da CoinPaprika armazenad", "elapsed_s": 127.7}
+{"q": "Explique como funciona proof of stake.", "tools": ["search_knowledge_base"], "status": "complete", "verification": {"status": "verified", "entailment": 4, "contradiction": 0, "neutral": 0, "logical_errors": 0}, "corrected": false, "answer": "O Proof of Stake (PoS) é um mecanismo de consenso que define quem adiciona o próximo bloco e como a rede concorda sobre o estado do registro. Neste modelo, validadores bloqueiam (fazem *stake*) moedas como garantia para participar da validação da rede e receber recompensas em moeda. O comportamento ", "elapsed_s": 72.6}
+{"q": "Qual o preço atual do Ethereum e qual mecanismo de consenso ele usa?", "tools": ["get_market_data", "search_knowledge_base"], "status": "complete", "verification": {"status": "verified", "entailment": 2, "contradiction": 0, "neutral": 0, "logical_errors": 0}, "corrected": false, "answer": "O preço atual do Ethereum (ETH) é de **$2,242.72 USD**, conforme dados da CoinPaprika atualizados em 06/11/2026. O Ethereum utiliza o mecanismo de consenso **Proof of Stake (PoS)**, após a migração conhecida como \"The Merge\" em setembro de 2022.", "elapsed_s": 57.5}
+{"q": "Compare o preço atual do BTC na CoinPaprika com o preço médio dos snapshots de BTC armazenados na nossa base.", "tools": ["get_market_data", "query_market_database"], "status": "complete", "verification": {"status": "verified", "entailment": 2, "contradiction": 0, "neutral": 0, "logical_errors": 0}, "corrected": false, "answer": "O preço atual do BTC na CoinPaprika é de **$76,228.33**, conforme dados atualizados em 06/11/2026. O preço médio dos snapshots armazenados na base local é de **$79,036.51**, com base em 3 snapshots.", "elapsed_s": 58.8}
+api+sql categorias: {'sql', 'api'}
+PASSED
+tests/integration/test_phase5_live.py::test_multi_turn_isolation_restart_and_mem0 {"q": "Qual o preço atual do Ethereum?", "tools": ["get_market_data"], "status": "complete", "verification": {"status": "verified", "entailment": 2, "contradiction": 0, "neutral": 0, "logical_errors": 0}, "corrected": false, "answer": "O preço atual do Ethereum (ETH) é de **$2,242.72 USD**, conforme dados da CoinPaprika atualizados em 2026-11-06T00:55:38.126469Z. A variação de 24 horas foi de -7.77%.", "elapsed_s": 30.4}
+{"q": "E o market cap dele?", "tools": ["get_market_data"], "status": "complete", "verification": {"status": "verified", "entailment": 1, "contradiction": 0, "neutral": 0, "logical_errors": 0}, "corrected": false, "answer": "O Market Cap do Ethereum (ETH) é de **$274.042.351.496,00 USD**, conforme dados da CoinPaprika atualizados em 2026-11-06T00:53:13Z.", "elapsed_s": 29.2}
+{"q": "De qual ativo eu falei antes nesta conversa?", "tools": [], "status": "complete", "verification": {"status": "verified", "entailment": 0, "contradiction": 0, "neutral": 0, "logical_errors": 0}, "corrected": true, "answer": "Não há dados de mercado ou histórico de ativos mencionados em nossa conversa atual para que eu possa identificar de qual ativo você falou anteriormente.", "elapsed_s": 36.7}
+{"q": "Qual o volume de 24 horas desse mesmo ativo?", "tools": ["get_market_data"], "status": "complete", "verification": {"status": "verified", "entailment": 1, "contradiction": 0, "neutral": 0, "logical_errors": 0}, "corrected": false, "answer": "O volume de 24 horas do Ethereum (ETH) é de **$11.670.292.655,76 USD**, conforme dados da CoinPaprika atualizados em 2026-11-06T00:53:13Z.", "elapsed_s": 42.3}
+PASSED
+tests/integration/test_phase5_live.py::test_real_nli_labels entailment → entailment 1.0 As evidências afirmam que validadores bloqueiam moedas como garantia para propor e atestar blocos, o que é consistente com a hipótese.
+contradiction → contradiction 0.95 As evidências afirmam que os validadores bloqueiam moedas como garantia e são escolhidos para propor e atestar blocos, enquanto a hipótese afirma que os blocos são propostos por mineradores que resolvem problemas computacionais.
+neutral → contradiction 1.0 As evidências afirmam que o Proof of Stake foi usado pelo Ethereum desde 2022, o que contradiz a hipótese de que ele foi inventado em 2012 pelo Peercoin.
+FAILED
+tests/integration/test_phase5_live.py::test_single_correction_on_tampered_answer corrigida: O preço atual do Bitcoin (BTC) é de $76,228.33 USD, conforme dados da CoinPaprika atualizados em 06/11/2026 às 00:53:13Z. A variação de 24 horas foi de -5.63%. → {'status': 'verified', 'entailment': 2, 'contradiction': 0, 'neutral': 0, 'logical_errors': 0}
+PASSED
+tests/integration/test_phase5_live.py::test_langsmith_trace_recorded SKIPPED
+tests/integration/test_phase5_live.py::test_streamlit_client_against_live_api PASSED
+
+=================================== FAILURES ===================================
+_____________________________ test_real_nli_labels _____________________________
+
+
+    def test_real_nli_labels(container):
+        evidence = build_evidence([{
+            "ok": True, "tool": "search_knowledge_base",
+            "data": [{"source": "blockchain-basics.md", "title": "Fundamentos", "chunk_id": "x",
+                      "content": "Proof of Stake (PoS): validadores bloqueiam moedas como garantia e são escolhidos para propor "
+                                 "e atestar blocos. Usado pelo Ethereum desde 2022."}],
+            "source": {"provider": "Chroma"}}])
+        nli = LLMNLIClassifier(container.llm)
+        cases = {
+            "No Proof of Stake, validadores bloqueiam moedas como garantia para propor blocos.": "entailment",
+            "No Proof of Stake, os blocos são propostos por mineradores que resolvem problemas computacionais.": "contradiction",
+            "O Proof of Stake foi inventado em 2012 pela equipe do Peercoin.": "neutral",
+        }
+        results = {}
+        for text, expected in cases.items():
+            [claim] = extract_claims(text)
+            results[text] = nli.classify(claim, evidence)
+            print(expected, "→", results[text].label, results[text].confidence, results[text].rationale)
+>       assert [r.label for r in results.values()] == list(cases.values())
+E       AssertionError: assert ['entailment'...ontradiction'] == ['entailment'...n', 'neutral']
+E         
+E         At index 2 diff: 'contradiction' != 'neutral'
+E         
+E         Full diff:
+E           [
+E               'entailment',
+E               'contradiction',...
+E         
+E         ...Full output truncated (3 lines hidden), use '-vv' to show
+
+tests/integration/test_phase5_live.py:140: AssertionError
+=========================== short test summary info ============================
+FAILED tests/integration/test_phase5_live.py::test_real_nli_labels - Assertio...
+============== 1 failed, 5 passed, 1 skipped in 665.73s (0:11:05) ==============
+

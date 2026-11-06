@@ -235,3 +235,19 @@ def get_retrieval_settings() -> RetrievalSettings:
         relevance_max_distance=_env_float("RETRIEVAL_MAX_DISTANCE", defaults.relevance_max_distance),
         top_k=_env_int("KNOWLEDGE_TOP_K", defaults.top_k),
     )
+
+
+@dataclass(frozen=True)
+class VerificationSettings:
+    # Checagem de coerência lógica via LLM (as regras determinísticas rodam sempre).
+    coherence_llm: bool = True
+    # Evidências comparadas por afirmação (seleção por relevância, não todas contra todas).
+    evidence_per_claim: int = 3
+
+
+def get_verification_settings() -> VerificationSettings:
+    defaults = VerificationSettings()
+    return VerificationSettings(
+        coherence_llm=parse_optional_bool(os.getenv("VERIFICATION_COHERENCE_LLM")) is not False,
+        evidence_per_claim=_env_int("VERIFICATION_EVIDENCE_PER_CLAIM", defaults.evidence_per_claim),
+    )
