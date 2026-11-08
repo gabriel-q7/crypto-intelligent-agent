@@ -71,9 +71,14 @@ def upload(data: dict) -> str:
 
 
 def _summarize(rows: list[dict]) -> dict:
+    """Médias só dos exemplos que executaram. Exemplo com erro do alvo (Ollama fora, DNS, timeout)
+    não mede o agente: entrar com nota 0 contaminaria as médias. Ele fica listado em ``errored``."""
     by_key: dict[str, list[float]] = defaultdict(list)
     by_cat: dict[str, dict[str, list[float]]] = defaultdict(lambda: defaultdict(list))
+    errored = [row.get("id") for row in rows if row.get("error")]
     for row in rows:
+        if row.get("error"):
+            continue
         for key, ev in row["scores"].items():
             if ev["score"] is None:
                 continue
@@ -88,6 +93,8 @@ def _summarize(rows: list[dict]) -> dict:
         "answer_mean": mean([s for k, v in by_key.items() if k not in TRAJECTORY_KEYS for s in v]),
         "by_category": {c: {k: mean(v) for k, v in sorted(d.items())} for c, d in sorted(by_cat.items())},
         "n_examples": len(rows),
+        "n_scored": len(rows) - len(errored),
+        "errored": errored,
     }
 
 

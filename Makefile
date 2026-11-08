@@ -18,7 +18,7 @@ export
 .PHONY: help env build up down restart logs ps shell pull-models \
         ingest health check-api docs market-ingest market-coverage \
         test test-network test-integration test-all \
-        benchmark benchmark-compare clean-data ui ui-logs eval-upload eval eval-local
+        benchmark benchmark-compare clean-data ui ui-logs eval-upload eval eval-local report
 
 ## ---------------------------------------------------------------- ambiente
 
@@ -101,10 +101,15 @@ eval-upload: ## Cria/atualiza o dataset de avaliação no LangSmith (exige LANGS
 	$(RUN) app python -m app.evaluation.runner --upload
 
 eval: ## Experimento no LangSmith. Ex.: make eval PREFIX=fase5-final [IDS="api-01 rag-02"]
-	$(RUN) app python -m app.evaluation.runner --run --prefix $(or $(PREFIX),fase5) $(if $(IDS),--ids $(IDS))
+	$(RUN) -v $(CURDIR)/docs/evidence:/app/docs/evidence app python -m app.evaluation.runner --run --prefix $(or $(PREFIX),fase5) $(if $(IDS),--ids $(IDS))
 
 eval-local: ## Mesma avaliação sem LangSmith (resultados em docs/evidence/phase-5/)
-	$(RUN) app python -m app.evaluation.runner --local --prefix $(or $(PREFIX),local) $(if $(IDS),--ids $(IDS))
+	$(RUN) -v $(CURDIR)/docs/evidence:/app/docs/evidence app python -m app.evaluation.runner --local --prefix $(or $(PREFIX),local) $(if $(IDS),--ids $(IDS))
+
+## ---------------------------------------------------------------- relatório
+
+report: ## Relatório técnico final (docs/final-report.md + PDF); confere os números contra as evidências
+	./scripts/generate-report.sh
 
 ## ---------------------------------------------------------------- manutenção
 

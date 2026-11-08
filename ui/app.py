@@ -111,7 +111,7 @@ def session_list() -> None:
         sid = info["session_id"]
         active = sid == current
         when = datetime.fromisoformat(info["last_activity_at"]).astimezone()
-        if st.button(session_label(info), key=f"session-{sid}", use_container_width=True,
+        if st.button(session_label(info), key=f"session-{sid}", width="stretch",
                      type="primary" if active else "secondary",
                      help=f"{info['message_count']} mensagens · última atividade {when:%d/%m %H:%M}"):
             if not active:
@@ -130,7 +130,7 @@ if "messages" not in st.session_state:
         load_session(sid)
 
 with st.sidebar:
-    if st.button("＋ Nova conversa", use_container_width=True, type="secondary"):
+    if st.button("＋ Nova conversa", width="stretch", type="secondary"):
         new_session()
     st.subheader("Conversas")
     session_list()

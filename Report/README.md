@@ -17,6 +17,7 @@ Esta pasta reúne a documentação escrita **durante** o desenvolvimento, fase a
 | 2 — Agente com ferramentas (CoinPaprika, ReAct, roteamento, memória, Chroma, API HTTP) | [fase-02-agente-ferramentas.md](fase-02-agente-ferramentas.md) | Concluída |
 | 3 — Memória conversacional (SQLite, Mem0/Chroma, intenção e contexto, sessões persistentes) | [fase-03-memoria-conversacional.md](fase-03-memoria-conversacional.md) | Concluída |
 | 4 — Ferramentas externas e RAG existente (SQLite de snapshots, Text-to-Query, Retrieval Agent, Query Rewriting) | [fase-04-ferramentas-rag.md](fase-04-ferramentas-rag.md) | Concluída |
+| 5 — Agente integrado (`create_agent`), verificação de respostas, avaliação (LangSmith) e interface Streamlit | [fase-05-agente-integrado.md](fase-05-agente-integrado.md) | Concluída (diário consolidado em 2026-11-08) |
 
 ## Convenções
 
@@ -25,3 +26,13 @@ Esta pasta reúne a documentação escrita **durante** o desenvolvimento, fase a
 - Toda afirmação de resultado aponta para a evidência (saída de comando, teste, arquivo do repositório).
 - Registrar também o que **não funcionou** e por quê. Para o relatório final, isso vale tanto quanto o que funcionou.
 - Pendências e perguntas abertas ficam no fim de cada fase e são retomadas na fase seguinte.
+
+## Relatório final
+
+Os capítulos comuns (repositório, uso de IA, introdução, arquitetura, decisões transversais, conclusão e referências) ficam em [relatorio-final/](relatorio-final/). O relatório completo é montado com:
+
+```bash
+make report        # ou ./scripts/generate-report.sh
+```
+
+O script confere os números citados contra as evidências (`scripts/verify_report_numbers.py`), monta `docs/final-report.md` na ordem definida em `REPORT_SOURCES` e gera o PDF com pandoc + XeLaTeX. Se algum número não bater com a evidência, nada é gerado.

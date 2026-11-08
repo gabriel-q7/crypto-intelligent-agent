@@ -1,0 +1,37 @@
+# Auditoria de depreciação — 2026-11-08T21:33:08Z
+# docker compose run --rm --no-deps app pytest -p no:cacheprovider -W always::DeprecationWarning -W always::PendingDeprecationWarning -W always::FutureWarning -rw
+============================= test session starts ==============================
+platform linux -- Python 3.12.16, pytest-9.1.1, pluggy-1.7.0
+rootdir: /app
+configfile: pyproject.toml
+testpaths: tests
+plugins: anyio-4.16.0, langsmith-0.14.17
+collected 395 items / 25 deselected / 370 selected
+
+tests/unit/test_api.py ..................                                [  4%]
+tests/unit/test_benchmark.py .......                                     [  6%]
+tests/unit/test_chains.py ........................                       [ 13%]
+tests/unit/test_coinpaprika_client.py ..................                 [ 18%]
+tests/unit/test_conversation_api.py .................                    [ 22%]
+tests/unit/test_conversation_intent.py .......................           [ 28%]
+tests/unit/test_conversation_memory.py ...............                   [ 32%]
+tests/unit/test_conversation_store.py .........                          [ 35%]
+tests/unit/test_grounding.py .................                           [ 40%]
+tests/unit/test_llm_config.py ............                               [ 43%]
+tests/unit/test_market_tools.py ..........                               [ 45%]
+tests/unit/test_memory_knowledge_trace.py ...............                [ 50%]
+tests/unit/test_parsing.py ..........                                    [ 52%]
+tests/unit/test_phase2_chains.py ...................                     [ 57%]
+tests/unit/test_phase4_agent.py ...........                              [ 60%]
+tests/unit/test_phase4_market_db.py .................................    [ 69%]
+tests/unit/test_phase4_retrieval.py ........                             [ 71%]
+tests/unit/test_phase5_agent.py ............                             [ 75%]
+tests/unit/test_phase5_evaluation.py .......                             [ 77%]
+tests/unit/test_phase5_ui_client.py ...                                  [ 77%]
+tests/unit/test_phase5_verification.py ....................              [ 83%]
+tests/unit/test_prompts.py ..........                                    [ 85%]
+tests/unit/test_react_agent.py ........                                  [ 88%]
+tests/unit/test_schemas.py ................................              [ 96%]
+tests/unit/test_session_title.py ............                            [100%]
+
+================ 370 passed, 25 deselected in 63.29s (0:01:03) =================

@@ -197,7 +197,7 @@ Limites conhecidos da trava (heurística por expressão regular, não garantia):
 **Resultado:**
 
 | Modelo | Thinking | Cold start (s) | Latência média (s) | Mediana (s) | p95 (s) | Tokens prompt | Prompt tok/s | Tokens saída | Saída tok/s | JSON válido | answer_status ok | assets ok |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|
+|------------|-----------|------|------|------|------|------|------|------|------|------|-------|------|
 | qwen2.5:7b | padrão (não suporta) | 7.0 | 71.0 | 65.8 | 90.5 | 2514 | 66.1 | 153 | 4.6 | 100% | 83% | 100% |
 | gemma4:e4b | desligado | 8.2 | 83.1 | 83.9 | 87.3 | 2383 | 38.9 | 211 | 9.6 | 100% | **100%** | 100% |
 | gemma4:e4b | ligado | 7.5 | 118.1 | 110.1 | 187.7 | 2385 | 38.8 | 554 | 9.8 | 100% | **100%** | 100% |

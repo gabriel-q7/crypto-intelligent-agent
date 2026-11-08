@@ -73,3 +73,12 @@ def test_placeholders_filled_with_real_values_and_summary():
     rows = [{"category": "api", "scores": {"tool_selection": {"score": 1.0}, "correctness": {"score": 0.5}, "x": {"score": None}}}]
     summary = _summarize(rows)
     assert summary["trajectory_mean"] == 1.0 and summary["answer_mean"] == 0.5 and summary["by_category"]["api"]["correctness"] == 0.5
+
+
+def test_summary_excludes_examples_that_failed_to_run():
+    ok = {"id": "a", "category": "api", "error": None, "scores": {"tool_selection": {"score": 1.0}}}
+    down = {"id": "b", "category": "api", "error": "ConnectError('Name or service not known')",
+            "scores": {"tool_selection": {"score": 0.0}}}
+    summary = _summarize([ok, down])
+    assert summary["overall"]["tool_selection"] == 1.0  # a falha de infraestrutura não vira nota 0
+    assert summary["n_examples"] == 2 and summary["n_scored"] == 1 and summary["errored"] == ["b"]

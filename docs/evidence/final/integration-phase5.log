@@ -1,0 +1,42 @@
+# Integração da Fase 5 — 2026-11-08T21:32:16Z
+# docker compose run --rm app pytest -m 'integration or network' tests/integration/test_phase5_live.py -v -s
+============================= test session starts ==============================
+platform linux -- Python 3.12.16, pytest-9.1.1, pluggy-1.7.0 -- /usr/local/bin/python3.12
+rootdir: /app
+configfile: pyproject.toml
+plugins: anyio-4.16.0, langsmith-0.14.17
+collecting ... collected 7 items
+
+tests/integration/test_phase5_live.py::test_model_tool_calling_bind_select_execute_incorporate PASSED
+tests/integration/test_phase5_live.py::test_agent_api_sql_rag_and_combinations {"q": "Qual é o preço atual do Bitcoin?", "tools": ["get_market_data"], "status": "complete", "verification": {"status": "verified", "entailment": 2, "contradiction": 0, "neutral": 0, "logical_errors": 0}, "corrected": false, "answer": "O preço atual do Bitcoin (BTC) é de $75,596.35 USD, conforme dados da CoinPaprika atualizados em 2026-11-08T21:31:15Z. A variação de 1 hora foi de -0.12%, e a variação de 24 horas foi de -0.02%.", "elapsed_s": 18.7}
+{"q": "Quais são os 3 maiores ativos por market cap na nossa base de snapshots?", "tools": ["query_market_database"], "status": "complete", "verification": {"status": "verified", "entailment": 1, "contradiction": 0, "neutral": 0, "logical_errors": 0}, "corrected": false, "answer": "Os 3 maiores ativos por market cap na base de snapshots são: Bitcoin (BTC) com um market cap de $1.526.180.435.175.0, Ethereum (ETH) com um market cap de $272.878.228.201.0 e Tether (USDT) com um market cap de $177.517.706.995.0. Estes dados são de snapshots armazenados no SQLite local.", "elapsed_s": 38.8}
+{"q": "Explique como funciona proof of stake.", "tools": ["search_knowledge_base"], "status": "complete", "verification": {"status": "verified", "entailment": 4, "contradiction": 0, "neutral": 0, "logical_errors": 0}, "corrected": false, "answer": "O Proof of Stake (PoS) é um mecanismo de consenso onde validadores bloqueiam (fazem *stake*) criptomoedas como garantia para participar da validação de blocos na rede. Validadores são escolhidos para propor e atestar blocos. O comportamento malicioso pode resultar em penalidades, como o *slashing*, ", "elapsed_s": 53.1}
+{"q": "Qual o preço atual do Ethereum e qual mecanismo de consenso ele usa?", "tools": ["get_market_data", "search_knowledge_base"], "status": "complete", "verification": {"status": "verified", "entailment": 2, "contradiction": 0, "neutral": 0, "logical_errors": 0}, "corrected": false, "answer": "O preço atual do Ethereum (ETH) é de $2222.04 USD, conforme dados da CoinPaprika atualizados em 08/11/2026 às 21:34:26.075076Z. O Ethereum utiliza o mecanismo de consenso Proof of Stake (PoS), após a migração conhecida como The Merge em setembro de 2022.", "elapsed_s": 34.8}
+{"q": "Compare o preço atual do BTC na CoinPaprika com o preço médio dos snapshots de BTC armazenados na nossa base.", "tools": ["get_market_data", "query_market_database"], "status": "complete", "verification": {"status": "verified", "entailment": 2, "contradiction": 0, "neutral": 0, "logical_errors": 0}, "corrected": false, "answer": "O preço atual do BTC na CoinPaprika é de $75,596.35, conforme dados atualizados em 08/11/2026 às 21:31:15Z. O preço médio dos snapshots armazenados na base local é de $79,036.51, coletado em 05/11/2026.", "elapsed_s": 32.1}
+api+sql categorias: {'sql', 'api'}
+PASSED
+tests/integration/test_phase5_live.py::test_multi_turn_isolation_restart_and_mem0 {"q": "Qual o preço atual do Ethereum?", "tools": ["get_market_data"], "status": "complete", "verification": {"status": "verified", "entailment": 2, "contradiction": 0, "neutral": 0, "logical_errors": 0}, "corrected": false, "answer": "O preço atual do Ethereum (ETH) é de $2223.54 USD, conforme dados da CoinPaprika atualizados em 2026-11-08T21:34:14Z. A variação de 24 horas foi de -0.37%.", "elapsed_s": 16.0}
+{"q": "E o market cap dele?", "tools": ["get_market_data"], "status": "complete", "verification": {"status": "verified", "entailment": 1, "contradiction": 0, "neutral": 0, "logical_errors": 0}, "corrected": false, "answer": "O market cap do Ethereum (ETH) é de $271,719,111,477.00 USD, conforme dados da CoinPaprika atualizados em 2026-11-08T21:34:14Z.", "elapsed_s": 14.8}
+{"q": "De qual ativo eu falei antes nesta conversa?", "tools": [], "status": "partial", "verification": {"status": "unsupported", "entailment": 0, "contradiction": 0, "neutral": 1, "logical_errors": 0}, "corrected": true, "answer": "Não há nenhum ativo mencionado em sua solicitação anterior (não confirmado pelas fontes consultadas).\n\nAviso: a verificação automática não confirmou toda a resposta.", "elapsed_s": 9.6}
+{"q": "Qual o volume de 24 horas desse mesmo ativo?", "tools": ["get_market_data"], "status": "complete", "verification": {"status": "verified", "entailment": 1, "contradiction": 0, "neutral": 0, "logical_errors": 0}, "corrected": false, "answer": "O volume de 24 horas do Ethereum (ETH) é de $2,298,299,607.39 USD, conforme dados da CoinPaprika atualizados em 2026-11-08T21:34:14Z.", "elapsed_s": 23.1}
+PASSED
+tests/integration/test_phase5_live.py::test_real_nli_labels    entailment → entailment    1.00 | No Proof of Stake, validadores bloqueiam moedas como garantia para propor blocos.
+   entailment → entailment    1.00 | Validadores que agem de má-fé podem perder parte do stake.
+contradiction → contradiction 0.90 | No Proof of Stake, os blocos são propostos por mineradores que resolvem problemas computacionais.
+contradiction → contradiction 0.95 | O Ethereum nunca adotou Proof of Stake.
+      neutral → contradiction 0.90 | O Proof of Stake foi inventado em 2012 pela equipe do Peercoin.
+      neutral → neutral       0.50 | O Proof of Stake consome 99% menos energia que o Proof of Work.
+   entailment → entailment    0.95 | A recompensa por bloco do Bitcoin cai pela metade a cada 210.000 blocos.
+   entailment → entailment    1.00 | O efeito do halving no preço não é garantido.
+contradiction → contradiction 0.90 | O halving dobra a recompensa dos mineradores.
+contradiction → contradiction 0.95 | O halving sempre provoca alta no preço do Bitcoin.
+      neutral → neutral       0.80 | O próximo halving acontecerá em 2028.
+      neutral → neutral       0.90 | Os mineradores costumam vender BTC antes do halving.
+acurácia 11/12; neutral→contradiction: 1
+PASSED
+tests/integration/test_phase5_live.py::test_single_correction_on_tampered_answer corrigida: O preço atual do Bitcoin (BTC) é de $75,590.45 USD, conforme dados da CoinPaprika atualizados em 2026-11-08T21:36:12Z. → {'status': 'verified', 'entailment': 1, 'contradiction': 0, 'neutral': 0, 'logical_errors': 0}
+PASSED
+tests/integration/test_phase5_live.py::test_langsmith_trace_recorded SKIPPED
+tests/integration/test_phase5_live.py::test_streamlit_client_against_live_api PASSED
+
+=================== 6 passed, 1 skipped in 403.56s (0:06:43) ===================

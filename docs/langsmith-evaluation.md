@@ -110,4 +110,6 @@ O alvo (`app/evaluation/target.py`) usa o `AppContainer` real, cria uma sessão 
 
 ## 6. Resultados
 
-Ver [phase-5-evidence.md](phase-5-evidence.md), seção 6.
+Ver o diário da Fase 5 ([Report/fase-05-agente-integrado.md](../Report/fase-05-agente-integrado.md), seções 5.5 e 6). Arquivos: `docs/evidence/phase-5/eval-local-baseline.json`, `eval-local-final.json` e `eval-local-after-fixes.json` (este último com 8 exemplos interrompidos por falha de infraestrutura; não usar como resultado).
+
+Os exemplos que falham ao executar (Ollama fora, DNS, timeout) ficam fora das médias e aparecem em `summary.errored`; `summary.n_scored` informa quantos foram avaliados.

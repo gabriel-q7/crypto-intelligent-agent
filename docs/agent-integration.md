@@ -90,7 +90,7 @@ Por construção não há duplicação: o adaptador nunca escreve e o agente nã
 
 O agente integrado e o fluxo da Fase 3 (`POST /conversations/{id}/messages`) compartilham sessão, histórico, resumo e Mem0. As duas engines podem ser usadas na mesma conversa, e cada mensagem registra `engine` nos metadados.
 
-O histórico entra no agente como mensagens, então os follow-ups funcionam ("E o volume de 24 horas dele?" → `get_market_data(BTC)`, evidência na seção 3 de [phase-5-evidence.md](phase-5-evidence.md)).
+O histórico entra no agente como mensagens, então os follow-ups funcionam ("E o volume de 24 horas dele?" → `get_market_data(BTC)`, evidência em [integration-run1.log](evidence/phase-5/integration-run1.log), teste `test_multi_turn_isolation_restart_and_mem0`).
 
 ## 6. Trajetória e observabilidade
 

@@ -87,6 +87,7 @@ make clean-data CONFIRM=yes   # apaga conversas, memórias, snapshots e coleçã
 | `POST /agent` | 2 | Agente ReAct com ferramentas; `session_id` mantém memória; `include_trace` devolve o rastro |
 | `DELETE /agent/sessions/{id}` | 2 | Apaga a memória de uma sessão |
 | `POST /conversations` | 3 | Cria uma conversa persistente (devolve `session_id`) |
+| `GET /conversations` | 5 | Lista as conversas (mais recentes primeiro, com o título gerado pelo modelo após o 1º turno); usado pela barra lateral da interface |
 | `GET /conversations/{id}` | 3 | Consulta/retoma a conversa (também após reinício da API) |
 | `POST /conversations/{id}/messages` | 3 | Envia uma mensagem: intenção, contexto, execução e resposta com evidências |
 | `GET /conversations/{id}/messages` | 3 | Histórico ordenado (`after_seq`, `limit`) |
@@ -270,7 +271,8 @@ OLLAMA_BASE_URL=http://localhost:11434 uvicorn app.main:app --reload
 - [docs/agent-integration.md](docs/agent-integration.md) — agente integrado (create_agent), ferramentas, histórico, compatibilidade de tool calling
 - [docs/response-verification.md](docs/response-verification.md) — afirmações, NLI, coerência lógica, status e correção
 - [docs/langsmith-evaluation.md](docs/langsmith-evaluation.md) — tracing, dataset, avaliadores e experimentos
-- [docs/phase-5-evidence.md](docs/phase-5-evidence.md) — exemplos reais, testes e resultados da avaliação
+- [Report/fase-05-agente-integrado.md](Report/fase-05-agente-integrado.md) — diário da Fase 5: problemas, testes reais e resultados da avaliação (evidências brutas em `docs/evidence/phase-5/` e `docs/evidence/final/`)
+- `make report` — gera o relatório técnico final (`docs/final-report.md` e PDF), conferindo os números contra as evidências
 - [docs/composition-decision.md](docs/composition-decision.md), [docs/stage-1-evidence.md](docs/stage-1-evidence.md), [docs/stage-2-evidence.md](docs/stage-2-evidence.md) — decisões e evidências
 
 ## Fora do escopo

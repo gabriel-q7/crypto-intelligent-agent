@@ -78,7 +78,7 @@ O enunciado sugeria `MoritzLaurer/mDeBERTa-v3-base-mnli-xnli` via Transformers. 
 Consequências registradas:
 - a confiança não é uma probabilidade calibrada;
 - a latência por turno é maior (por isso números vão para a checagem determinística e a extração não usa LLM);
-- a qualidade foi medida com casos reais (seção 3 de [phase-5-evidence.md](phase-5-evidence.md)) e não é presumida.
+- a qualidade foi medida com casos reais (teste `test_real_nli_labels`, 12 pares reais; ver [Report/fase-05-agente-integrado.md](../Report/fase-05-agente-integrado.md), seção 5.2) e não é presumida.
 
 A interface (`LLMNLIClassifier.classify(claim, evidence) → ClaimVerification`) permite trocar por um classificador Transformers sem mexer no resto.
 
