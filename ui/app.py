@@ -4,6 +4,8 @@ Execução: ``streamlit run ui/app.py`` (local) ou serviço ``ui`` do Docker Com
 Configuração: ``BACKEND_URL`` (padrão http://localhost:8000).
 """
 
+from datetime import datetime
+
 import streamlit as st
 from backend import Backend, BackendError, verification_summary
 
@@ -76,7 +78,7 @@ def load_session(session_id: str) -> None:
 
 def new_session() -> None:
     try:
-        info = backend().create_conversation("Streamlit")
+        info = backend().create_conversation()  # sem título: o modelo nomeia após o 1º turno
     except BackendError as exc:
         st.session_state.error = str(exc)
         return
@@ -84,6 +86,38 @@ def new_session() -> None:
     st.session_state.messages = []
     st.session_state.error = None
     st.query_params["session"] = info["session_id"]
+
+
+def session_label(info: dict) -> str:
+    if info.get("title"):
+        return info["title"]
+    created = datetime.fromisoformat(info["created_at"]).astimezone()
+    return f"Nova conversa · {created:%d/%m %H:%M}"
+
+
+@st.fragment(run_every="15s")
+def session_list() -> None:
+    """Lista de conversas; atualiza sozinha para o título gerado em background aparecer."""
+    try:
+        sessions = backend().list_conversations()
+    except BackendError as exc:
+        st.caption(f"Não foi possível listar as conversas: {exc}")
+        return
+    if not sessions:
+        st.caption("Nenhuma conversa ainda.")
+        return
+    current = st.session_state.get("session_id")
+    for info in sessions:
+        sid = info["session_id"]
+        active = sid == current
+        when = datetime.fromisoformat(info["last_activity_at"]).astimezone()
+        if st.button(session_label(info), key=f"session-{sid}", use_container_width=True,
+                     type="primary" if active else "secondary",
+                     help=f"{info['message_count']} mensagens · última atividade {when:%d/%m %H:%M}"):
+            if not active:
+                load_session(sid)
+                st.query_params["session"] = sid
+            st.rerun(scope="app")
 
 
 # --------------------------------------------------------------------------- estado
@@ -96,15 +130,10 @@ if "messages" not in st.session_state:
         load_session(sid)
 
 with st.sidebar:
-    st.header("Conversa")
-    if st.button("Nova conversa", use_container_width=True):
+    if st.button("＋ Nova conversa", use_container_width=True, type="secondary"):
         new_session()
-    typed = st.text_input("Retomar pelo id da sessão", value=st.session_state.session_id or "")
-    if st.button("Retomar", use_container_width=True) and typed.strip():
-        load_session(typed.strip())
-        st.query_params["session"] = typed.strip()
-    if st.session_state.session_id:
-        st.caption(f"Sessão: `{st.session_state.session_id}`")
+    st.subheader("Conversas")
+    session_list()
     st.divider()
     try:
         health = backend().health()
@@ -119,7 +148,7 @@ if st.session_state.error:
     st.error(st.session_state.error)
 
 if st.session_state.session_id is None:
-    st.info("Crie uma conversa nova ou retome uma existente na barra lateral.")
+    st.info("Crie uma conversa nova ou escolha uma existente na barra lateral.")
     st.markdown("Exemplos de perguntas:\n" + "\n".join(f"- {e}" for e in EXAMPLES))
     st.stop()
 
@@ -128,6 +157,7 @@ for message in st.session_state.messages:
         st.markdown(message["content"])
         if message.get("reply"):
             render_verification(message["reply"])
+            st.caption(f"{message['reply'].get('elapsed_s', 0):.0f} s")
 
 if prompt := st.chat_input("Pergunte sobre criptoativos..."):
     st.session_state.messages.append({"role": "user", "content": prompt, "reply": None})
@@ -141,7 +171,5 @@ if prompt := st.chat_input("Pergunte sobre criptoativos..."):
                 st.error(str(exc))
                 st.session_state.messages.append({"role": "assistant", "content": f"⚠ {exc}", "reply": None})
                 st.stop()
-        st.markdown(reply["answer"])
-        render_verification(reply)
-        st.caption(f"{reply.get('elapsed_s', 0):.0f} s")
     st.session_state.messages.append({"role": "assistant", "content": reply["answer"], "reply": reply})
+    st.rerun()  # redesenha a resposta e sobe a sessão para o topo da lista

@@ -46,6 +46,9 @@ class Backend:
     def create_conversation(self, title: str | None = None) -> dict:
         return self._call("POST", "/conversations", json={"title": title})
 
+    def list_conversations(self, limit: int = 50) -> list[dict]:
+        return self._call("GET", "/conversations", params={"limit": limit})["sessions"]
+
     def get_conversation(self, session_id: str) -> dict:
         return self._call("GET", f"/conversations/{session_id}")
 

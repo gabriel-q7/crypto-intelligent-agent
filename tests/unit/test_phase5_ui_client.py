@@ -26,6 +26,9 @@ def handler(request: httpx.Request) -> httpx.Response:
     if path == f"/conversations/{SID}/agent":
         assert json.loads(request.content)["message"] == "Preço do BTC?"
         return httpx.Response(200, json=REPLY)
+    if request.method == "GET" and path == "/conversations":
+        assert request.url.params["limit"] == "50"
+        return httpx.Response(200, json={"sessions": [{"session_id": SID, "title": "Preço do BTC"}]})
     if path == f"/conversations/{SID}/messages":
         return httpx.Response(200, json={"messages": [{"role": "user", "content": "oi"}]})
     if path.startswith("/conversations/"):
@@ -38,6 +41,7 @@ def test_client_flow_and_errors():
     assert client.create_conversation()["session_id"] == SID
     assert client.ask(SID, "Preço do BTC?")["answer"].startswith("O BTC")
     assert client.history(SID) == [{"role": "user", "content": "oi"}]
+    assert client.list_conversations() == [{"session_id": SID, "title": "Preço do BTC"}]
     with pytest.raises(ui.BackendError) as missing:
         client.get_conversation("b" * 32)
     assert missing.value.status == 404

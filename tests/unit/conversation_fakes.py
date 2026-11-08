@@ -18,6 +18,7 @@ class RoutingFakeChat(BaseChatModel):
     summary: dict | None = {"summary": "Resumo: o usuário pesquisa BTC e ETH.", "constraints": [], "open_questions": []}
     analysis: dict = {"summary": "Análise baseada nos dados.", "key_points": [], "uncertainties": []}
     knowledge: dict = {"answer": "Resposta conceitual baseada nos trechos.", "used_sources": []}
+    title: str = '{"title": "Preço do Bitcoin hoje."}'
     calls: list = []
 
     @property
@@ -27,6 +28,9 @@ class RoutingFakeChat(BaseChatModel):
     def _generate(self, messages: list[BaseMessage], stop=None, run_manager=None, **kwargs: Any) -> ChatResult:
         system = str(messages[0].content) if messages else ""
         human = str(messages[-1].content) if messages else ""
+        if "títulos curtos" in system:
+            self.calls.append(("title", human))
+            return ChatResult(generations=[ChatGeneration(message=AIMessage(content=self.title))])
         if "Classifique a MENSAGEM ATUAL" in system:
             kind, payload = "classifier", self.classifier
         elif "resume uma conversa" in system:

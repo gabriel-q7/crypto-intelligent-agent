@@ -19,6 +19,7 @@ from app.conversation.schemas import (
     MessageView,
     SendMessageRequest,
     SessionInfo,
+    SessionListResponse,
     SummaryResponse,
 )
 
@@ -52,6 +53,16 @@ def create_conversation(
     container: AppContainer = Depends(get_container),
 ) -> SessionInfo:
     return _info(container.conversation_store.create_session((body or CreateConversationRequest()).title))
+
+
+@router.get("", response_model=SessionListResponse)
+def list_conversations(
+    limit: int = Query(50, ge=1, le=200, description="Quantas sessões (mais recentes primeiro)."),
+    container: AppContainer = Depends(get_container),
+) -> SessionListResponse:
+    """Lista as sessões para a interface. Sem autenticação: expõe todos os ids — adequado só ao uso
+    local/single-user desta fase (ver docs/memory-strategy.md, limitações)."""
+    return SessionListResponse(sessions=[_info(s) for s in container.conversation_store.list_sessions(limit)])
 
 
 @router.get("/{session_id}", response_model=SessionInfo)

@@ -26,6 +26,10 @@ class SessionInfo(BaseModel):
     active_context: dict
 
 
+class SessionListResponse(BaseModel):
+    sessions: list[SessionInfo]
+
+
 class SendMessageRequest(BaseModel):
     message: str = Field(min_length=2, max_length=1000)
 

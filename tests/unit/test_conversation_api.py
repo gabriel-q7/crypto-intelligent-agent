@@ -263,3 +263,25 @@ def test_phase3_modules_use_no_deprecated_langchain_apis():
     )
     result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True)
     assert result.returncode == 0, result.stderr[-2000:]
+
+
+def test_untitled_session_gets_model_title_after_first_turn(harness):
+    with harness.app() as api:
+        sid = api.post("/conversations", json={}).json()["session_id"]
+        assert api.get(f"/conversations/{sid}").json()["title"] is None
+        say(api, sid, "Analise BTC")
+        assert api.get(f"/conversations/{sid}").json()["title"] == "Preço do Bitcoin hoje"
+        say(api, sid, "E o ETH?")  # já tem título: não chama o modelo de novo
+        assert harness.llm.kinds().count("title") == 1
+
+
+def test_explicit_title_is_kept_and_sessions_are_listed(harness):
+    with harness.app() as api:
+        first = new_session(api)
+        second = api.post("/conversations", json={}).json()["session_id"]
+        say(api, first, "Analise BTC")
+        listed = api.get("/conversations").json()["sessions"]
+        assert [s["session_id"] for s in listed] == [first, second]
+        assert listed[0]["title"] == "teste" and listed[0]["message_count"] == 2
+        assert len(api.get("/conversations", params={"limit": 1}).json()["sessions"]) == 1
+        assert api.get("/conversations", params={"limit": 0}).status_code == 422

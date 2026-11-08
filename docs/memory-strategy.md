@@ -85,6 +85,8 @@ Ordem de prioridade (as últimas são cortadas primeiro quando o orçamento esto
 ## 8. Limitações
 
 - **Sem autenticação:** o `session_id` identifica a conversa mas **não é credencial**. Quem conhece o id lê e altera a conversa. O `user_id` do Mem0 é fixo (`local`).
+- **Listagem de sessões (`GET /conversations`):** também sem autenticação, devolve o id e o título de todas as sessões — aceitável só no uso local/single-user. Com múltiplos usuários, filtrar por dono antes de expor.
+- **Título automático:** gerado pelo modelo na manutenção em background após o 1º turno (pergunta + resposta); sem LLM ou com saída inválida, vira a 1ª pergunta truncada. Nunca sobrescreve um título enviado na criação.
 - **Contagem de tokens aproximada.**
 - **Extração semântica depende do modelo pequeno:** o filtro barra valores de mercado, mas não garante utilidade.
 - **Concorrência entre processos:** as travas por sessão valem dentro de um processo; com vários workers, o SQLite ainda garante a ordem das mensagens, mas dois turnos da mesma sessão podem se intercalar.

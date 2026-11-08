@@ -229,6 +229,21 @@ class ConversationStore:
         if not updated:
             raise SessionNotFoundError(session_id)
 
+    def list_sessions(self, limit: int = 50) -> list[Session]:
+        """Sessões mais recentes primeiro (por última atividade)."""
+        with self._read() as conn:
+            rows = conn.execute(
+                "SELECT * FROM sessions ORDER BY last_activity_at DESC, created_at DESC LIMIT ?", (limit,)
+            ).fetchall()
+        return [self._session(r) for r in rows]
+
+    def set_title_if_empty(self, session_id: str, title: str) -> bool:
+        """Grava o título só se a sessão ainda não tiver um (não sobrescreve título escolhido)."""
+        with self._write() as conn:
+            return conn.execute(
+                "UPDATE sessions SET title = ? WHERE id = ? AND (title IS NULL OR title = '')", (title, session_id)
+            ).rowcount > 0
+
     def delete_session(self, session_id: str) -> bool:
         with self._write() as conn:
             return conn.execute("DELETE FROM sessions WHERE id = ?", (session_id,)).rowcount > 0

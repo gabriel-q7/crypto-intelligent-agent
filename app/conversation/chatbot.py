@@ -31,6 +31,7 @@ from app.chains.market_chains import (
 from app.config import ConversationSettings
 from app.conversation.context_builder import build_context
 from app.conversation.schemas import ContextUsage, ConversationReply, ResolvedEntities
+from app.conversation.title import generate_title
 from app.intent.classifier import classify_message, rule_signals
 from app.intent.resolver import active_context_from, resolve
 from app.intent.schemas import ConversationIntent as I
@@ -317,8 +318,13 @@ class ConversationService:
 
     def _maintain(self, session_id: str, message: str, signals) -> None:
         """Resumo, reindexação pendente e extração semântica. Falhas são registradas, não propagadas."""
-        if self.store.get_session(session_id) is None:
+        session = self.store.get_session(session_id)
+        if session is None:
             return  # sessão apagada enquanto a tarefa esperava
+        try:
+            self._ensure_title(session)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("title generation failed session=%s: %s", session_id, exc)
         try:
             if summary := self.summarizer.maybe_update(self.store, session_id):
                 self.memory.replace_episode(session_id, "summary", f"Resumo da sessão: {summary.summary}", {
@@ -332,6 +338,14 @@ class ConversationService:
                 logger.info("semantic memories kept session=%s count=%d", session_id, len(kept))
         except Exception as exc:  # noqa: BLE001
             logger.warning("maintenance failed session=%s: %s", session_id, exc)
+
+    def _ensure_title(self, session) -> None:
+        """Após o primeiro turno (pergunta + resposta), o modelo dá um título à sessão sem título."""
+        if session.title or session.message_count < 2:
+            return
+        title = generate_title(self.llm, self.store.list_messages(session.id, before_seq=3))
+        if self.store.set_title_if_empty(session.id, title):
+            logger.info("session titled session=%s", session.id)
 
     def delete_session(self, session_id: str) -> bool:
         with self._lock(session_id):

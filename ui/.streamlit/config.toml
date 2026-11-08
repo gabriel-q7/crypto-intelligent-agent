@@ -1,0 +1,6 @@
+# Interface sem itens de desenvolvedor: "minimal" esconde o botão Deploy do toolbar.
+[client]
+toolbarMode = "minimal"
+
+[browser]
+gatherUsageStats = false

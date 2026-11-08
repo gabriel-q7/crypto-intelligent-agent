@@ -84,3 +84,18 @@ def test_metadata_merge(store):
     message = store.append_message(session.id, "user", "x", {"a": 1})
     store.update_message_metadata(session.id, message.seq, {"b": 2})
     assert store.list_messages(session.id)[0].metadata == {"a": 1, "b": 2}
+
+
+def test_list_sessions_most_recent_first_and_limit(store):
+    a, b, c = store.create_session("a"), store.create_session("b"), store.create_session("c")
+    store.append_message(a.id, "user", "volta para o topo")
+    assert [s.id for s in store.list_sessions()] == [a.id, c.id, b.id]
+    assert [s.id for s in store.list_sessions(limit=2)] == [a.id, c.id]
+
+
+def test_set_title_if_empty_never_overwrites(store):
+    untitled, titled = store.create_session(), store.create_session("meu título")
+    assert store.set_title_if_empty(untitled.id, "Gerado") and store.get_session(untitled.id).title == "Gerado"
+    assert not store.set_title_if_empty(untitled.id, "Outro")
+    assert not store.set_title_if_empty(titled.id, "Gerado") and store.get_session(titled.id).title == "meu título"
+    assert not store.set_title_if_empty("0" * 32, "x")

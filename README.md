@@ -54,7 +54,7 @@ curl -X POST localhost:8000/market-data/ingest -H 'Content-Type: application/jso
 
 API em `http://localhost:8000`; documentação interativa (Swagger) em **`http://localhost:8000/docs`**. Interface: **`http://localhost:8501`** (serviço `ui`, sobe com `make up` ou `docker compose up -d --build app ui`).
 
-Streamlit fora do Docker: `pip install -r ui/requirements.txt && BACKEND_URL=http://localhost:8000 streamlit run ui/app.py`.
+Streamlit fora do Docker: `pip install -r ui/requirements.txt && BACKEND_URL=http://localhost:8000 streamlit run ui/app.py --client.toolbarMode=minimal` (a flag esconde o botão Deploy; no container ela já vem em `ui/.streamlit/config.toml` e no `CMD`).
 
 O `ollama-pull` baixa o modelo de chat (`OLLAMA_MODEL`) e o de embeddings (`EMBEDDING_MODEL`) para o volume `ollama_models`; o download acontece uma vez. A aplicação acessa o Ollama pelo nome do serviço (`http://ollama:11434`).
 
