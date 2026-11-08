@@ -1176,6 +1176,19 @@ Detalhes em `docs/agent-integration.md`, `docs/response-verification.md` e `docs
 - **Sintoma:** a auditoria final de depreciação encontrou `use_container_width` nos botões da interface, depreciado no Streamlit 1.65.
 - **Correção:** `width="stretch"`. Detalhes da política no capítulo de decisões transversais.
 
+### Pedido de recomendação: recusa sem consultar os dados
+
+- **Sintoma (uso real na interface, 2026-11-08 19:56 UTC):** em "qual deve investir: sol ou ether?", o agente respondeu "Não tenho dados de mercado atuais [...] para comparar SOL e ETH" sem chamar nenhuma ferramenta (`tools=[]` na resposta e na correção). Na interface, isso pareceu indisponibilidade da CoinPaprika.
+- **Investigação:** a CoinPaprika estava funcionando (`/health/coinpaprika` 7/7, cota mensal com 19.833 de 20.000 chamadas, nenhum erro no log). A documentação dela não menciona restrição por dia da semana nem janela de manutenção. A causa era o agente.
+- **Causa:** a regra "sem recomendações de investimento" do prompt. Diante de um pedido de recomendação, o modelo de 2B recusou a pergunta inteira, inclusive a parte que ele podia atender (os dados), e afirmou não ter dados sem tentar buscá-los.
+- **Correção em três camadas:**
+  1. **Prompt (regra 6):** um pedido de recomendação ou previsão sobre ativos citados não dispensa a consulta; o agente busca os dados, compara e declina só a recomendação.
+  2. **Guarda determinística (`skipped_lookup` em `app/integrated/service.py`):** se a pergunta cita ativos (`find_assets`, da Fase 3), nenhuma ferramenta foi chamada e a resposta recusa ou devolve a pergunta, a correção única é acionada com a instrução de consultar cada ativo. Só o prompt não bastou: com temperatura 0, "Qual devo investir: SOL ou ETH?" falhava sempre, enquanto "qual deve investir: sol ou ether?" passava.
+  3. **Resposta final vazia:** numa das tentativas, o agente chamou as ferramentas e devolveu texto vazio, que a verificação aprovava (sem afirmações) e virava "Não foi possível gerar uma resposta". Resposta vazia agora também aciona a correção única.
+- **Avaliação:** novo exemplo `advice-01` no dataset (versão 3, 20 exemplos), exigindo `get_market_data` para SOL e ETH e a recusa da recomendação.
+- **Evidência (`docs/evidence/final/advice-probe.jsonl`):** depois das três camadas, 6 de 6 execuções (3 por formulação) consultaram SOL e ETH, apresentaram os dados e declinaram a recomendação. Testes offline: `test_refusal_without_lookup_of_cited_assets_is_corrected`, `test_skipped_lookup_only_flags_refusals_with_cited_assets` e `test_empty_final_answer_uses_the_single_correction`.
+- **Aprendizado:** uma regra de "não faça X" num modelo pequeno tende a virar "não faça nada". A restrição precisa dizer o que **continua** sendo feito, e a falha mais provável precisa de uma checagem por código.
+
 ## Evidências e métricas
 
 | Verificação | Resultado |
@@ -1183,42 +1196,53 @@ Detalhes em `docs/agent-integration.md`, `docs/response-verification.md` e `docs
 | Spike de tool calling (`gemma4:e2b`, 2026-11-05) | `bind_tools` seleciona `get_price(BTC)` em 10,4 s; `create_agent` incorpora o resultado em 8,3 s; pergunta dupla chama as duas ferramentas; histórico resolve "meu favorito" |
 | Integração da Fase 5, 1ª execução | 5 passed, 1 failed (NLI, seção 5.2), 1 skipped (LangSmith não configurado), em 665,73 s |
 | Avaliação de base (`local-baseline`, 19 exemplos, 2026-11-06) | Média de trajetória 0,927; média de resposta 0,869; 0 exemplos com erro |
-| Avaliação final (`local-final`, 2026-11-08) | Ver a seção 6.1 |
+| Avaliação final (`local-final-v3`, 2026-11-08) | Ver a seção 6.1 |
 | Integração final da Fase 5 (2026-11-08) | 6 passed, 1 skipped; ver a seção 6.2 |
 | Testes offline (Fases 1–5) | Ver o capítulo de decisões transversais (auditoria de depreciação) |
 
 ### Avaliação final
 
-Execução local do dataset versão 2 (19 exemplos) em 2026-11-08, com o `gemma4:e2b` como agente, verificador e juiz (`docs/evidence/phase-5/eval-local-final.json`). Os **19 de 19 exemplos** executaram, sem erro de infraestrutura.
+Três execuções locais completas, todas com o `gemma4:e2b` como agente, verificador e juiz:
 
-| Média | Final | Base (2026-11-06) |
-|---|---|---|
-| Trajetória (7 avaliadores) | **0,958** | 0,927 |
-| Resposta (6 avaliadores) | **0,978** | 0,869 |
+| Execução | Data | Dataset | Código | Arquivo |
+|---|---|---|---|---|
+| Base | 2026-11-06 | versão 1, 19 exemplos | antes das correções da seção 5.4 | `eval-local-baseline.json` |
+| Intermediária | 2026-11-08 | versão 2, 19 exemplos | com a seção 5.4 | `eval-local-final.json` |
+| **Final** | 2026-11-08 | versão 3, 20 exemplos | com as seções 5.4 a 5.8 | `eval-local-final-v3.json` |
 
-| Avaliador | Final | Base |
-|---|---|---|
-| `groundedness` | 1,000 | 1,000 |
-| `factual_consistency` | 1,000 | 0,803 |
-| `logical_coherence` | 1,000 | 1,000 |
-| `uncertainty` | 1,000 | 0,929 |
-| `relevance` | 0,986 | 0,857 |
-| `correctness` | 0,879 | 0,686 |
-| `tool_selection` | 0,929 | 0,929 |
-| `required_tools` / `no_unnecessary_tools` / `tool_combination` / `tool_inputs` | 1,000 | 1,000 |
-| `evidence_used` | 0,889 | 0,727 |
-| `error_handling` | 0,750 | 0,750 |
+Na execução final, os **20 de 20 exemplos** executaram, sem erro de infraestrutura.
+
+| Média | Final | Intermediária | Base |
+|---|---|---|---|
+| Trajetória (7 avaliadores) | **0,962** | 0,958 | 0,927 |
+| Resposta (6 avaliadores) | **0,951** | 0,978 | 0,869 |
+
+| Avaliador | Final | Intermediária | Base |
+|------------------------------|--------|--------|--------|
+| `groundedness` | 1,000 | 1,000 | 1,000 |
+| `factual_consistency` | 0,975 | 1,000 | 0,803 |
+| `logical_coherence` | 1,000 | 1,000 | 1,000 |
+| `uncertainty` | 0,967 | 1,000 | 0,929 |
+| `relevance` | 0,913 | 0,986 | 0,857 |
+| `correctness` | 0,853 | 0,879 | 0,686 |
+| `tool_selection` | 0,933 | 0,929 | 0,929 |
+| `required_tools` / `no_unnecessary_tools` / `tool_combination` / `tool_inputs` | 1,000 | 1,000 | 1,000 |
+| `evidence_used` | 0,900 | 0,889 | 0,727 |
+| `error_handling` | 0,750 | 0,750 | 0,750 |
 
 Leitura:
 
-- **Nenhum valor inventado:** `groundedness` 1,0 nas duas execuções; todo valor em US$ ou % das respostas existe nas observações reais.
-- **Verificação:** os 14 exemplos do agente terminaram `verified` (na base: 8 `verified`, 3 `partially_verified`, 3 `unsupported`). Os 5 exemplos de verificação plantada (contradição, sem suporte, sustentada, cálculo errado e sentido invertido) receberam o status esperado nas duas execuções. Duas respostas passaram pela correção (`ambiguous-01` e `error-not-found`) e foram aprovadas na 2ª verificação.
-- **Comparação com a base:** entre as duas execuções mudaram o código da verificação (seção 5.4) e o dataset (versão 1 → 2). A melhora não pode ser atribuída a uma só causa.
-- **Falha que persiste:** em `error-not-found` ("preço da moeda XYZQWE"), o agente pediu esclarecimento sem consultar a API, em vez de buscar o ativo e informar que ele não existe (`tool_selection` 0, `error_handling` 0,5).
-- **Viés do juiz:** em `memory-restart`, o juiz tirou nota porque "a data da fonte é futura". O modelo julga 2026 pelo seu corte de treinamento, o mesmo efeito visto na Fase 1 (o modelo "corrigindo" o período do usuário). É mais um motivo para não depender só do juiz.
-- **Latência:** de 14,0 s a 88,4 s por exemplo do agente, incluindo a verificação.
+- **Nenhum valor inventado:** `groundedness` 1,0 nas três execuções; todo valor em US$ ou % das respostas existe nas observações reais.
+- **Verificação:** na execução final, os 15 exemplos do agente terminaram com 14 `verified`, 1 `partially_verified` (na base: 8 `verified`, 3 `partially_verified`, 3 `unsupported`). Os 5 exemplos de verificação plantada (contradição, sem suporte, sustentada, cálculo errado e sentido invertido) receberam o status esperado nas três execuções. Passaram pela correção: `advice-01`, `ambiguous-01` e `api-rag-02`.
+- **A média de resposta caiu da intermediária para a final** (0,978 → 0,951) por dois exemplos:
+  - `api-rag-02` saiu `partially_verified`: a afirmação "O Ethereum utiliza este mecanismo [PoS]" ficou `neutral` (não confirmada pela evidência), e a resposta cautelosa removeu os nomes dos ativos das linhas de métricas ("Preço Atual: $74,565.00" sem dizer que é o BTC). Na intermediária, o mesmo exemplo saiu `verified`: é variação do modelo entre execuções, e o defeito da resposta cautelosa fica registrado como limitação.
+  - `advice-01` (novo) teve `correctness` e `relevance` 0,5: a ferramenta foi chamada para SOL e ETH, mas a resposta corrigida perdeu a frase de que não faz recomendação. A ressalva passou a ser garantida por código (seção 5.8). Reavaliado depois disso (`eval-local-advice-01.json`), o exemplo teve nota 1,0 em todos os avaliadores aplicáveis.
+- **Comparações entre execuções:** código e dataset mudaram juntos. As diferenças não podem ser atribuídas a uma só causa, e um único exemplo mudando de status move as médias.
+- **Falha que persiste:** em `error-not-found` ("preço da moeda XYZQWE"), o agente pede esclarecimento sem consultar a API, em vez de buscar o ativo e informar que ele não existe (`tool_selection` 0, `error_handling` 0,5). A guarda da seção 5.8 não cobre o caso, porque o nome não é um ativo conhecido.
+- **Viés do juiz:** na execução intermediária, o juiz tirou nota de `memory-restart` porque "a data da fonte é futura". O modelo julga 2026 pelo seu corte de treinamento, o mesmo efeito visto na Fase 1 (o modelo "corrigindo" o período do usuário). É mais um motivo para não depender só do juiz.
+- **Latência:** de 10,2 s a 104,0 s por exemplo do agente na execução final, incluindo a verificação e, quando houve, a correção.
 
-O resumo foi recalculado pelo `scripts/verify_report_numbers.py` a partir das linhas do arquivo, com a regra da seção 5.5, e coincide com o salvo.
+Os resumos foram recalculados pelo `scripts/verify_report_numbers.py` a partir das linhas de cada arquivo, com a regra da seção 5.5, e coincidem com os salvos.
 
 ### Integração final
 
@@ -1241,9 +1265,11 @@ Execução de `tests/integration/test_phase5_live.py` com Ollama, CoinPaprika, S
 - **Seleção de evidência lexical:** paráfrases sem palavras em comum podem ficar `neutral`.
 - **Uma frase, uma afirmação:** uma frase com dois fatos vira uma afirmação só.
 - **Recusas passam como `verified`** (seção 5.3).
+- **Resposta cautelosa perde rótulos:** ao recompor a resposta por frases, linhas de métricas em lista perdem o nome do ativo a que se referem (`api-rag-02` na avaliação final).
+- **Ativo inexistente sem consulta:** em "moeda XYZQWE", o agente pede esclarecimento sem consultar a API (seção 6.1).
 - **LangSmith não exercitado neste ambiente:** o rastreamento e o runner estão implementados e testados offline, mas as variáveis `LANGSMITH_*` não foram configuradas; o teste de trace foi pulado e os resultados são da execução local equivalente.
 - **Juiz com viés de autoavaliação:** o mesmo modelo responde e julga; as notas do juiz são indício, não prova.
-- **Latência:** um turno leva de 14 s a quase 3 min em CPU; cada correção é mais uma execução do agente.
+- **Latência:** um turno leva de 10 s a quase 3 min em CPU; cada correção é mais uma execução do agente.
 
 ## Aprendizados
 
@@ -1257,7 +1283,8 @@ Execução de `tests/integration/test_phase5_live.py` com Ollama, CoinPaprika, S
 
 - Configurar o LangSmith e repetir a avaliação como experimento rastreado.
 - Extração de afirmações com divisão de fatos compostos e checagem de atribuição de métrica.
-- Não marcar declarações de limitação na resposta cautelosa.
+- Resposta cautelosa que preserve a estrutura da resposta (listas e rótulos de ativo).
+- Consultar a busca de ativos (`search_crypto_asset`) quando a pergunta citar um nome desconhecido, antes de pedir esclarecimento.
 - NLI com cabeça treinada (Transformers) se houver disco, mantendo a mesma interface `classify`.
 - Autenticação e dono por sessão antes de qualquer uso com mais de um usuário.
 
@@ -1301,7 +1328,7 @@ O caso do LangMem mostrou que a depreciação também vem de **dependências tra
 
 - **Spikes com avisos visíveis:** cada candidato foi importado e executado com `warnings.simplefilter("always")` no ambiente da imagem antes da adoção.
 - **Teste automático:** `test_phase3_modules_use_no_deprecated_langchain_apis` importa os módulos da Fase 3 num interpretador limpo, com `LangChainDeprecationWarning` tratado como erro. Rodar num subprocesso foi necessário porque recarregar módulos no mesmo processo recriava classes de exceção e quebrava outros testes.
-- **Auditoria final (2026-11-08):** a suíte offline completa rodou com `-W always::DeprecationWarning -W always::PendingDeprecationWarning -W always::FutureWarning`: **370 testes aprovados e nenhum aviso** (`docs/evidence/final/pytest-deprecation-audit.log`).
+- **Auditoria final (2026-11-08):** a suíte offline completa rodou com `-W always::DeprecationWarning -W always::PendingDeprecationWarning -W always::FutureWarning`: **374 testes aprovados e nenhum aviso** (`docs/evidence/final/pytest-deprecation-audit.log`).
 
 ### A exceção: APIs legadas exigidas na Fase 2
 
@@ -1359,7 +1386,7 @@ O **`gemma4:e2b` (família Gemma 4) com *thinking* desligado** foi o mais rápid
 
 ### Resultado
 
-Considerando o hardware, o desempenho foi razoável: na avaliação final da Fase 5, o modelo escolheu a categoria de ferramenta certa em 13 dos 14 exemplos do agente (`tool_selection` 0,929), combinou API, SQL e documentos na mesma resposta e não inventou valores de mercado (`groundedness` 1,0 nas avaliações da Fase 5). Um turno completo do agente integrado, com verificação, levou de 14 s a 88 s na avaliação final; respostas com correção ou várias ferramentas chegaram a quase 3 min em execuções anteriores.
+Considerando o hardware, o desempenho foi razoável: na avaliação final da Fase 5, o modelo escolheu a categoria de ferramenta certa em 14 dos 15 exemplos do agente (`tool_selection` 0,933), combinou API, SQL e documentos na mesma resposta e não inventou valores de mercado (`groundedness` 1,0 nas avaliações da Fase 5). Um turno completo do agente integrado, com verificação, levou de 10 s a 104 s na avaliação final; respostas com correção ou várias ferramentas chegaram a quase 3 min em execuções anteriores.
 
 O preço de um modelo de 2B em CPU aparece em todas as fases: latência de dezenas de segundos por chamada e erros de raciocínio numérico. As duas decisões seguintes são a resposta a isso.
 
@@ -1376,6 +1403,7 @@ Uma lição repetida em todas as fases: **o que pode ser calculado por código n
 | 3 | Instável para detectar período, correção e ativos | Regras determinísticas prevalecem sobre o LLM na intenção |
 | 4 | Errava JOIN e copiava filtros indevidos | View `snapshot_history`, período por regra, SQL validado e parametrizado |
 | 5 | Comparações numéricas na verificação | Checagem numérica determinística; o LLM só julga afirmações conceituais |
+| 5 | Recusava pedido de recomendação sem consultar os dados dos ativos citados | Guarda `skipped_lookup` aciona a correção para consultar cada ativo |
 
 ## Segurança
 
@@ -1418,8 +1446,8 @@ Ao fim das cinco fases, o Crypto Intelligence Agent é uma aplicação local com
 | 3 | Integração com Ollama, Mem0 e CoinPaprika reais | Continuação, correção, resultado anterior, reinício e isolamento entre sessões corretos |
 | 4 | Text-to-Query real (9 perguntas) | 9 status corretos, nenhum SQL inseguro executado |
 | 4 | Diagnóstico de recuperação (halving) | Trecho relevante do 3º para o 1º lugar com Query Rewriting (MRR 0,33 → 1,0) |
-| 5 | Avaliação final do agente integrado | 19 de 19 exemplos executados; média de trajetória 0,958 e de resposta 0,978; `groundedness` 1,0; os 14 exemplos do agente terminaram `verified` |
-| 1–5 | Suíte offline com todos os avisos visíveis | 370 testes aprovados, nenhum aviso de depreciação |
+| 5 | Avaliação final do agente integrado | 20 de 20 exemplos executados; média de trajetória 0,962 e de resposta 0,951; `groundedness` 1,0; 14 dos 15 exemplos do agente terminaram `verified` |
+| 1–5 | Suíte offline com todos os avisos visíveis | 374 testes aprovados, nenhum aviso de depreciação |
 
 ## O que funcionou
 
@@ -1430,7 +1458,7 @@ Ao fim das cinco fases, o Crypto Intelligence Agent é uma aplicação local com
 
 ## Limitações
 
-- **Latência em CPU:** um turno completo leva de 14 s a quase 3 min.
+- **Latência em CPU:** um turno completo leva de 10 s a quase 3 min.
 - **Verificação com modelo de 2B:** a NLI tem confiança autodeclarada e confunde "sem evidência" com "contradição" em parte dos casos; a checagem numérica confere presença de valor, não a métrica a que ele foi atribuído.
 - **Juiz e agente são o mesmo modelo:** as notas do juiz são indício, compensado por avaliadores determinísticos.
 - **Dados:** o plano gratuito da CoinPaprika não oferece série histórica; o histórico local depende de coletas manuais.

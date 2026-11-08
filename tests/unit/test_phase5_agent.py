@@ -192,6 +192,52 @@ def test_failed_correction_yields_cautious_answer_and_no_second_retry(tmp_path):
     assert "Aviso: a verificação automática não confirmou" in reply.answer and reply.status == "partial"
 
 
+def test_empty_final_answer_uses_the_single_correction(tmp_path):
+    # Caso real (2026-11-08): o modelo chamou as ferramentas e devolveu a resposta final vazia.
+    llm = scripted(tool_call("get_market_data", {"asset": "BTC"}, "c1"), "", "O BTC está em US$ 81.545,05 (CoinPaprika).")
+    verifier = ScriptedVerifier(result("verified"), result("verified"))
+    service, store, _ = make_service(tmp_path, llm, verifier)
+    reply = service.handle(store.create_session().id, "Preço do BTC?")
+    assert len(verifier.calls) == 2 and reply.answer == "O BTC está em US$ 81.545,05 (CoinPaprika)."
+    assert reply.verification.correction_attempted and reply.verification.corrected_passed
+    assert [s.tool for s in reply.trajectory] == ["get_market_data"]  # sem chamada nova
+
+
+def test_refusal_without_lookup_of_cited_assets_is_corrected(tmp_path):
+    # Caso real (2026-11-08): "Qual devo investir: SOL ou ETH?" → recusa sem chamar ferramenta.
+    llm = scripted(
+        "Não posso fornecer recomendações. Qual ativo você gostaria de analisar primeiro?",
+        tool_call("get_market_data", {"asset": "BTC"}, "c1"),
+        "O BTC está em US$ 81.545,05 (CoinPaprika). Não faço recomendação de investimento.",
+    )
+    verifier = ScriptedVerifier(result("verified"), result("verified"))
+    service, store, _ = make_service(tmp_path, llm, verifier)
+    reply = service.handle(store.create_session().id, "Qual devo investir: BTC ou ETH?")
+    assert reply.verification.correction_attempted and [s.tool for s in reply.trajectory] == ["get_market_data"]
+    assert reply.answer.startswith("O BTC está em US$ 81.545,05") and len(verifier.calls) == 2
+
+
+def test_advice_question_always_carries_the_disclaimer(tmp_path):
+    llm = scripted(tool_call("get_market_data", {"asset": "BTC"}, "c1"), "O BTC está em US$ 81.545,05 (CoinPaprika).")
+    service, store, _ = make_service(tmp_path, llm, ScriptedVerifier(result("verified")))
+    reply = service.handle(store.create_session().id, "Vale a pena investir em BTC?")
+    assert reply.answer.endswith("os dados acima servem apenas para comparação.")
+    plain = scripted(tool_call("get_market_data", {"asset": "BTC"}, "c1"), "O BTC está em US$ 81.545,05 (CoinPaprika).")
+    service, store, _ = make_service(tmp_path, plain, ScriptedVerifier(result("verified")), db="d.sqlite3")
+    assert "recomendação" not in service.handle(store.create_session().id, "Preço do BTC?").answer
+
+
+def test_skipped_lookup_only_flags_refusals_with_cited_assets():
+    from app.integrated.agent import AgentRun
+    from app.integrated.service import skipped_lookup
+
+    refusal = AgentRun(answer="Não tenho dados de mercado atuais para comparar SOL e ETH.")
+    assert skipped_lookup("Qual devo investir: SOL ou ETH?", refusal) == ["SOL", "ETH"]
+    assert skipped_lookup("Esse ativo está caro?", AgentRun(answer="Qual ativo você quer analisar?")) == []
+    concept = AgentRun(answer="O Ethereum usa Proof of Stake desde 2022.")
+    assert skipped_lookup("Explique o consenso do ETH.", concept) == []  # respondeu: nada a corrigir
+
+
 def test_verification_failure_is_reported_not_corrected(tmp_path):
     llm = scripted("O Ethereum usa Proof of Stake.")
     verifier = ScriptedVerifier(result("verification_failed"))

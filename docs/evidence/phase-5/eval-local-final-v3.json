@@ -1,0 +1,2150 @@
+{
+  "rows": [
+    {
+      "id": "api-01",
+      "category": "api",
+      "inputs": {
+        "mode": "agent",
+        "question": "Qual é o preço atual do Bitcoin?"
+      },
+      "outputs": {
+        "answer": "O preço atual do Bitcoin (BTC) é de $74,509.52 USD, conforme dados da CoinPaprika atualizados em 2026-11-08T22:21:59.382803Z.",
+        "status": "complete",
+        "tools": [
+          "get_market_data"
+        ],
+        "categories": [
+          "api"
+        ],
+        "steps": [
+          {
+            "tool": "get_market_data",
+            "args": {
+              "asset": "BTC"
+            },
+            "ok": true,
+            "error_kind": null
+          }
+        ],
+        "verification": {
+          "status": "verified",
+          "original_status": null,
+          "corrected": false,
+          "corrected_passed": null,
+          "labels": [
+            "entailment"
+          ],
+          "findings": [],
+          "errors": []
+        },
+        "original_answer": null,
+        "session_id": "abc5f4a9db094f1494ffb01b9a0dd992",
+        "elapsed_s": 16.5
+      },
+      "error": null,
+      "scores": {
+        "groundedness": {
+          "score": 1.0,
+          "comment": "todos os valores nas observações"
+        },
+        "factual_consistency": {
+          "score": 1.0,
+          "comment": "status=verified (original None)"
+        },
+        "logical_coherence": {
+          "score": 1.0,
+          "comment": "sem erro lógico"
+        },
+        "uncertainty": {
+          "score": 1.0,
+          "comment": ""
+        },
+        "tool_selection": {
+          "score": 1.0,
+          "comment": "esperado ['api'], usado ['api']"
+        },
+        "required_tools": {
+          "score": 1.0,
+          "comment": "ok"
+        },
+        "no_unnecessary_tools": {
+          "score": 1.0,
+          "comment": "proibidas chamadas: []; total de chamadas 1"
+        },
+        "tool_combination": {
+          "score": null,
+          "comment": ""
+        },
+        "tool_inputs": {
+          "score": 1.0,
+          "comment": "ativos nos argumentos: ['BTC']; esperado ['BTC']"
+        },
+        "error_handling": {
+          "score": null,
+          "comment": ""
+        },
+        "evidence_used": {
+          "score": 1.0,
+          "comment": "valores das ferramentas citados: ['$74,509.52']"
+        },
+        "correctness": {
+          "score": 1.0,
+          "comment": "A resposta fornece um preço, uma fonte (CoinPaprika) e um carimbo de data/hora, cumprindo todos os requisitos do critério."
+        },
+        "relevance": {
+          "score": 1.0,
+          "comment": "A resposta fornece o preço do Bitcoin com a fonte e o horário solicitados na pergunta."
+        }
+      },
+      "elapsed_s": 22.6
+    },
+    {
+      "id": "api-02",
+      "category": "api",
+      "inputs": {
+        "mode": "agent",
+        "question": "Qual a dominância atual do Bitcoin no mercado cripto?"
+      },
+      "outputs": {
+        "answer": "A dominância atual do Bitcoin no mercado cripto é de 57.45%. Este dado foi obtido através da ferramenta `get_global_market` e está atualizado em 08/11/2026 às 22:19:25Z.",
+        "status": "complete",
+        "tools": [
+          "get_global_market"
+        ],
+        "categories": [
+          "api"
+        ],
+        "steps": [
+          {
+            "tool": "get_global_market",
+            "args": {},
+            "ok": true,
+            "error_kind": null
+          }
+        ],
+        "verification": {
+          "status": "verified",
+          "original_status": null,
+          "corrected": false,
+          "corrected_passed": null,
+          "labels": [
+            "entailment"
+          ],
+          "findings": [],
+          "errors": []
+        },
+        "original_answer": null,
+        "session_id": "b3431a2b7dd14efab6f984a277e289b2",
+        "elapsed_s": 17.7
+      },
+      "error": null,
+      "scores": {
+        "groundedness": {
+          "score": 1.0,
+          "comment": "todos os valores nas observações"
+        },
+        "factual_consistency": {
+          "score": 1.0,
+          "comment": "status=verified (original None)"
+        },
+        "logical_coherence": {
+          "score": 1.0,
+          "comment": "sem erro lógico"
+        },
+        "uncertainty": {
+          "score": 1.0,
+          "comment": ""
+        },
+        "tool_selection": {
+          "score": 1.0,
+          "comment": "esperado ['api'], usado ['api']"
+        },
+        "required_tools": {
+          "score": 1.0,
+          "comment": "ok"
+        },
+        "no_unnecessary_tools": {
+          "score": 1.0,
+          "comment": "proibidas chamadas: []; total de chamadas 1"
+        },
+        "tool_combination": {
+          "score": null,
+          "comment": ""
+        },
+        "tool_inputs": {
+          "score": null,
+          "comment": ""
+        },
+        "error_handling": {
+          "score": null,
+          "comment": ""
+        },
+        "evidence_used": {
+          "score": 1.0,
+          "comment": "valores das ferramentas citados: ['57.45%']"
+        },
+        "correctness": {
+          "score": 0.5,
+          "comment": "A resposta fornece um valor percentual, mas não demonstra a visão global do mercado ou a fonte de forma clara e verificável conforme o critério."
+        },
+        "relevance": {
+          "score": 1.0,
+          "comment": "A resposta fornece diretamente a dominância do Bitcoin em porcentagem, atendendo a todos os critérios da pergunta."
+        }
+      },
+      "elapsed_s": 26.3
+    },
+    {
+      "id": "sql-01",
+      "category": "sql",
+      "inputs": {
+        "mode": "agent",
+        "question": "Quais são os 3 maiores ativos por market cap na nossa base de snapshots?"
+      },
+      "outputs": {
+        "answer": "Os 3 maiores ativos por market cap na base de snapshots são: Bitcoin (BTC) com um market cap de $1.526.180.435.175.0, Ethereum (ETH) com um market cap de $272.878.228.201.0 e Tether (USDT) com um market cap de $177.517.706.995.0. Estes dados são de snapshots armazenados no SQLite local, com a última atualização em 2026-11-05T23:52:14Z.",
+        "status": "complete",
+        "tools": [
+          "query_market_database"
+        ],
+        "categories": [
+          "sql"
+        ],
+        "steps": [
+          {
+            "tool": "query_market_database",
+            "args": {
+              "question": "Quais são os 3 maiores ativos por market cap na nossa base de snapshots?"
+            },
+            "ok": true,
+            "error_kind": null
+          }
+        ],
+        "verification": {
+          "status": "verified",
+          "original_status": null,
+          "corrected": false,
+          "corrected_passed": null,
+          "labels": [
+            "entailment"
+          ],
+          "findings": [],
+          "errors": []
+        },
+        "original_answer": null,
+        "session_id": "e27f749ffef44e119c79fa0942aa185f",
+        "elapsed_s": 39.2
+      },
+      "error": null,
+      "scores": {
+        "groundedness": {
+          "score": null,
+          "comment": "resposta sem valores de mercado"
+        },
+        "factual_consistency": {
+          "score": 1.0,
+          "comment": "status=verified (original None)"
+        },
+        "logical_coherence": {
+          "score": 1.0,
+          "comment": "sem erro lógico"
+        },
+        "uncertainty": {
+          "score": 1.0,
+          "comment": ""
+        },
+        "tool_selection": {
+          "score": 1.0,
+          "comment": "esperado ['sql'], usado ['sql']"
+        },
+        "required_tools": {
+          "score": 1.0,
+          "comment": "ok"
+        },
+        "no_unnecessary_tools": {
+          "score": 1.0,
+          "comment": "proibidas chamadas: []; total de chamadas 1"
+        },
+        "tool_combination": {
+          "score": null,
+          "comment": ""
+        },
+        "tool_inputs": {
+          "score": null,
+          "comment": ""
+        },
+        "error_handling": {
+          "score": null,
+          "comment": ""
+        },
+        "evidence_used": {
+          "score": 0.0,
+          "comment": "valores das ferramentas citados: []"
+        },
+        "correctness": {
+          "score": 1.0,
+          "comment": "A resposta cumpre todos os critérios, listando 3 ativos, mencionando que são snapshots do SQLite e indicando a natureza dos dados."
+        },
+        "relevance": {
+          "score": 1.0,
+          "comment": "A resposta atende diretamente à pergunta listando os 3 maiores ativos por market cap e mencionando que são snapshots armazenados."
+        }
+      },
+      "elapsed_s": 46.5
+    },
+    {
+      "id": "sql-02",
+      "category": "sql",
+      "inputs": {
+        "mode": "agent",
+        "question": "Quais ativos da nossa base caíram nos últimos 7 dias?"
+      },
+      "outputs": {
+        "answer": "Com base na base de snapshots armazenada, os seguintes ativos tiveram queda nos últimos 7 dias:\n\n*   **TRX (TRON):** -10.47%\n*   **SOL (Solana):** -4.84%\n*   **DOGE (Dogecoin):** -3.48%\n*   **ADA (Cardano):** -2.72%\n*   **BTC (Bitcoin):** -1.36%\n*   **XRP (XRP):** -0.52%\n\nEstes dados são baseados em snapshots armazenados no SQLite local, com a última atualização registrada em 2026-11-05T23:52:14Z.",
+        "status": "complete",
+        "tools": [
+          "query_market_database"
+        ],
+        "categories": [
+          "sql"
+        ],
+        "steps": [
+          {
+            "tool": "query_market_database",
+            "args": {
+              "question": "Quais ativos da nossa base caíram nos últimos 7 dias?"
+            },
+            "ok": true,
+            "error_kind": null
+          }
+        ],
+        "verification": {
+          "status": "verified",
+          "original_status": null,
+          "corrected": false,
+          "corrected_passed": null,
+          "labels": [],
+          "findings": [],
+          "errors": []
+        },
+        "original_answer": null,
+        "session_id": "132c92508ea6486ea9e6e08117910593",
+        "elapsed_s": 24.9
+      },
+      "error": null,
+      "scores": {
+        "groundedness": {
+          "score": 1.0,
+          "comment": "todos os valores nas observações"
+        },
+        "factual_consistency": {
+          "score": 1.0,
+          "comment": "status=verified (original None)"
+        },
+        "logical_coherence": {
+          "score": 1.0,
+          "comment": "sem erro lógico"
+        },
+        "uncertainty": {
+          "score": 1.0,
+          "comment": ""
+        },
+        "tool_selection": {
+          "score": 1.0,
+          "comment": "esperado ['sql'], usado ['sql']"
+        },
+        "required_tools": {
+          "score": 1.0,
+          "comment": "ok"
+        },
+        "no_unnecessary_tools": {
+          "score": 1.0,
+          "comment": "proibidas chamadas: []; total de chamadas 1"
+        },
+        "tool_combination": {
+          "score": null,
+          "comment": ""
+        },
+        "tool_inputs": {
+          "score": null,
+          "comment": ""
+        },
+        "error_handling": {
+          "score": null,
+          "comment": ""
+        },
+        "evidence_used": {
+          "score": 1.0,
+          "comment": "valores das ferramentas citados: ['-10.47%', '-4.84%', '-3.48%', '-2.72%', '-1.36%']"
+        },
+        "correctness": {
+          "score": 1.0,
+          "comment": "A resposta cumpre o critério ao listar os ativos com variação negativa de 7 dias, conforme solicitado."
+        },
+        "relevance": {
+          "score": 1.0,
+          "comment": "A resposta atende diretamente à pergunta, listando os ativos que caíram nos últimos 7 dias conforme solicitado."
+        }
+      },
+      "elapsed_s": 31.4
+    },
+    {
+      "id": "rag-01",
+      "category": "rag",
+      "inputs": {
+        "mode": "agent",
+        "question": "Explique como funciona proof of stake."
+      },
+      "outputs": {
+        "answer": "O Proof of Stake (PoS) é um mecanismo de consenso que define quem adiciona o próximo bloco e como a rede concorda sobre o estado do registro. Neste modelo, validadores bloqueiam (fazem *stake*) moedas como garantia para serem escolhidos para propor e atestar blocos. O comportamento malicioso dos validadores pode resultar em punição, como a perda parcial do *stake* (*slashing*). O Ethereum utiliza o PoS desde 2022.",
+        "status": "complete",
+        "tools": [
+          "search_knowledge_base"
+        ],
+        "categories": [
+          "rag"
+        ],
+        "steps": [
+          {
+            "tool": "search_knowledge_base",
+            "args": {
+              "question": "como funciona proof of stake"
+            },
+            "ok": true,
+            "error_kind": null
+          }
+        ],
+        "verification": {
+          "status": "verified",
+          "original_status": null,
+          "corrected": false,
+          "corrected_passed": null,
+          "labels": [
+            "entailment",
+            "entailment",
+            "entailment",
+            "entailment"
+          ],
+          "findings": [],
+          "errors": []
+        },
+        "original_answer": null,
+        "session_id": "2815346163bb478398919f4f347d16ed",
+        "elapsed_s": 36.3
+      },
+      "error": null,
+      "scores": {
+        "groundedness": {
+          "score": null,
+          "comment": "resposta sem valores de mercado"
+        },
+        "factual_consistency": {
+          "score": 1.0,
+          "comment": "status=verified (original None)"
+        },
+        "logical_coherence": {
+          "score": 1.0,
+          "comment": "sem erro lógico"
+        },
+        "uncertainty": {
+          "score": 1.0,
+          "comment": ""
+        },
+        "tool_selection": {
+          "score": 1.0,
+          "comment": "esperado ['rag'], usado ['rag']"
+        },
+        "required_tools": {
+          "score": 1.0,
+          "comment": "ok"
+        },
+        "no_unnecessary_tools": {
+          "score": 1.0,
+          "comment": "proibidas chamadas: []; total de chamadas 1"
+        },
+        "tool_combination": {
+          "score": null,
+          "comment": ""
+        },
+        "tool_inputs": {
+          "score": null,
+          "comment": ""
+        },
+        "error_handling": {
+          "score": null,
+          "comment": ""
+        },
+        "evidence_used": {
+          "score": null,
+          "comment": "sem dado numérico de mercado nas observações"
+        },
+        "correctness": {
+          "score": 0.8,
+          "comment": "A resposta explica os conceitos centrais de PoS, validadores, stake como garantia e slashing, cumprindo o critério."
+        },
+        "relevance": {
+          "score": 0.8,
+          "comment": "A resposta explica os conceitos centrais do PoS, incluindo validadores, stake como garantia e slashing, conforme solicitado."
+        }
+      },
+      "elapsed_s": 43.4
+    },
+    {
+      "id": "rag-02",
+      "category": "rag",
+      "inputs": {
+        "mode": "agent",
+        "question": "Por que a recompensa dos mineradores cai pela metade de tempos em tempos?"
+      },
+      "outputs": {
+        "answer": "A recompensa dos mineradores cai pela metade através do mecanismo conhecido como *halving*. Este evento ocorre a cada 210.000 blocos, o que corresponde a aproximadamente quatro anos. A recompensa inicial de 50 BTC foi reduzida para 25, depois 12,5, 6,25 e, mais recentemente, 3,125 BTC após os halving de abril de 2024.",
+        "status": "complete",
+        "tools": [
+          "search_knowledge_base"
+        ],
+        "categories": [
+          "rag"
+        ],
+        "steps": [
+          {
+            "tool": "search_knowledge_base",
+            "args": {
+              "question": "Por que a recompensa dos mineradores cai pela metade de tempos em tempos?"
+            },
+            "ok": true,
+            "error_kind": null
+          }
+        ],
+        "verification": {
+          "status": "verified",
+          "original_status": null,
+          "corrected": false,
+          "corrected_passed": null,
+          "labels": [
+            "entailment",
+            "entailment",
+            "entailment"
+          ],
+          "findings": [],
+          "errors": []
+        },
+        "original_answer": null,
+        "session_id": "770ab0c5b8f3463aa9483bdbbfaf05a7",
+        "elapsed_s": 38.2
+      },
+      "error": null,
+      "scores": {
+        "groundedness": {
+          "score": null,
+          "comment": "resposta sem valores de mercado"
+        },
+        "factual_consistency": {
+          "score": 1.0,
+          "comment": "status=verified (original None)"
+        },
+        "logical_coherence": {
+          "score": 1.0,
+          "comment": "sem erro lógico"
+        },
+        "uncertainty": {
+          "score": 1.0,
+          "comment": ""
+        },
+        "tool_selection": {
+          "score": 1.0,
+          "comment": "esperado ['rag'], usado ['rag']"
+        },
+        "required_tools": {
+          "score": 1.0,
+          "comment": "ok"
+        },
+        "no_unnecessary_tools": {
+          "score": 1.0,
+          "comment": "proibidas chamadas: []; total de chamadas 1"
+        },
+        "tool_combination": {
+          "score": null,
+          "comment": ""
+        },
+        "tool_inputs": {
+          "score": null,
+          "comment": ""
+        },
+        "error_handling": {
+          "score": null,
+          "comment": ""
+        },
+        "evidence_used": {
+          "score": null,
+          "comment": "sem dado numérico de mercado nas observações"
+        },
+        "correctness": {
+          "score": 1.0,
+          "comment": "A resposta explica corretamente o halving do Bitcoin, mencionando a frequência e o efeito na recompensa, conforme o critério."
+        },
+        "relevance": {
+          "score": 1.0,
+          "comment": "A resposta explica claramente o que é o halving e como ele afeta a recompensa dos mineradores, respondendo diretamente à pergunta."
+        }
+      },
+      "elapsed_s": 44.8
+    },
+    {
+      "id": "api-sql-01",
+      "category": "api+sql",
+      "inputs": {
+        "mode": "agent",
+        "question": "Compare o preço atual do BTC na CoinPaprika com o preço médio dos snapshots de BTC armazenados na nossa base."
+      },
+      "outputs": {
+        "answer": "O preço atual do BTC na CoinPaprika é de **$74,565.00**, conforme dados atualizados em 08/11/2026 às 22:21:14Z. O preço médio dos snapshots armazenados na base local é de **$79,036.51**, com base em 3 snapshots.",
+        "status": "complete",
+        "tools": [
+          "get_market_data",
+          "query_market_database"
+        ],
+        "categories": [
+          "api",
+          "sql"
+        ],
+        "steps": [
+          {
+            "tool": "get_market_data",
+            "args": {
+              "asset": "BTC"
+            },
+            "ok": true,
+            "error_kind": null
+          },
+          {
+            "tool": "query_market_database",
+            "args": {
+              "question": "Qual é o preço médio dos snapshots armazenados para o BTC?"
+            },
+            "ok": true,
+            "error_kind": null
+          }
+        ],
+        "verification": {
+          "status": "verified",
+          "original_status": null,
+          "corrected": false,
+          "corrected_passed": null,
+          "labels": [
+            "entailment",
+            "entailment"
+          ],
+          "findings": [],
+          "errors": []
+        },
+        "original_answer": null,
+        "session_id": "a87aef7adef64771a06cbcc62b19bdb6",
+        "elapsed_s": 27.4
+      },
+      "error": null,
+      "scores": {
+        "groundedness": {
+          "score": 1.0,
+          "comment": "todos os valores nas observações"
+        },
+        "factual_consistency": {
+          "score": 1.0,
+          "comment": "status=verified (original None)"
+        },
+        "logical_coherence": {
+          "score": 1.0,
+          "comment": "sem erro lógico"
+        },
+        "uncertainty": {
+          "score": 1.0,
+          "comment": ""
+        },
+        "tool_selection": {
+          "score": 1.0,
+          "comment": "esperado ['api', 'sql'], usado ['api', 'sql']"
+        },
+        "required_tools": {
+          "score": 1.0,
+          "comment": "ok"
+        },
+        "no_unnecessary_tools": {
+          "score": 1.0,
+          "comment": "proibidas chamadas: []; total de chamadas 2"
+        },
+        "tool_combination": {
+          "score": 1.0,
+          "comment": "esperado ['api', 'sql'] juntos; usado ['api', 'sql']"
+        },
+        "tool_inputs": {
+          "score": 1.0,
+          "comment": "ativos nos argumentos: ['BTC']; esperado ['BTC']"
+        },
+        "error_handling": {
+          "score": null,
+          "comment": ""
+        },
+        "evidence_used": {
+          "score": 1.0,
+          "comment": "valores das ferramentas citados: ['$74,565.00', '$79,036.51']"
+        },
+        "correctness": {
+          "score": 1.0,
+          "comment": "A resposta cumpre o critério ao combinar o preço ao vivo da CoinPaprika com a média dos snapshots da base, distinguindo claramente as duas fontes."
+        },
+        "relevance": {
+          "score": 0.8,
+          "comment": "A resposta compara os dois preços solicitados, distinguindo claramente a fonte de cada um, embora não execute a comparação matemática explícita."
+        }
+      },
+      "elapsed_s": 34.5
+    },
+    {
+      "id": "api-rag-01",
+      "category": "api+rag",
+      "inputs": {
+        "mode": "agent",
+        "question": "Qual o preço atual do Ethereum e qual mecanismo de consenso ele usa?"
+      },
+      "outputs": {
+        "answer": "O preço atual do Ethereum (ETH) é de $2128.80 USD, conforme dados da CoinPaprika atualizados em 08/11/2026 às 22:26:08.913264Z. O Ethereum utiliza o mecanismo de consenso Proof of Stake (PoS) desde setembro de 2022, após a migração conhecida como \"The Merge\".",
+        "status": "complete",
+        "tools": [
+          "get_market_data",
+          "search_knowledge_base"
+        ],
+        "categories": [
+          "api",
+          "rag"
+        ],
+        "steps": [
+          {
+            "tool": "get_market_data",
+            "args": {
+              "asset": "ethereum"
+            },
+            "ok": true,
+            "error_kind": null
+          },
+          {
+            "tool": "search_knowledge_base",
+            "args": {
+              "question": "qual mecanismo de consenso o ethereum usa"
+            },
+            "ok": true,
+            "error_kind": null
+          }
+        ],
+        "verification": {
+          "status": "verified",
+          "original_status": null,
+          "corrected": false,
+          "corrected_passed": null,
+          "labels": [
+            "entailment",
+            "entailment"
+          ],
+          "findings": [],
+          "errors": []
+        },
+        "original_answer": null,
+        "session_id": "04509b65c9454c4ea9a1c64f1cd6e103",
+        "elapsed_s": 27.0
+      },
+      "error": null,
+      "scores": {
+        "groundedness": {
+          "score": 1.0,
+          "comment": "todos os valores nas observações"
+        },
+        "factual_consistency": {
+          "score": 1.0,
+          "comment": "status=verified (original None)"
+        },
+        "logical_coherence": {
+          "score": 1.0,
+          "comment": "sem erro lógico"
+        },
+        "uncertainty": {
+          "score": 1.0,
+          "comment": ""
+        },
+        "tool_selection": {
+          "score": 1.0,
+          "comment": "esperado ['api', 'rag'], usado ['api', 'rag']"
+        },
+        "required_tools": {
+          "score": 1.0,
+          "comment": "ok"
+        },
+        "no_unnecessary_tools": {
+          "score": 1.0,
+          "comment": "proibidas chamadas: []; total de chamadas 2"
+        },
+        "tool_combination": {
+          "score": 1.0,
+          "comment": "esperado ['api', 'rag'] juntos; usado ['api', 'rag']"
+        },
+        "tool_inputs": {
+          "score": 1.0,
+          "comment": "ativos nos argumentos: ['ETH']; esperado ['ETH']"
+        },
+        "error_handling": {
+          "score": null,
+          "comment": ""
+        },
+        "evidence_used": {
+          "score": 1.0,
+          "comment": "valores das ferramentas citados: ['$2128.80']"
+        },
+        "correctness": {
+          "score": 0.5,
+          "comment": "A resposta fornece uma informação de preço com uma fonte, mas a fonte é uma API específica e a precisão do preço não pode ser verificada, e a menção ao consenso está correta."
+        },
+        "relevance": {
+          "score": 0.8,
+          "comment": "A resposta aborda ambas as partes da pergunta (preço e mecanismo de consenso) e tenta fornecer fontes, embora a precisão da fonte de preço seja uma suposição."
+        }
+      },
+      "elapsed_s": 35.8
+    },
+    {
+      "id": "api-rag-02",
+      "category": "api+rag",
+      "inputs": {
+        "mode": "agent",
+        "question": "Compare Bitcoin e Ethereum pelas métricas de mercado atuais e explique a diferença entre proof of work e proof of stake."
+      },
+      "outputs": {
+        "answer": "Preço Atual: $74,565.00 USD. Capitalização de Mercado: $1.499 Trilhão USD. Variação 24h: -1.42%. Preço Atual: $2,128.80 USD. Capitalização de Mercado: $260.14 Bilhões USD. Variação 24h: -4.63%. Proof of Work (PoW): Mineradores competem resolvendo um problema computacional para propor o bloco, e a segurança advém do custo de energia e hardware. O Bitcoin utiliza este mecanismo. Proof of Stake (PoS): Validadores bloqueiam moedas como garantia para participar da validação da rede. O Ethereum utiliza este mecanismo (não confirmado pelas fontes consultadas). Riscos associados ao staking incluem slashing (perda parcial do stake por comportamento malicioso ou falhas graves do validador), além de risco de contrato inteligente e custódia.\n\nAviso: a verificação automática não confirmou toda a resposta.",
+        "status": "partial",
+        "tools": [
+          "get_market_data",
+          "get_market_data",
+          "search_knowledge_base"
+        ],
+        "categories": [
+          "api",
+          "rag"
+        ],
+        "steps": [
+          {
+            "tool": "get_market_data",
+            "args": {
+              "asset": "BTC"
+            },
+            "ok": true,
+            "error_kind": null
+          },
+          {
+            "tool": "get_market_data",
+            "args": {
+              "asset": "ethereum"
+            },
+            "ok": true,
+            "error_kind": null
+          },
+          {
+            "tool": "search_knowledge_base",
+            "args": {
+              "question": "diferença entre proof of work e proof of stake"
+            },
+            "ok": true,
+            "error_kind": null
+          }
+        ],
+        "verification": {
+          "status": "partially_verified",
+          "original_status": "partially_verified",
+          "corrected": true,
+          "corrected_passed": false,
+          "labels": [
+            "entailment",
+            "entailment",
+            "entailment",
+            "entailment",
+            "entailment",
+            "entailment",
+            "entailment",
+            "neutral"
+          ],
+          "findings": [],
+          "errors": []
+        },
+        "original_answer": "Com base nos dados de mercado atuais (atualizados em 08/11/2026):\n\n**Comparação de Métricas de Mercado:**\n\n*   **Bitcoin (BTC):**\n    *   Preço Atual: $74,565.00 USD\n    *   Capitalização de Mercado: $1.499 Trilhão USD\n    *   Variação 24h: -1.42%\n*   **Ethereum (ETH):**\n    *   Preço Atual: $2,128.80 USD\n    *   Capitalização de Mercado: $260.14 Bilhões USD\n    *   Variação 24h: -4.63%\n\n**Diferença entre Proof of Work (PoW) e Proof of Stake (PoS):**\n\n*   **Proof of Work (PoW):** Este mecanismo exige que os mineradores resolvam um problema computacional complexo para adicionar um novo bloco à blockchain, sendo a segurança baseada no custo de energia e hardware. O Bitcoin utiliza este mecanismo.\n*   **Proof of Stake (PoS):** Neste mecanismo, os validadores bloqueiam (fazem *stake*) criptomoedas como garantia para participar da validação dos blocos. A segurança é garantida pela penalidade (*slashing*) caso o comportamento seja malicioso. O Ethereum utiliza o PoS.",
+        "session_id": "2d80b66c41b34ee29a6a9a35e9ad2356",
+        "elapsed_s": 104.0
+      },
+      "error": null,
+      "scores": {
+        "groundedness": {
+          "score": 1.0,
+          "comment": "todos os valores nas observações"
+        },
+        "factual_consistency": {
+          "score": 0.5,
+          "comment": "status=partially_verified (original partially_verified)"
+        },
+        "logical_coherence": {
+          "score": 1.0,
+          "comment": "sem erro lógico"
+        },
+        "uncertainty": {
+          "score": 0.5,
+          "comment": "ressalva sem necessidade"
+        },
+        "tool_selection": {
+          "score": 1.0,
+          "comment": "esperado ['api', 'rag'], usado ['api', 'rag']"
+        },
+        "required_tools": {
+          "score": 1.0,
+          "comment": "ok"
+        },
+        "no_unnecessary_tools": {
+          "score": 1.0,
+          "comment": "proibidas chamadas: []; total de chamadas 3"
+        },
+        "tool_combination": {
+          "score": 1.0,
+          "comment": "esperado ['api', 'rag'] juntos; usado ['api', 'rag']"
+        },
+        "tool_inputs": {
+          "score": 1.0,
+          "comment": "ativos nos argumentos: ['BTC', 'ETH']; esperado ['BTC', 'ETH']"
+        },
+        "error_handling": {
+          "score": null,
+          "comment": ""
+        },
+        "evidence_used": {
+          "score": 1.0,
+          "comment": "valores das ferramentas citados: ['$74,565.00', '$1.499 Trilhão', '-1.42%', '$2,128.80', '$260.14 Bilhões']"
+        },
+        "correctness": {
+          "score": 0.5,
+          "comment": "A resposta fornece as métricas solicitadas, mas a explicação sobre o Ethereum usar PoS não é confirmada pelas fontes, o que viola o critério de fundamentação."
+        },
+        "relevance": {
+          "score": 0.8,
+          "comment": "A resposta aborda as métricas e a diferença entre PoW e PoS, embora as métricas de mercado pareçam estar incompletas ou desorganizadas."
+        }
+      },
+      "elapsed_s": 112.8
+    },
+    {
+      "id": "verify-contradiction",
+      "category": "factual_verification",
+      "inputs": {
+        "mode": "verify",
+        "question": "Qual o preço atual do Bitcoin?",
+        "evidence_tools": [
+          {
+            "tool": "get_market_data",
+            "args": {
+              "asset": "BTC"
+            }
+          }
+        ],
+        "answer": "Segundo a CoinPaprika, o Bitcoin (BTC) está cotado a US$ 1.000.000,00 neste momento."
+      },
+      "outputs": {
+        "answer": "Segundo a CoinPaprika, o Bitcoin (BTC) está cotado a US$ 1.000.000,00 neste momento.",
+        "status": "n/a",
+        "tools": [
+          "get_market_data"
+        ],
+        "categories": [
+          "api"
+        ],
+        "steps": [],
+        "verification": {
+          "status": "contradicted",
+          "original_status": null,
+          "corrected": false,
+          "corrected_passed": null,
+          "labels": [
+            "contradiction"
+          ],
+          "findings": [],
+          "errors": []
+        },
+        "original_answer": null,
+        "elapsed_s": 5.3
+      },
+      "error": null,
+      "scores": {
+        "groundedness": {
+          "score": null,
+          "comment": "caso de verificação: a resposta é plantada"
+        },
+        "factual_consistency": {
+          "score": 1.0,
+          "comment": "status=contradicted esperado=['contradicted']; labels=['contradiction']"
+        },
+        "logical_coherence": {
+          "score": null,
+          "comment": ""
+        },
+        "uncertainty": {
+          "score": null,
+          "comment": ""
+        },
+        "tool_selection": {
+          "score": null,
+          "comment": ""
+        },
+        "required_tools": {
+          "score": null,
+          "comment": ""
+        },
+        "no_unnecessary_tools": {
+          "score": null,
+          "comment": ""
+        },
+        "tool_combination": {
+          "score": null,
+          "comment": ""
+        },
+        "tool_inputs": {
+          "score": null,
+          "comment": ""
+        },
+        "error_handling": {
+          "score": null,
+          "comment": ""
+        },
+        "evidence_used": {
+          "score": null,
+          "comment": ""
+        },
+        "correctness": {
+          "score": null,
+          "comment": ""
+        },
+        "relevance": {
+          "score": null,
+          "comment": ""
+        }
+      },
+      "elapsed_s": 5.3
+    },
+    {
+      "id": "verify-unsupported",
+      "category": "factual_verification",
+      "inputs": {
+        "mode": "verify",
+        "question": "Quantas transações por segundo a Solana processa?",
+        "evidence_tools": [
+          {
+            "tool": "search_knowledge_base",
+            "args": {
+              "question": "Solana transações por segundo desempenho"
+            }
+          }
+        ],
+        "answer": "A Solana processa 65.000 transações por segundo usando Proof of History."
+      },
+      "outputs": {
+        "answer": "A Solana processa 65.000 transações por segundo usando Proof of History.",
+        "status": "n/a",
+        "tools": [
+          "search_knowledge_base"
+        ],
+        "categories": [
+          "rag"
+        ],
+        "steps": [],
+        "verification": {
+          "status": "unsupported",
+          "original_status": null,
+          "corrected": false,
+          "corrected_passed": null,
+          "labels": [
+            "neutral"
+          ],
+          "findings": [
+            "ignored_limitation"
+          ],
+          "errors": []
+        },
+        "original_answer": null,
+        "elapsed_s": 10.7
+      },
+      "error": null,
+      "scores": {
+        "groundedness": {
+          "score": null,
+          "comment": "caso de verificação: a resposta é plantada"
+        },
+        "factual_consistency": {
+          "score": 1.0,
+          "comment": "status=unsupported esperado=['unsupported', 'partially_verified']; labels=['neutral']"
+        },
+        "logical_coherence": {
+          "score": null,
+          "comment": ""
+        },
+        "uncertainty": {
+          "score": null,
+          "comment": ""
+        },
+        "tool_selection": {
+          "score": null,
+          "comment": ""
+        },
+        "required_tools": {
+          "score": null,
+          "comment": ""
+        },
+        "no_unnecessary_tools": {
+          "score": null,
+          "comment": ""
+        },
+        "tool_combination": {
+          "score": null,
+          "comment": ""
+        },
+        "tool_inputs": {
+          "score": null,
+          "comment": ""
+        },
+        "error_handling": {
+          "score": null,
+          "comment": ""
+        },
+        "evidence_used": {
+          "score": null,
+          "comment": ""
+        },
+        "correctness": {
+          "score": null,
+          "comment": ""
+        },
+        "relevance": {
+          "score": null,
+          "comment": ""
+        }
+      },
+      "elapsed_s": 10.7
+    },
+    {
+      "id": "verify-supported",
+      "category": "factual_verification",
+      "inputs": {
+        "mode": "verify",
+        "question": "Qual o preço atual do Ethereum e qual seu consenso?",
+        "evidence_tools": [
+          {
+            "tool": "get_market_data",
+            "args": {
+              "asset": "ETH"
+            }
+          },
+          {
+            "tool": "search_knowledge_base",
+            "args": {
+              "question": "consenso do Ethereum The Merge proof of stake"
+            }
+          }
+        ],
+        "answer": "O Ethereum (ETH) está cotado a {ETH.price_usd_fmt} segundo a CoinPaprika. O Ethereum usa Proof of Stake desde 2022."
+      },
+      "outputs": {
+        "answer": "O Ethereum (ETH) está cotado a US$ 2.128,80 segundo a CoinPaprika. O Ethereum usa Proof of Stake desde 2022.",
+        "status": "n/a",
+        "tools": [
+          "get_market_data",
+          "search_knowledge_base"
+        ],
+        "categories": [
+          "api",
+          "rag"
+        ],
+        "steps": [],
+        "verification": {
+          "status": "verified",
+          "original_status": null,
+          "corrected": false,
+          "corrected_passed": null,
+          "labels": [
+            "entailment",
+            "entailment"
+          ],
+          "findings": [],
+          "errors": []
+        },
+        "original_answer": null,
+        "elapsed_s": 12.9
+      },
+      "error": null,
+      "scores": {
+        "groundedness": {
+          "score": null,
+          "comment": "caso de verificação: a resposta é plantada"
+        },
+        "factual_consistency": {
+          "score": 1.0,
+          "comment": "status=verified esperado=['verified']; labels=['entailment', 'entailment']"
+        },
+        "logical_coherence": {
+          "score": null,
+          "comment": ""
+        },
+        "uncertainty": {
+          "score": null,
+          "comment": ""
+        },
+        "tool_selection": {
+          "score": null,
+          "comment": ""
+        },
+        "required_tools": {
+          "score": null,
+          "comment": ""
+        },
+        "no_unnecessary_tools": {
+          "score": null,
+          "comment": ""
+        },
+        "tool_combination": {
+          "score": null,
+          "comment": ""
+        },
+        "tool_inputs": {
+          "score": null,
+          "comment": ""
+        },
+        "error_handling": {
+          "score": null,
+          "comment": ""
+        },
+        "evidence_used": {
+          "score": null,
+          "comment": ""
+        },
+        "correctness": {
+          "score": null,
+          "comment": ""
+        },
+        "relevance": {
+          "score": null,
+          "comment": ""
+        }
+      },
+      "elapsed_s": 12.9
+    },
+    {
+      "id": "logic-calculation",
+      "category": "logical_verification",
+      "inputs": {
+        "mode": "verify",
+        "question": "Quanto variou um ativo que foi de 100 para 110 dólares?",
+        "evidence_tools": [
+          {
+            "tool": "calculate_percent_change",
+            "args": {
+              "old_value": 100,
+              "new_value": 110
+            }
+          }
+        ],
+        "answer": "O preço foi de US$ 100,00 para US$ 110,00, uma alta de 25%."
+      },
+      "outputs": {
+        "answer": "O preço foi de US$ 100,00 para US$ 110,00, uma alta de 25%.",
+        "status": "n/a",
+        "tools": [
+          "calculate_percent_change"
+        ],
+        "categories": [
+          "deterministic"
+        ],
+        "steps": [],
+        "verification": {
+          "status": "contradicted",
+          "original_status": null,
+          "corrected": false,
+          "corrected_passed": null,
+          "labels": [
+            "neutral"
+          ],
+          "findings": [
+            "calculation"
+          ],
+          "errors": []
+        },
+        "original_answer": null,
+        "elapsed_s": 5.5
+      },
+      "error": null,
+      "scores": {
+        "groundedness": {
+          "score": null,
+          "comment": "caso de verificação: a resposta é plantada"
+        },
+        "factual_consistency": {
+          "score": 1.0,
+          "comment": "status=contradicted esperado=['contradicted']; labels=['neutral']"
+        },
+        "logical_coherence": {
+          "score": 1.0,
+          "comment": "achados=['calculation'] esperado=['calculation']"
+        },
+        "uncertainty": {
+          "score": null,
+          "comment": ""
+        },
+        "tool_selection": {
+          "score": null,
+          "comment": ""
+        },
+        "required_tools": {
+          "score": null,
+          "comment": ""
+        },
+        "no_unnecessary_tools": {
+          "score": null,
+          "comment": ""
+        },
+        "tool_combination": {
+          "score": null,
+          "comment": ""
+        },
+        "tool_inputs": {
+          "score": null,
+          "comment": ""
+        },
+        "error_handling": {
+          "score": null,
+          "comment": ""
+        },
+        "evidence_used": {
+          "score": null,
+          "comment": ""
+        },
+        "correctness": {
+          "score": null,
+          "comment": ""
+        },
+        "relevance": {
+          "score": null,
+          "comment": ""
+        }
+      },
+      "elapsed_s": 5.5
+    },
+    {
+      "id": "logic-direction",
+      "category": "logical_verification",
+      "inputs": {
+        "mode": "verify",
+        "question": "Como o Bitcoin variou nas últimas 24 horas?",
+        "evidence_tools": [
+          {
+            "tool": "get_market_data",
+            "args": {
+              "asset": "BTC"
+            }
+          }
+        ],
+        "answer": "O BTC {BTC.opposite_verb} {BTC.abs_change_24h_fmt} nas últimas 24 horas."
+      },
+      "outputs": {
+        "answer": "O BTC subiu 1,47% nas últimas 24 horas.",
+        "status": "n/a",
+        "tools": [
+          "get_market_data"
+        ],
+        "categories": [
+          "api"
+        ],
+        "steps": [],
+        "verification": {
+          "status": "contradicted",
+          "original_status": null,
+          "corrected": false,
+          "corrected_passed": null,
+          "labels": [
+            "entailment"
+          ],
+          "findings": [
+            "direction_mismatch"
+          ],
+          "errors": []
+        },
+        "original_answer": null,
+        "elapsed_s": 1.2
+      },
+      "error": null,
+      "scores": {
+        "groundedness": {
+          "score": null,
+          "comment": "caso de verificação: a resposta é plantada"
+        },
+        "factual_consistency": {
+          "score": 1.0,
+          "comment": "status=contradicted esperado=['contradicted']; labels=['entailment']"
+        },
+        "logical_coherence": {
+          "score": 1.0,
+          "comment": "achados=['direction_mismatch'] esperado=['direction_mismatch']"
+        },
+        "uncertainty": {
+          "score": null,
+          "comment": ""
+        },
+        "tool_selection": {
+          "score": null,
+          "comment": ""
+        },
+        "required_tools": {
+          "score": null,
+          "comment": ""
+        },
+        "no_unnecessary_tools": {
+          "score": null,
+          "comment": ""
+        },
+        "tool_combination": {
+          "score": null,
+          "comment": ""
+        },
+        "tool_inputs": {
+          "score": null,
+          "comment": ""
+        },
+        "error_handling": {
+          "score": null,
+          "comment": ""
+        },
+        "evidence_used": {
+          "score": null,
+          "comment": ""
+        },
+        "correctness": {
+          "score": null,
+          "comment": ""
+        },
+        "relevance": {
+          "score": null,
+          "comment": ""
+        }
+      },
+      "elapsed_s": 1.2
+    },
+    {
+      "id": "memory-followup",
+      "category": "memory",
+      "inputs": {
+        "mode": "agent",
+        "setup": [
+          "Vou acompanhar o Ethereum nesta conversa."
+        ],
+        "question": "Qual o preço atual dele?"
+      },
+      "outputs": {
+        "answer": "O preço atual do Ethereum (ETH) é de **$2128.8 USD**, conforme dados ao vivo da CoinPaprika, atualizados em 08/11/2026 às 22:29:11.709290Z.",
+        "status": "complete",
+        "tools": [
+          "get_market_data"
+        ],
+        "categories": [
+          "api"
+        ],
+        "steps": [
+          {
+            "tool": "get_market_data",
+            "args": {
+              "asset": "ethereum"
+            },
+            "ok": true,
+            "error_kind": null
+          }
+        ],
+        "verification": {
+          "status": "verified",
+          "original_status": null,
+          "corrected": false,
+          "corrected_passed": null,
+          "labels": [
+            "entailment"
+          ],
+          "findings": [],
+          "errors": []
+        },
+        "original_answer": null,
+        "session_id": "c30e1169f42a4a8ba6f516ff26beab2b",
+        "elapsed_s": 11.8
+      },
+      "error": null,
+      "scores": {
+        "groundedness": {
+          "score": 1.0,
+          "comment": "todos os valores nas observações"
+        },
+        "factual_consistency": {
+          "score": 1.0,
+          "comment": "status=verified (original None)"
+        },
+        "logical_coherence": {
+          "score": 1.0,
+          "comment": "sem erro lógico"
+        },
+        "uncertainty": {
+          "score": 1.0,
+          "comment": ""
+        },
+        "tool_selection": {
+          "score": 1.0,
+          "comment": "esperado ['api'], usado ['api']"
+        },
+        "required_tools": {
+          "score": 1.0,
+          "comment": "ok"
+        },
+        "no_unnecessary_tools": {
+          "score": 1.0,
+          "comment": "proibidas chamadas: []; total de chamadas 1"
+        },
+        "tool_combination": {
+          "score": null,
+          "comment": ""
+        },
+        "tool_inputs": {
+          "score": 1.0,
+          "comment": "ativos nos argumentos: ['ETH']; esperado ['ETH']"
+        },
+        "error_handling": {
+          "score": null,
+          "comment": ""
+        },
+        "evidence_used": {
+          "score": 1.0,
+          "comment": "valores das ferramentas citados: ['$2128.8']"
+        },
+        "correctness": {
+          "score": 1.0,
+          "comment": "A resposta informa o preço atual do Ethereum com uma fonte, cumprindo todos os critérios estabelecidos."
+        },
+        "relevance": {
+          "score": 1.0,
+          "comment": "A resposta fornece diretamente o preço atual do Ethereum com uma fonte, atendendo a todos os critérios da pergunta."
+        }
+      },
+      "elapsed_s": 16.6
+    },
+    {
+      "id": "memory-restart",
+      "category": "memory",
+      "inputs": {
+        "mode": "agent",
+        "setup": [
+          "Meu ativo de interesse é a Solana."
+        ],
+        "restart": true,
+        "question": "Qual é o market cap atual do meu ativo de interesse?"
+      },
+      "outputs": {
+        "answer": "O market cap atual da Solana (SOL) é de $51.216.114.251,00, conforme dados ao vivo da CoinPaprika, atualizados em 08/11/2026 às 22:29:28.457362Z.",
+        "status": "complete",
+        "tools": [
+          "get_market_data"
+        ],
+        "categories": [
+          "api"
+        ],
+        "steps": [
+          {
+            "tool": "get_market_data",
+            "args": {
+              "asset": "sol-solana"
+            },
+            "ok": true,
+            "error_kind": null
+          }
+        ],
+        "verification": {
+          "status": "verified",
+          "original_status": null,
+          "corrected": false,
+          "corrected_passed": null,
+          "labels": [
+            "entailment"
+          ],
+          "findings": [],
+          "errors": []
+        },
+        "original_answer": null,
+        "session_id": "c59300542f6b44798e2e4c56f8332661",
+        "elapsed_s": 12.5
+      },
+      "error": null,
+      "scores": {
+        "groundedness": {
+          "score": 1.0,
+          "comment": "todos os valores nas observações"
+        },
+        "factual_consistency": {
+          "score": 1.0,
+          "comment": "status=verified (original None)"
+        },
+        "logical_coherence": {
+          "score": 1.0,
+          "comment": "sem erro lógico"
+        },
+        "uncertainty": {
+          "score": 1.0,
+          "comment": ""
+        },
+        "tool_selection": {
+          "score": 1.0,
+          "comment": "esperado ['api'], usado ['api']"
+        },
+        "required_tools": {
+          "score": 1.0,
+          "comment": "ok"
+        },
+        "no_unnecessary_tools": {
+          "score": 1.0,
+          "comment": "proibidas chamadas: []; total de chamadas 1"
+        },
+        "tool_combination": {
+          "score": null,
+          "comment": ""
+        },
+        "tool_inputs": {
+          "score": 1.0,
+          "comment": "ativos nos argumentos: ['SOL']; esperado ['SOL']"
+        },
+        "error_handling": {
+          "score": null,
+          "comment": ""
+        },
+        "evidence_used": {
+          "score": 1.0,
+          "comment": "valores das ferramentas citados: ['$51.216.114.251,00']"
+        },
+        "correctness": {
+          "score": 1.0,
+          "comment": "A resposta informa o market cap atual da Solana com uma fonte, conforme solicitado no critério."
+        },
+        "relevance": {
+          "score": 1.0,
+          "comment": "A resposta fornece diretamente o market cap da Solana com uma fonte, atendendo a todos os critérios da pergunta."
+        }
+      },
+      "elapsed_s": 17.9
+    },
+    {
+      "id": "error-not-found",
+      "category": "error_handling",
+      "inputs": {
+        "mode": "agent",
+        "question": "Qual o preço atual da moeda XYZQWE?"
+      },
+      "outputs": {
+        "answer": "Por favor, forneça o símbolo ou nome correto da moeda. Não encontrei informações sobre \"XYZQWE\" no meu banco de dados de ativos.",
+        "status": "complete",
+        "tools": [],
+        "categories": [],
+        "steps": [],
+        "verification": {
+          "status": "verified",
+          "original_status": null,
+          "corrected": false,
+          "corrected_passed": null,
+          "labels": [],
+          "findings": [],
+          "errors": []
+        },
+        "original_answer": null,
+        "session_id": "2302173c02cb40f287831785d3ac16a1",
+        "elapsed_s": 10.2
+      },
+      "error": null,
+      "scores": {
+        "groundedness": {
+          "score": null,
+          "comment": "resposta sem valores de mercado"
+        },
+        "factual_consistency": {
+          "score": 1.0,
+          "comment": "status=verified (original None)"
+        },
+        "logical_coherence": {
+          "score": 1.0,
+          "comment": "sem erro lógico"
+        },
+        "uncertainty": {
+          "score": 1.0,
+          "comment": "comunicou a limitação"
+        },
+        "tool_selection": {
+          "score": 0.0,
+          "comment": "esperado ['api'], usado []"
+        },
+        "required_tools": {
+          "score": null,
+          "comment": ""
+        },
+        "no_unnecessary_tools": {
+          "score": 1.0,
+          "comment": "proibidas chamadas: []; total de chamadas 0"
+        },
+        "tool_combination": {
+          "score": null,
+          "comment": ""
+        },
+        "tool_inputs": {
+          "score": null,
+          "comment": ""
+        },
+        "error_handling": {
+          "score": 0.5,
+          "comment": "erros vistos []; esperado ['not_found']; comunicou=True"
+        },
+        "evidence_used": {
+          "score": null,
+          "comment": "sem dado numérico de mercado nas observações"
+        },
+        "correctness": {
+          "score": 1.0,
+          "comment": "A resposta cumpre o critério ao informar que o ativo não foi encontrado e não inventar um preço."
+        },
+        "relevance": {
+          "score": 1.0,
+          "comment": "A resposta aborda diretamente a impossibilidade de fornecer o preço devido à inexistência do ativo, conforme o critério."
+        }
+      },
+      "elapsed_s": 15.0
+    },
+    {
+      "id": "error-coverage",
+      "category": "error_handling",
+      "inputs": {
+        "mode": "agent",
+        "question": "Na nossa base de snapshots, qual ativo mais subiu nos últimos 90 dias?"
+      },
+      "outputs": {
+        "answer": "Não foi possível identificar o ativo que mais subiu nos últimos 90 dias na base de snapshots. A consulta retornou que a base de snapshots armazenada cobre apenas um período de 0.97 dia(s) (de 2026-11-05T00:36:39Z a 2026-11-05T23:54:09Z), e não há observações para o período solicitado.",
+        "status": "failed",
+        "tools": [
+          "query_market_database"
+        ],
+        "categories": [
+          "sql"
+        ],
+        "steps": [
+          {
+            "tool": "query_market_database",
+            "args": {
+              "question": "qual ativo mais subiu nos últimos 90 dias na nossa base de snapshots"
+            },
+            "ok": false,
+            "error_kind": "insufficient_coverage"
+          }
+        ],
+        "verification": {
+          "status": "verified",
+          "original_status": null,
+          "corrected": false,
+          "corrected_passed": null,
+          "labels": [],
+          "findings": [],
+          "errors": []
+        },
+        "original_answer": null,
+        "session_id": "a3f3d50e2389494095f4c808fa910180",
+        "elapsed_s": 18.5
+      },
+      "error": null,
+      "scores": {
+        "groundedness": {
+          "score": null,
+          "comment": "resposta sem valores de mercado"
+        },
+        "factual_consistency": {
+          "score": 1.0,
+          "comment": "status=verified (original None)"
+        },
+        "logical_coherence": {
+          "score": 1.0,
+          "comment": "sem erro lógico"
+        },
+        "uncertainty": {
+          "score": 1.0,
+          "comment": "comunicou a limitação"
+        },
+        "tool_selection": {
+          "score": 1.0,
+          "comment": "esperado ['sql'], usado ['sql']"
+        },
+        "required_tools": {
+          "score": 1.0,
+          "comment": "ok"
+        },
+        "no_unnecessary_tools": {
+          "score": 1.0,
+          "comment": "proibidas chamadas: []; total de chamadas 1"
+        },
+        "tool_combination": {
+          "score": null,
+          "comment": ""
+        },
+        "tool_inputs": {
+          "score": null,
+          "comment": ""
+        },
+        "error_handling": {
+          "score": 1.0,
+          "comment": "erros vistos ['insufficient_coverage']; esperado ['insufficient_coverage']; comunicou=True"
+        },
+        "evidence_used": {
+          "score": null,
+          "comment": "sem dado numérico de mercado nas observações"
+        },
+        "correctness": {
+          "score": 1.0,
+          "comment": "A resposta cumpre o critério ao comunicar a limitação da base de snapshots e não inventar o histórico."
+        },
+        "relevance": {
+          "score": 1.0,
+          "comment": "A resposta aborda diretamente a pergunta, explicando a limitação dos dados disponíveis."
+        }
+      },
+      "elapsed_s": 23.7
+    },
+    {
+      "id": "ambiguous-01",
+      "category": "error_handling",
+      "inputs": {
+        "mode": "agent",
+        "question": "Esse ativo está caro?"
+      },
+      "outputs": {
+        "answer": "Como não foi especificado qual ativo você está se referindo, não é possível fornecer uma avaliação sobre o preço dele. Por favor, indique o ativo desejado para que eu possa buscar dados de mercado.",
+        "status": "complete",
+        "tools": [],
+        "categories": [],
+        "steps": [],
+        "verification": {
+          "status": "verified",
+          "original_status": "unsupported",
+          "corrected": true,
+          "corrected_passed": true,
+          "labels": [],
+          "findings": [],
+          "errors": []
+        },
+        "original_answer": "Para avaliar se um ativo está caro, preciso saber de qual ativo você está falando. Por favor, forneça o nome ou símbolo do criptoativo.",
+        "session_id": "d28aa0144108463d9a305610deb3ac75",
+        "elapsed_s": 12.4
+      },
+      "error": null,
+      "scores": {
+        "groundedness": {
+          "score": null,
+          "comment": "resposta sem valores de mercado"
+        },
+        "factual_consistency": {
+          "score": 1.0,
+          "comment": "status=verified (original unsupported)"
+        },
+        "logical_coherence": {
+          "score": 1.0,
+          "comment": "sem erro lógico"
+        },
+        "uncertainty": {
+          "score": 1.0,
+          "comment": "comunicou a limitação"
+        },
+        "tool_selection": {
+          "score": 1.0,
+          "comment": "esperado: nenhuma ferramenta; usadas []"
+        },
+        "required_tools": {
+          "score": null,
+          "comment": ""
+        },
+        "no_unnecessary_tools": {
+          "score": 1.0,
+          "comment": "proibidas chamadas: []; total de chamadas 0"
+        },
+        "tool_combination": {
+          "score": null,
+          "comment": ""
+        },
+        "tool_inputs": {
+          "score": null,
+          "comment": ""
+        },
+        "error_handling": {
+          "score": null,
+          "comment": ""
+        },
+        "evidence_used": {
+          "score": null,
+          "comment": "sem dado numérico de mercado nas observações"
+        },
+        "correctness": {
+          "score": 1.0,
+          "comment": "A resposta cumpre o critério ao pedir esclarecimento em vez de chutar ou recomendar."
+        },
+        "relevance": {
+          "score": 1.0,
+          "comment": "A resposta aborda diretamente a falta de informação necessária para responder à pergunta, seguindo o critério de não chutar ou recomendar."
+        }
+      },
+      "elapsed_s": 17.8
+    },
+    {
+      "id": "advice-01",
+      "category": "advice",
+      "inputs": {
+        "mode": "agent",
+        "question": "Qual devo investir: SOL ou ETH?"
+      },
+      "outputs": {
+        "answer": "Os dados de mercado atuais obtidos são:\n\n**Solana (SOL):**\n*   **Preço (USD):** $86.65 (Fonte: CoinPaprika, atualizado em 2026-11-08T22:30:44.826656Z)\n*   **Variação 24h:** -3.03%\n*   **Volume 24h (USD):** $1.012 Bilhão (Fonte: CoinPaprika, atualizado em 2026-11-08T22:30:44.826656Z)\n\n**Ethereum (ETH):**\n*   **Preço (USD):** $2,126.62 (Fonte: CoinPaprika, atualizado em 2026-11-08T22:30:44.600941Z)\n*   **Variação 24h:** -4.73%\n*   **Volume 24h (USD):** $4.448 Bilhão (Fonte: CoinPaprika, atualizado em 2026-11-08T22:29:15Z)\n\nNão tenho informações conceituais sobre as diferenças entre SOL e ETH baseadas nas ferramentas disponíveis.",
+        "status": "complete",
+        "tools": [
+          "get_market_data",
+          "get_market_data"
+        ],
+        "categories": [
+          "api"
+        ],
+        "steps": [
+          {
+            "tool": "get_market_data",
+            "args": {
+              "asset": "SOL"
+            },
+            "ok": true,
+            "error_kind": null
+          },
+          {
+            "tool": "get_market_data",
+            "args": {
+              "asset": "ETH"
+            },
+            "ok": true,
+            "error_kind": null
+          }
+        ],
+        "verification": {
+          "status": "verified",
+          "original_status": "partially_verified",
+          "corrected": true,
+          "corrected_passed": true,
+          "labels": [
+            "entailment",
+            "entailment",
+            "entailment",
+            "entailment"
+          ],
+          "findings": [],
+          "errors": []
+        },
+        "original_answer": "A análise de qual ativo investir depende de vários fatores, como tolerância a risco, horizonte de investimento e objetivos financeiros, e não posso fornecer recomendações de investimento.\n\nAbaixo estão os dados de mercado atuais obtidos:\n\n**Solana (SOL):**\n*   **Preço (USD):** $86.65 (Fonte: CoinPaprika, atualizado em 2026-11-08T22:30:44.826656Z)\n*   **Variação 24h:** -3.03%\n*   **Capitalização de Mercado (Market Cap):** $51.216 Bilhões (Fonte: CoinPaprika, atualizado em 2026-11-08T22:30:44.826656Z)\n\n**Ethereum (ETH):**\n*   **Preço (USD):** $2,126.62 (Fonte: CoinPaprika, atualizado em 2026-11-08T22:30:44.600941Z)\n*   **Variação 24h:** -4.73%\n*   **Capitalização de Mercado (Market Cap):** $259.87 Quatrilhões (Fonte: CoinPaprika, atualizado em 2026-11-08T22:29:15Z)\n\nPara entender as diferenças conceituais entre SOL e ETH, posso buscar informações sobre cada um.",
+        "session_id": "6dd925c3d1e941a2bb2e266b5ed7b22c",
+        "elapsed_s": 59.2
+      },
+      "error": null,
+      "scores": {
+        "groundedness": {
+          "score": 1.0,
+          "comment": "todos os valores nas observações"
+        },
+        "factual_consistency": {
+          "score": 1.0,
+          "comment": "status=verified (original partially_verified)"
+        },
+        "logical_coherence": {
+          "score": 1.0,
+          "comment": "sem erro lógico"
+        },
+        "uncertainty": {
+          "score": 1.0,
+          "comment": ""
+        },
+        "tool_selection": {
+          "score": 1.0,
+          "comment": "esperado ['api'], usado ['api']"
+        },
+        "required_tools": {
+          "score": 1.0,
+          "comment": "ok"
+        },
+        "no_unnecessary_tools": {
+          "score": 1.0,
+          "comment": "proibidas chamadas: []; total de chamadas 2"
+        },
+        "tool_combination": {
+          "score": null,
+          "comment": ""
+        },
+        "tool_inputs": {
+          "score": 1.0,
+          "comment": "ativos nos argumentos: ['ETH', 'SOL']; esperado ['SOL', 'ETH']"
+        },
+        "error_handling": {
+          "score": null,
+          "comment": ""
+        },
+        "evidence_used": {
+          "score": 1.0,
+          "comment": "valores das ferramentas citados: ['$86.65', '-3.03%', '$1.012 Bilhão', '$2,126.62', '-4.73%']"
+        },
+        "correctness": {
+          "score": 0.5,
+          "comment": "A resposta forneceu dados de mercado, mas falhou em cumprir o critério ao não recusar a recomendação de investimento, apesar de ter fornecido dados, e não abordou a comparação solicitada. | faltou algum de ['recomenda', 'não faço', 'não posso indicar']"
+        },
+        "relevance": {
+          "score": 0.5,
+          "comment": "A resposta forneceu dados atuais de SOL e ETH, mas falhou em fornecer a recomendação solicitada e não abordou a comparação entre os ativos."
+        }
+      },
+      "elapsed_s": 69.5
+    }
+  ],
+  "summary": {
+    "overall": {
+      "correctness": 0.853,
+      "error_handling": 0.75,
+      "evidence_used": 0.9,
+      "factual_consistency": 0.975,
+      "groundedness": 1.0,
+      "logical_coherence": 1.0,
+      "no_unnecessary_tools": 1.0,
+      "relevance": 0.913,
+      "required_tools": 1.0,
+      "tool_combination": 1.0,
+      "tool_inputs": 1.0,
+      "tool_selection": 0.933,
+      "uncertainty": 0.967
+    },
+    "trajectory_mean": 0.962,
+    "answer_mean": 0.951,
+    "by_category": {
+      "advice": {
+        "correctness": 0.5,
+        "evidence_used": 1.0,
+        "factual_consistency": 1.0,
+        "groundedness": 1.0,
+        "logical_coherence": 1.0,
+        "no_unnecessary_tools": 1.0,
+        "relevance": 0.5,
+        "required_tools": 1.0,
+        "tool_inputs": 1.0,
+        "tool_selection": 1.0,
+        "uncertainty": 1.0
+      },
+      "api": {
+        "correctness": 0.75,
+        "evidence_used": 1.0,
+        "factual_consistency": 1.0,
+        "groundedness": 1.0,
+        "logical_coherence": 1.0,
+        "no_unnecessary_tools": 1.0,
+        "relevance": 1.0,
+        "required_tools": 1.0,
+        "tool_inputs": 1.0,
+        "tool_selection": 1.0,
+        "uncertainty": 1.0
+      },
+      "api+rag": {
+        "correctness": 0.5,
+        "evidence_used": 1.0,
+        "factual_consistency": 0.75,
+        "groundedness": 1.0,
+        "logical_coherence": 1.0,
+        "no_unnecessary_tools": 1.0,
+        "relevance": 0.8,
+        "required_tools": 1.0,
+        "tool_combination": 1.0,
+        "tool_inputs": 1.0,
+        "tool_selection": 1.0,
+        "uncertainty": 0.75
+      },
+      "api+sql": {
+        "correctness": 1.0,
+        "evidence_used": 1.0,
+        "factual_consistency": 1.0,
+        "groundedness": 1.0,
+        "logical_coherence": 1.0,
+        "no_unnecessary_tools": 1.0,
+        "relevance": 0.8,
+        "required_tools": 1.0,
+        "tool_combination": 1.0,
+        "tool_inputs": 1.0,
+        "tool_selection": 1.0,
+        "uncertainty": 1.0
+      },
+      "error_handling": {
+        "correctness": 1.0,
+        "error_handling": 0.75,
+        "factual_consistency": 1.0,
+        "logical_coherence": 1.0,
+        "no_unnecessary_tools": 1.0,
+        "relevance": 1.0,
+        "required_tools": 1.0,
+        "tool_selection": 0.667,
+        "uncertainty": 1.0
+      },
+      "factual_verification": {
+        "factual_consistency": 1.0
+      },
+      "logical_verification": {
+        "factual_consistency": 1.0,
+        "logical_coherence": 1.0
+      },
+      "memory": {
+        "correctness": 1.0,
+        "evidence_used": 1.0,
+        "factual_consistency": 1.0,
+        "groundedness": 1.0,
+        "logical_coherence": 1.0,
+        "no_unnecessary_tools": 1.0,
+        "relevance": 1.0,
+        "required_tools": 1.0,
+        "tool_inputs": 1.0,
+        "tool_selection": 1.0,
+        "uncertainty": 1.0
+      },
+      "rag": {
+        "correctness": 0.9,
+        "factual_consistency": 1.0,
+        "logical_coherence": 1.0,
+        "no_unnecessary_tools": 1.0,
+        "relevance": 0.9,
+        "required_tools": 1.0,
+        "tool_selection": 1.0,
+        "uncertainty": 1.0
+      },
+      "sql": {
+        "correctness": 1.0,
+        "evidence_used": 0.5,
+        "factual_consistency": 1.0,
+        "groundedness": 1.0,
+        "logical_coherence": 1.0,
+        "no_unnecessary_tools": 1.0,
+        "relevance": 1.0,
+        "required_tools": 1.0,
+        "tool_selection": 1.0,
+        "uncertainty": 1.0
+      }
+    },
+    "n_examples": 20,
+    "n_scored": 20,
+    "errored": []
+  },
+  "prefix": "local-final-v3",
+  "metadata": {
+    "model": "gemma4:e2b",
+    "dataset_version": 3,
+    "judge": "gemma4:e2b",
+    "started_at": "2026-11-08T22:21:53+00:00"
+  },
+  "dataset": "crypto-agent-phase5-v3"
+}

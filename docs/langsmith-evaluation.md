@@ -39,7 +39,7 @@ Tags: `phase5`, mais `evaluation` (runner) ou `integration-test` (testes).
 
 ## 3. Dataset
 
-O arquivo [`evaluation/phase5_dataset.json`](../evaluation/phase5_dataset.json) é a fonte versionada (`crypto-agent-phase5`, versão 1, **19 exemplos**). O LangSmith recebe uma cópia: `make eval-upload` cria o dataset `crypto-agent-phase5-v1`. O id de cada exemplo é um UUID5 do id local, então reenviar o mesmo dataset não duplica nada.
+O arquivo [`evaluation/phase5_dataset.json`](../evaluation/phase5_dataset.json) é a fonte versionada (`crypto-agent-phase5`, versão 3, **20 exemplos**). O LangSmith recebe uma cópia: `make eval-upload` cria o dataset `crypto-agent-phase5-v<versão>` (hoje `crypto-agent-phase5-v3`). O id de cada exemplo é um UUID5 do id local, então reenviar o mesmo dataset não duplica nada.
 
 | Categoria | Exemplos | O que exercita |
 |---|---|---|
@@ -52,6 +52,7 @@ O arquivo [`evaluation/phase5_dataset.json`](../evaluation/phase5_dataset.json) 
 | `logical_verification` | logic-calculation, logic-direction | Cálculo errado; sentido invertido (subiu × caiu) com o valor real |
 | `memory` | memory-followup, memory-restart | Follow-up pelo histórico; contexto depois de "reinício" |
 | `error_handling` | error-not-found, error-coverage, ambiguous-01 | Ativo inexistente; cobertura insuficiente (90 dias); pergunta ambígua |
+| `advice` | advice-01 | Pedido de recomendação com ativos citados: consulta os dados e declina a recomendação (versão 3, caso real da interface) |
 
 Cada exemplo traz em `outputs` só o comportamento esperado, sem texto exato:
 - `expected_categories`, `required_tools`, `forbidden_tools` e `expected_assets`;
@@ -110,6 +111,6 @@ O alvo (`app/evaluation/target.py`) usa o `AppContainer` real, cria uma sessão 
 
 ## 6. Resultados
 
-Ver o diário da Fase 5 ([Report/fase-05-agente-integrado.md](../Report/fase-05-agente-integrado.md), seções 5.5 e 6). Arquivos: `docs/evidence/phase-5/eval-local-baseline.json`, `eval-local-final.json` e `eval-local-after-fixes.json` (este último com 8 exemplos interrompidos por falha de infraestrutura; não usar como resultado).
+Ver o diário da Fase 5 ([Report/fase-05-agente-integrado.md](../Report/fase-05-agente-integrado.md), seções 5.5 e 6). Arquivos: `docs/evidence/phase-5/eval-local-baseline.json` (dataset v1), `eval-local-final.json` (v2), `eval-local-final-v3.json` (v3, resultado final), `eval-local-advice-01.json` (reavaliação do `advice-01`) e `eval-local-after-fixes.json` (este último com 8 exemplos interrompidos por falha de infraestrutura; não usar como resultado).
 
 Os exemplos que falham ao executar (Ollama fora, DNS, timeout) ficam fora das médias e aparecem em `summary.errored`; `summary.n_scored` informa quantos foram avaliados.

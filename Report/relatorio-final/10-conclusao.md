@@ -20,8 +20,8 @@ Ao fim das cinco fases, o Crypto Intelligence Agent é uma aplicação local com
 | 3 | Integração com Ollama, Mem0 e CoinPaprika reais | Continuação, correção, resultado anterior, reinício e isolamento entre sessões corretos |
 | 4 | Text-to-Query real (9 perguntas) | 9 status corretos, nenhum SQL inseguro executado |
 | 4 | Diagnóstico de recuperação (halving) | Trecho relevante do 3º para o 1º lugar com Query Rewriting (MRR 0,33 → 1,0) |
-| 5 | Avaliação final do agente integrado | 19 de 19 exemplos executados; média de trajetória 0,958 e de resposta 0,978; `groundedness` 1,0; os 14 exemplos do agente terminaram `verified` |
-| 1–5 | Suíte offline com todos os avisos visíveis | 370 testes aprovados, nenhum aviso de depreciação |
+| 5 | Avaliação final do agente integrado | 20 de 20 exemplos executados; média de trajetória 0,962 e de resposta 0,951; `groundedness` 1,0; 14 dos 15 exemplos do agente terminaram `verified` |
+| 1–5 | Suíte offline com todos os avisos visíveis | 374 testes aprovados, nenhum aviso de depreciação |
 
 ## O que funcionou
 
@@ -32,7 +32,7 @@ Ao fim das cinco fases, o Crypto Intelligence Agent é uma aplicação local com
 
 ## Limitações
 
-- **Latência em CPU:** um turno completo leva de 14 s a quase 3 min.
+- **Latência em CPU:** um turno completo leva de 10 s a quase 3 min.
 - **Verificação com modelo de 2B:** a NLI tem confiança autodeclarada e confunde "sem evidência" com "contradição" em parte dos casos; a checagem numérica confere presença de valor, não a métrica a que ele foi atribuído.
 - **Juiz e agente são o mesmo modelo:** as notas do juiz são indício, compensado por avaliadores determinísticos.
 - **Dados:** o plano gratuito da CoinPaprika não oferece série histórica; o histórico local depende de coletas manuais.

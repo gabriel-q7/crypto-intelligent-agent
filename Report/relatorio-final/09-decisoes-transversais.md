@@ -32,7 +32,7 @@ O caso do LangMem mostrou que a depreciação também vem de **dependências tra
 
 - **Spikes com avisos visíveis:** cada candidato foi importado e executado com `warnings.simplefilter("always")` no ambiente da imagem antes da adoção.
 - **Teste automático:** `test_phase3_modules_use_no_deprecated_langchain_apis` importa os módulos da Fase 3 num interpretador limpo, com `LangChainDeprecationWarning` tratado como erro. Rodar num subprocesso foi necessário porque recarregar módulos no mesmo processo recriava classes de exceção e quebrava outros testes.
-- **Auditoria final (2026-11-08):** a suíte offline completa rodou com `-W always::DeprecationWarning -W always::PendingDeprecationWarning -W always::FutureWarning`: **370 testes aprovados e nenhum aviso** (`docs/evidence/final/pytest-deprecation-audit.log`).
+- **Auditoria final (2026-11-08):** a suíte offline completa rodou com `-W always::DeprecationWarning -W always::PendingDeprecationWarning -W always::FutureWarning`: **374 testes aprovados e nenhum aviso** (`docs/evidence/final/pytest-deprecation-audit.log`).
 
 ### A exceção: APIs legadas exigidas na Fase 2
 
@@ -90,7 +90,7 @@ O **`gemma4:e2b` (família Gemma 4) com *thinking* desligado** foi o mais rápid
 
 ### Resultado
 
-Considerando o hardware, o desempenho foi razoável: na avaliação final da Fase 5, o modelo escolheu a categoria de ferramenta certa em 13 dos 14 exemplos do agente (`tool_selection` 0,929), combinou API, SQL e documentos na mesma resposta e não inventou valores de mercado (`groundedness` 1,0 nas avaliações da Fase 5). Um turno completo do agente integrado, com verificação, levou de 14 s a 88 s na avaliação final; respostas com correção ou várias ferramentas chegaram a quase 3 min em execuções anteriores.
+Considerando o hardware, o desempenho foi razoável: na avaliação final da Fase 5, o modelo escolheu a categoria de ferramenta certa em 14 dos 15 exemplos do agente (`tool_selection` 0,933), combinou API, SQL e documentos na mesma resposta e não inventou valores de mercado (`groundedness` 1,0 nas avaliações da Fase 5). Um turno completo do agente integrado, com verificação, levou de 10 s a 104 s na avaliação final; respostas com correção ou várias ferramentas chegaram a quase 3 min em execuções anteriores.
 
 O preço de um modelo de 2B em CPU aparece em todas as fases: latência de dezenas de segundos por chamada e erros de raciocínio numérico. As duas decisões seguintes são a resposta a isso.
 
@@ -107,6 +107,7 @@ Uma lição repetida em todas as fases: **o que pode ser calculado por código n
 | 3 | Instável para detectar período, correção e ativos | Regras determinísticas prevalecem sobre o LLM na intenção |
 | 4 | Errava JOIN e copiava filtros indevidos | View `snapshot_history`, período por regra, SQL validado e parametrizado |
 | 5 | Comparações numéricas na verificação | Checagem numérica determinística; o LLM só julga afirmações conceituais |
+| 5 | Recusava pedido de recomendação sem consultar os dados dos ativos citados | Guarda `skipped_lookup` aciona a correção para consultar cada ativo |
 
 ## Segurança
 

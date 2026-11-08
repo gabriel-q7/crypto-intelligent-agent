@@ -13,6 +13,7 @@
 
 import hashlib
 import logging
+import re
 import time
 
 from langchain_core.messages import HumanMessage
@@ -23,6 +24,7 @@ from app.conversation.chatbot import ConversationService
 from app.integrated.agent import AgentRun, run_agent
 from app.integrated.history import SessionHistoryAdapter
 from app.integrated.schemas import AgentReply
+from app.intent.classifier import find_assets
 from app.persistence.sqlite_store import ConversationStore
 from app.schemas.report import CryptoReport, ReportStatus
 from app.services.grounding import findings_from, sources_from
@@ -34,6 +36,23 @@ logger = logging.getLogger(__name__)
 
 MARKET_TOOLS = {"get_market_data", "get_market_details", "get_global_market", "query_market_database"}
 MAX_CORRECTIONS = 1
+# Resposta que recusa, diz não ter dados ou devolve a pergunta ao usuário. Com ativo citado e nenhuma
+# ferramenta chamada, é falha do agente (caso real: "Qual devo investir: SOL ou ETH?" → "não tenho dados").
+DECLINED = re.compile(
+    r"n[aã]o (tenho|posso|consigo|h[aá] dados)|posso (consultar|buscar)|preciso (de mais|saber)|\?\s*$", re.IGNORECASE)
+
+
+# Pedido de recomendação: a ressalva é garantida por código, porque a correção às vezes a remove.
+ADVICE = re.compile(r"\b(investir|invisto|invista|vale a pena (comprar|investir)|devo (comprar|vender)|"
+                    r"compro|vendo|recomenda)", re.IGNORECASE)
+ADVICE_NOTICE = "Não faço recomendação de investimento: os dados acima servem apenas para comparação."
+
+
+def skipped_lookup(message: str, run: AgentRun) -> list[str]:
+    """Ativos citados na pergunta que o agente deixou de consultar ao recusar ou pedir esclarecimento."""
+    if run.steps or not DECLINED.search(run.answer.strip()):
+        return []
+    return find_assets(message)
 
 
 def session_tag(session_id: str) -> str:
@@ -63,7 +82,15 @@ class IntegratedAgentService:
     @traceable(name="integrated.correction", run_type="chain")
     def _correct(self, history, message: str, first: AgentRun, verification: VerificationResult) -> AgentRun:
         previous = first.messages[len(history) + 1:]  # chamadas, observações e resposta do 1º passo
-        feedback = HumanMessage(content=correction_message(verification.correction_instructions))
+        instructions = list(verification.correction_instructions)
+        if not first.answer.strip():
+            instructions.insert(0, f"a resposta final veio vazia: responda à pergunta \"{message}\" com base nas "
+                                   "observações das ferramentas acima")
+        if assets := skipped_lookup(message, first):
+            instructions.insert(0, f"a pergunta cita {', '.join(assets)} e nenhuma ferramenta foi chamada: chame "
+                                   "get_market_data para cada um e responda com os dados (fonte e horário); se for "
+                                   "pedido de recomendação, apresente os dados e diga que não faz recomendação")
+        feedback = HumanMessage(content=correction_message(instructions))
         return self._run(history, message, extra=[*previous, feedback])
 
     # ------------------------------------------------------------------ turno
@@ -86,7 +113,10 @@ class IntegratedAgentService:
 
             final, answer, original = first, first.answer, None
             observations = list(first.observations)
-            if needs_correction(verification.status):
+            # Resposta vazia não tem afirmação a refutar e sairia "verified"; também usa a correção única.
+            # Idem para a recusa sem consulta com ativo citado.
+            agent_failed = not first.answer.strip() or bool(skipped_lookup(message, first))
+            if needs_correction(verification.status) or (agent_failed and verification.status != "verification_failed"):
                 corrected = self._correct(bundle.messages, message, first, verification)
                 observations += corrected.observations  # novas chamadas, se houve, entram na evidência
                 second = self.verifier.verify(message, corrected.answer, observations)
@@ -102,6 +132,8 @@ class IntegratedAgentService:
                 })
             if not answer.strip():
                 answer = "Não foi possível gerar uma resposta para esta pergunta."
+            elif ADVICE.search(message) and not re.search(r"recomenda", answer, re.IGNORECASE):
+                answer += "\n\n" + ADVICE_NOTICE
             if verification.status == "verification_failed":
                 answer += "\n\nAviso: a verificação automática não pôde ser concluída; esta resposta não foi verificada."
 

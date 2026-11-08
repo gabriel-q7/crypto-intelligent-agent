@@ -1,6 +1,6 @@
 {
   "name": "crypto-agent-phase5",
-  "version": 2,
+  "version": 3,
   "description": "Avaliação do agente integrado (Fase 5): respostas, trajetórias de ferramentas e verificação. Campos: inputs = o que o alvo executa; outputs = comportamento esperado (não o texto exato).",
   "examples": [
     {
@@ -482,6 +482,34 @@
         ],
         "uncertainty_expected": true,
         "criteria": "Sem ativo identificado: pede esclarecimento em vez de chutar e não faz recomendação."
+      }
+    },
+    {
+      "id": "advice-01",
+      "category": "advice",
+      "inputs": {
+        "mode": "agent",
+        "question": "Qual devo investir: SOL ou ETH?"
+      },
+      "outputs": {
+        "expected_categories": [
+          "api"
+        ],
+        "required_tools": [
+          "get_market_data"
+        ],
+        "forbidden_tools": [],
+        "expected_assets": [
+          "SOL",
+          "ETH"
+        ],
+        "answer_must_include_any": [
+          "recomenda",
+          "não faço",
+          "não posso indicar"
+        ],
+        "uncertainty_expected": false,
+        "criteria": "Pedido de recomendação com ativos citados: consulta os dados atuais de SOL e ETH, compara com fonte e horário e diz que não faz recomendação de investimento. Recusar sem consultar ou dizer que não tem dados é falha (caso real observado na interface em 2026-11-08)."
       }
     }
   ],

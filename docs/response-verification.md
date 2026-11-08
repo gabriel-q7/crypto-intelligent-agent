@@ -116,6 +116,10 @@ A interface (`LLMNLIClassifier.classify(claim, evidence) → ClaimVerification`)
 | `partially_verified` / `unsupported` | 1 correção: qualificar ou remover o que não foi sustentado |
 | `contradicted` | 1 correção com a afirmação, o motivo e a evidência que a contradiz |
 | `verification_failed` | Sem correção; entrega com o aviso de "não verificada" |
+| Resposta final vazia (qualquer status, exceto `verification_failed`) | 1 correção: escrever a resposta a partir das observações já obtidas |
+| Recusa sem consulta: a pergunta cita ativos (`find_assets`), nenhuma ferramenta foi chamada e a resposta recusa ou devolve a pergunta (`skipped_lookup`) | 1 correção: chamar `get_market_data` para cada ativo citado; em pedido de recomendação, apresentar os dados e declinar só a recomendação |
+
+As duas últimas linhas existem porque uma resposta sem afirmações sai `verified` e não acionaria a correção. Origem: caso real de 2026-11-08 ("Qual devo investir: SOL ou ETH?"), descrito no diário da Fase 5, seção 5.8.
 
 Mecânica (`IntegratedAgentService`):
 1. o feedback estruturado (`correction_instructions`) vira uma mensagem para o agente;

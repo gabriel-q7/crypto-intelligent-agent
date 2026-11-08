@@ -157,53 +157,61 @@ def verify_evaluation() -> None:
         # O número citado é o do resumo salvo na época (com as notas 0), que é justamente o problema.
         expect(FASE5, f"para {br(after['summary']['overall']['tool_selection'], 1)}", "tool_selection contaminado")
 
-    final = load_json(EVIDENCE5 / "eval-local-final.json")
-    if not final:
+    middle = load_json(EVIDENCE5 / "eval-local-final.json")  # execução intermediária (dataset v2)
+    final = load_json(EVIDENCE5 / "eval-local-final-v3.json")  # execução final (dataset v3)
+    if not (final and middle and baseline):
         return
-    s = summarize(final["rows"])
-    saved = final["summary"]
+    runs = {"final": final, "intermediária": middle, "base": baseline}
+    summaries = {name: summarize(run["rows"]) for name, run in runs.items()}
+    for name, run in runs.items():
+        saved, s = run["summary"], summaries[name]
+        for key in ("trajectory_mean", "answer_mean"):
+            check(saved[key] == s[key] or "n_scored" not in saved and s["errored"],
+                  f"{name}: {key} salvo {saved[key]} ≠ recalculado {s[key]}")
+    s, m, b = summaries["final"], summaries["intermediária"], summaries["base"]
     for key in ("trajectory_mean", "answer_mean"):
-        if "n_scored" in saved:  # resumo gerado já com a regra de exclusão
-            check(saved[key] == s[key], f"eval-local-final: {key} salvo {saved[key]} ≠ recalculado {s[key]}")
+        expect(FASE5, f"{br(s[key], 3)}** | {br(m[key], 3)} | {br(b[key], 3)}", f"{key}: final × intermediária × base")
+        expect(CONCLUSAO, br(s[key], 3), f"{key} da avaliação final")
     n_rows, n_err = len(final["rows"]), len(s["errored"])
-    for chapter in (FASE5, CONCLUSAO):
-        expect(chapter, br(s["trajectory_mean"], 3), "média de trajetória da avaliação final")
-        expect(chapter, br(s["answer_mean"], 3), "média de resposta da avaliação final")
     expect(FASE5, f"{n_rows - n_err} de {n_rows} exemplos", "exemplos avaliados na avaliação final")
-    base = summarize(baseline["rows"]) if baseline else None
+    expect(CONCLUSAO, f"{n_rows - n_err} de {n_rows} exemplos", "exemplos avaliados na avaliação final")
     grouped = {"required_tools", "no_unnecessary_tools", "tool_combination", "tool_inputs"}
     for key, value in s["overall"].items():
         if value is None:
             continue
+        values = [value, m["overall"].get(key), b["overall"].get(key)]
         if key in grouped:
-            check(value == 1.0 and (base is None or base["overall"].get(key) == 1.0),
-                  f"{key} aparece agrupado com 1,000 na tabela da Fase 5, mas vale {value}")
+            check(all(v == 1.0 for v in values), f"{key} aparece agrupado com 1,000 na tabela da Fase 5: {values}")
             continue
-        row = f"`{key}` | {br(value, 3)}"
-        if base and base["overall"].get(key) is not None:
-            row += f" | {br(base['overall'][key], 3)}"
-        expect(FASE5, row, f"{key}: final × base")
+        expect(FASE5, f"`{key}` | " + " | ".join(br(v, 3) for v in values), f"{key}: final × intermediária × base")
 
     def agent_rows(rows):
         return [r for r in rows if r["inputs"].get("mode") == "agent"]
 
-    final_status = Counter((r["outputs"].get("verification") or {}).get("status") for r in agent_rows(final["rows"]))
-    expect(FASE5, f"os {sum(final_status.values())} exemplos do agente terminaram `verified`", "status final")
-    check(set(final_status) == {"verified"}, f"nem todos os exemplos do agente ficaram verified: {final_status}")
-    if baseline:
-        base_status = Counter((r["outputs"].get("verification") or {}).get("status") for r in agent_rows(baseline["rows"]))
-        expect(FASE5, ", ".join(f"{base_status[k]} `{k}`" for k in ("verified", "partially_verified", "unsupported")),
-               "status da avaliação de base")
+    def statuses(run):
+        counts = Counter((r["outputs"].get("verification") or {}).get("status") for r in agent_rows(run["rows"]))
+        order = ("verified", "partially_verified", "unsupported", "contradicted")
+        return ", ".join(f"{counts[k]} `{k}`" for k in order if counts[k])
+
+    expect(FASE5, f"os {len(agent_rows(final['rows']))} exemplos do agente terminaram com {statuses(final)}", "status final")
+    expect(FASE5, f"na base: {statuses(baseline)}", "status da avaliação de base")
     elapsed = [r["outputs"]["elapsed_s"] for r in agent_rows(final["rows"])]
     expect(FASE5, f"de {br(min(elapsed), 1)} s a {br(max(elapsed), 1)} s", "latência mínima e máxima da avaliação final")
     selection = [r["scores"]["tool_selection"]["score"] for r in final["rows"]
                  if r["scores"].get("tool_selection", {}).get("score") is not None]
     expect(DECISOES, f"em {sum(x == 1.0 for x in selection)} dos {len(selection)} exemplos do agente",
            "acertos de seleção de ferramenta")
+    expect(DECISOES, f"`tool_selection` {br(s['overall']['tool_selection'], 3)}", "tool_selection no capítulo de decisões")
     corrected = sorted(r["id"] for r in final["rows"] if (r["outputs"].get("verification") or {}).get("corrected"))
-    expect(FASE5, " e ".join(f"`{c}`" for c in corrected), "exemplos corrigidos na avaliação final")
-    if s["overall"].get("groundedness") == 1.0:
+    expect(FASE5, ", ".join(f"`{c}`" for c in corrected[:-1]) + f" e `{corrected[-1]}`", "exemplos corrigidos")
+    if all(x["overall"].get("groundedness") == 1.0 for x in (s, m, b)):
         expect(DECISOES, "`groundedness` 1,0", "groundedness citado no capítulo de decisões")
+
+    advice = load_json(EVIDENCE5 / "eval-local-advice-01.json")
+    if advice:
+        scores = [v["score"] for v in advice["rows"][0]["scores"].values() if v["score"] is not None]
+        check(all(x == 1.0 for x in scores), f"advice-01 reavaliado deveria ter só notas 1,0: {scores}")
+        expect(FASE5, "nota 1,0 em todos os avaliadores aplicáveis", "reavaliação do advice-01")
 
 
 # --------------------------------------------------------------------------- testes
@@ -228,6 +236,11 @@ def verify_test_logs() -> None:
     if match:
         expect(DECISOES, f"**{match.group(1)} testes aprovados e nenhum aviso**", "contagem da auditoria")
         expect(CONCLUSAO, f"{match.group(1)} testes", "contagem final de testes")
+
+    probe = EVIDENCE_FINAL / "advice-probe.jsonl"
+    rows = [json.loads(line) for line in probe.read_text(encoding="utf-8").splitlines() if line.strip()]
+    good = [r for r in rows if {"get_market_data"} <= set(r["tools"]) and r["declines_advice"] and r["answer"].strip()]
+    expect(FASE5, f"{len(good)} de {len(rows)} execuções", "resultado do teste de pedido de recomendação")
 
     final_integration = EVIDENCE_FINAL / "integration-phase5.log"
     if final_integration.exists():

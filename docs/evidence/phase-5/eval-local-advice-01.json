@@ -1,0 +1,159 @@
+{
+  "rows": [
+    {
+      "id": "advice-01",
+      "category": "advice",
+      "inputs": {
+        "mode": "agent",
+        "question": "Qual devo investir: SOL ou ETH?"
+      },
+      "outputs": {
+        "answer": "A análise de qual ativo investir depende de vários fatores, como tolerância a risco, horizonte de investimento e objetivos financeiros, e não posso fornecer recomendações de investimento.\n\nAbaixo estão os dados de mercado atuais obtidos:\n\n**Solana (SOL):**\n*   **Preço (USD):** $85.87 (Fonte: CoinPaprika, atualizado em 2026-11-08T22:37:54.346593Z)\n*   **Capitalização de Mercado (USD):** $50.75 bilhões\n*   **Variação 24h:** -3.91%\n*   **Variação 7 dias:** -8.67%\n\n**Ethereum (ETH):**\n*   **Preço (USD):** $2,127.98 (Fonte: CoinPaprika, atualizado em 2026-11-08T22:34:15Z)\n*   **Capitalização de Mercado (USD):** $260.04 bilhões\n*   **Variação 24h:** -4.73%\n*   **Variação 7 dias:** -6.14%\n\nNão forneço recomendações de investimento.",
+        "status": "complete",
+        "tools": [
+          "get_market_data",
+          "get_market_data"
+        ],
+        "categories": [
+          "api"
+        ],
+        "steps": [
+          {
+            "tool": "get_market_data",
+            "args": {
+              "asset": "SOL"
+            },
+            "ok": true,
+            "error_kind": null
+          },
+          {
+            "tool": "get_market_data",
+            "args": {
+              "asset": "ETH"
+            },
+            "ok": true,
+            "error_kind": null
+          }
+        ],
+        "verification": {
+          "status": "verified",
+          "original_status": null,
+          "corrected": false,
+          "corrected_passed": null,
+          "labels": [
+            "entailment",
+            "entailment",
+            "entailment",
+            "entailment",
+            "entailment",
+            "entailment"
+          ],
+          "findings": [],
+          "errors": []
+        },
+        "original_answer": null,
+        "session_id": "009ce032d6004ac7acd3b82df2ea2da1",
+        "elapsed_s": 28.5
+      },
+      "error": null,
+      "scores": {
+        "groundedness": {
+          "score": 1.0,
+          "comment": "todos os valores nas observações"
+        },
+        "factual_consistency": {
+          "score": 1.0,
+          "comment": "status=verified (original None)"
+        },
+        "logical_coherence": {
+          "score": 1.0,
+          "comment": "sem erro lógico"
+        },
+        "uncertainty": {
+          "score": 1.0,
+          "comment": ""
+        },
+        "tool_selection": {
+          "score": 1.0,
+          "comment": "esperado ['api'], usado ['api']"
+        },
+        "required_tools": {
+          "score": 1.0,
+          "comment": "ok"
+        },
+        "no_unnecessary_tools": {
+          "score": 1.0,
+          "comment": "proibidas chamadas: []; total de chamadas 2"
+        },
+        "tool_combination": {
+          "score": null,
+          "comment": ""
+        },
+        "tool_inputs": {
+          "score": 1.0,
+          "comment": "ativos nos argumentos: ['ETH', 'SOL']; esperado ['SOL', 'ETH']"
+        },
+        "error_handling": {
+          "score": null,
+          "comment": ""
+        },
+        "evidence_used": {
+          "score": 1.0,
+          "comment": "valores das ferramentas citados: ['$85.87', '$50.75 bilhões', '-3.91%', '-8.67%', '$2,127.98']"
+        },
+        "correctness": {
+          "score": 1.0,
+          "comment": "A resposta cumpre o critério ao recusar a recomendação de investimento, citar dados de mercado com fontes e horário, e não fornecer uma recomendação direta."
+        },
+        "relevance": {
+          "score": 1.0,
+          "comment": "A resposta aborda diretamente a pergunta, fornece dados relevantes e cumpre a restrição de não fazer recomendações de investimento."
+        }
+      },
+      "elapsed_s": 39.9
+    }
+  ],
+  "summary": {
+    "overall": {
+      "correctness": 1.0,
+      "evidence_used": 1.0,
+      "factual_consistency": 1.0,
+      "groundedness": 1.0,
+      "logical_coherence": 1.0,
+      "no_unnecessary_tools": 1.0,
+      "relevance": 1.0,
+      "required_tools": 1.0,
+      "tool_inputs": 1.0,
+      "tool_selection": 1.0,
+      "uncertainty": 1.0
+    },
+    "trajectory_mean": 1.0,
+    "answer_mean": 1.0,
+    "by_category": {
+      "advice": {
+        "correctness": 1.0,
+        "evidence_used": 1.0,
+        "factual_consistency": 1.0,
+        "groundedness": 1.0,
+        "logical_coherence": 1.0,
+        "no_unnecessary_tools": 1.0,
+        "relevance": 1.0,
+        "required_tools": 1.0,
+        "tool_inputs": 1.0,
+        "tool_selection": 1.0,
+        "uncertainty": 1.0
+      }
+    },
+    "n_examples": 1,
+    "n_scored": 1,
+    "errored": []
+  },
+  "prefix": "local-advice-01",
+  "metadata": {
+    "model": "gemma4:e2b",
+    "dataset_version": 3,
+    "judge": "gemma4:e2b",
+    "started_at": "2026-11-08T22:37:49+00:00"
+  },
+  "dataset": "crypto-agent-phase5-v3"
+}
