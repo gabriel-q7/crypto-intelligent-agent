@@ -62,9 +62,10 @@ DESCRIPTIONS = {
         "São dados armazenados, NÃO cotação ao vivo."
     ),
     "search_knowledge_base": (
-        "Busca CONCEITOS em documentos locais (blockchain, PoW/PoS, Bitcoin, Ethereum, staking, DeFi, TVL, "
-        "stablecoins, métricas, riscos), com reescrita de consulta. Sem preços. Use para toda explicação "
-        "conceitual, inclusive quando a pergunta também pede dados de mercado."
+        "Busca CONCEITOS em documentos locais (blockchain, PoW/PoS, Bitcoin, Ethereum, Solana, contratos "
+        "inteligentes, finalidade, comparação técnica entre blockchains, staking, DeFi, TVL, stablecoins, métricas, "
+        "riscos), com reescrita de consulta. Sem preços. Use para toda explicação conceitual e para comparar "
+        "redes (X vs Y), inclusive quando a pergunta também pede dados de mercado."
     ),
     "calculate_percent_change": "Calcula a variação percentual entre dois valores já obtidos de outras ferramentas.",
 }

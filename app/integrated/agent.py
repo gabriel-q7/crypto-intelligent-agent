@@ -38,6 +38,8 @@ Ferramentas e quando usar (chame SÓ as necessárias; várias numa mesma respost
   (passe a pergunta completa). São dados armazenados, com horário de coleta; não são cotação ao vivo.
 - Conceitos (o que é, como funciona, diferença entre...) → search_knowledge_base com a pergunta conceitual completa,
   MESMO que a pergunta também peça dados de mercado.
+- Comparação entre redes/blockchains ("X vs Y", "compare X e Y") → search_knowledge_base com a pergunta completa
+  (consenso, contratos inteligentes, finalidade, escalabilidade) E get_market_data de cada ativo.
 - Variação entre dois números já obtidos → calculate_percent_change.
 
 Regras:
@@ -52,7 +54,9 @@ Regras:
    recomendação de investimento. Nunca diga que não tem dados sem antes chamar a ferramenta.
 7. Se a pergunta citar um nome ou símbolo, consulte as ferramentas mesmo que ele pareça desconhecido (a ferramenta
    dirá se não existe); só peça esclarecimento quando nenhum ativo for citado nem estiver no histórico.
-8. Responda em português, em 2 a 6 frases objetivas."""
+8. Em comparação entre redes, organize em (a) tecnologia — consenso, contratos inteligentes, finalidade e
+   escalabilidade de cada rede, a partir dos trechos — e (b) mercado — dados com fonte e horário.
+9. Responda em português, em 2 a 6 frases objetivas; em comparação entre redes, até 12 frases ou tópicos curtos."""
 
 
 @dataclass

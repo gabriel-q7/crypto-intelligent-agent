@@ -12,7 +12,8 @@ from pydantic import BaseModel, Field, ValidationError, field_validator
 from app.chains.market_chains import ask_json
 
 SYSTEM_PROMPT = """Você reescreve perguntas sobre criptoativos para busca semântica numa base de documentos técnicos \
-em português (blockchain, consenso, Bitcoin, Ethereum, staking, DeFi, stablecoins, métricas de mercado, riscos).
+em português (blockchain, consenso, Bitcoin, Ethereum, Solana, contratos inteligentes, finalidade, \
+staking, DeFi, stablecoins, métricas de mercado, riscos).
 
 Tarefa:
 1. Identifique o conceito principal e a intenção da pergunta.

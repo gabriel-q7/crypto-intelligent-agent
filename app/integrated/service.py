@@ -47,12 +47,30 @@ ADVICE = re.compile(r"\b(investir|invisto|invista|vale a pena (comprar|investir)
                     r"compro|vendo|recomenda)", re.IGNORECASE)
 ADVICE_NOTICE = "Não faço recomendação de investimento: os dados acima servem apenas para comparação."
 
+# Comparação entre redes ("solana vs ethereum"): sem a base de conhecimento a resposta vira só preço/volume.
+COMPARISON = re.compile(r"(\bvs\b|\bversus\b|\bcompar|\bdiferen)", re.IGNORECASE)
+# Comparação só de mercado ("compare o preço de BTC e ETH") não exige a base, salvo se citar tecnologia.
+MARKET_ONLY = re.compile(r"pre[cç]o|cota[cç]|volume|market ?cap|capitaliza|rank|varia[cç]|desempenho|investi",
+                         re.IGNORECASE)
+TECHNICAL = re.compile(r"rede|blockchain|tecnolog|contrato|consenso|finalidade|escalab|smart|proof|staking",
+                       re.IGNORECASE)
+
 
 def skipped_lookup(message: str, run: AgentRun) -> list[str]:
     """Ativos citados na pergunta que o agente deixou de consultar ao recusar ou pedir esclarecimento."""
     if run.steps or not DECLINED.search(run.answer.strip()):
         return []
     return find_assets(message)
+
+
+def skipped_concepts(message: str, run: AgentRun) -> list[str]:
+    """Ativos de uma comparação entre redes respondida sem consultar a base de conhecimento."""
+    if not COMPARISON.search(message) or any(s.tool == "search_knowledge_base" for s in run.steps):
+        return []
+    if MARKET_ONLY.search(message) and not TECHNICAL.search(message):
+        return []
+    assets = find_assets(message)
+    return assets if len(assets) >= 2 else []
 
 
 def session_tag(session_id: str) -> str:
@@ -90,6 +108,11 @@ class IntegratedAgentService:
             instructions.insert(0, f"a pergunta cita {', '.join(assets)} e nenhuma ferramenta foi chamada: chame "
                                    "get_market_data para cada um e responda com os dados (fonte e horário); se for "
                                    "pedido de recomendação, apresente os dados e diga que não faz recomendação")
+        if assets := skipped_concepts(message, first):
+            instructions.insert(0, f"a pergunta compara as redes {', '.join(assets)} e search_knowledge_base não foi "
+                                   "chamada: chame search_knowledge_base com a pergunta completa e explique consenso, "
+                                   "contratos inteligentes e finalidade de cada rede a partir dos trechos, além dos "
+                                   "dados de mercado (fonte e horário)")
         feedback = HumanMessage(content=correction_message(instructions))
         return self._run(history, message, extra=[*previous, feedback])
 
@@ -115,7 +138,9 @@ class IntegratedAgentService:
             observations = list(first.observations)
             # Resposta vazia não tem afirmação a refutar e sairia "verified"; também usa a correção única.
             # Idem para a recusa sem consulta com ativo citado.
-            agent_failed = not first.answer.strip() or bool(skipped_lookup(message, first))
+            # Idem para comparação entre redes sem a base de conhecimento (só preço/volume).
+            agent_failed = (not first.answer.strip() or bool(skipped_lookup(message, first))
+                            or bool(skipped_concepts(message, first)))
             if needs_correction(verification.status) or (agent_failed and verification.status != "verification_failed"):
                 corrected = self._correct(bundle.messages, message, first, verification)
                 observations += corrected.observations  # novas chamadas, se houve, entram na evidência

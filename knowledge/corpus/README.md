@@ -8,7 +8,9 @@ valores de mercado**: dados atuais vêm apenas das ferramentas de mercado (CoinP
 |---|---|
 | blockchain-basics.md | Blockchain, blocos, consenso, PoW × PoS |
 | bitcoin.md | Bitcoin, emissão, halving |
-| ethereum-staking.md | Ethereum, contratos inteligentes, staking, The Merge |
+| ethereum-staking.md | Ethereum, contratos inteligentes, staking, finalidade, The Merge |
+| solana.md | Solana, PoH/Tower BFT, programas, Sealevel, finalidade |
+| comparacao-l1.md | Comparação técnica Ethereum × Solana (consenso, contratos, finalidade) |
 | defi-metrics.md | DeFi, TVL, DEX, AMM, liquidez |
 | stablecoins.md | Stablecoins e seus tipos |
 | market-metrics.md | Market cap, volume, volatilidade, drawdown, dominância |

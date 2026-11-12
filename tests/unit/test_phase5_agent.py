@@ -238,6 +238,40 @@ def test_skipped_lookup_only_flags_refusals_with_cited_assets():
     assert skipped_lookup("Explique o consenso do ETH.", concept) == []  # respondeu: nada a corrigir
 
 
+def test_skipped_concepts_flags_network_comparisons_without_knowledge_base():
+    from app.integrated.agent import AgentRun
+    from app.integrated.schemas import ToolStep
+    from app.integrated.service import skipped_concepts
+
+    def step(tool: str) -> ToolStep:
+        return ToolStep(order=1, tool=tool, category=TOOL_CATEGORY[tool], args={}, ok=True, output="{}")
+
+    market_only = AgentRun(answer="SOL custa US$ 81,54 e ETH US$ 2.014,18.", steps=[step("get_market_data")])
+    assert skipped_concepts("faça uma comparação sobre solana vs ethereum", market_only) == ["SOL", "ETH"]
+    assert skipped_concepts("Qual a diferença entre Ethereum e Solana?", market_only) == ["ETH", "SOL"]
+    with_rag = AgentRun(answer="...", steps=[step("get_market_data"), step("search_knowledge_base")])
+    assert skipped_concepts("faça uma comparação sobre solana vs ethereum", with_rag) == []
+    assert skipped_concepts("Qual a diferença do Ethereum para o PoW?", market_only) == []  # um ativo só
+    assert skipped_concepts("Compare o preço de BTC e ETH", market_only) == []  # só mercado
+    assert skipped_concepts("Compare a rede e o preço de BTC e ETH", market_only) == ["BTC", "ETH"]
+
+
+def test_network_comparison_without_knowledge_base_is_corrected(tmp_path):
+    # Caso real (2026-11-12): "solana vs ethereum" respondido só com preço, rank e volume.
+    llm = scripted(
+        tool_call("get_market_data", {"asset": "ETH"}, "c1"),
+        "O ETH está em US$ 2.426,11 (CoinPaprika).",
+        tool_call("search_knowledge_base", {"question": "comparação Ethereum vs Bitcoin"}, "c2"),
+        "O Ethereum usa Proof of Stake desde 2022; o ETH está em US$ 2.426,11 (CoinPaprika).",
+    )
+    verifier = ScriptedVerifier(result("verified"), result("verified"))
+    service, store, _ = make_service(tmp_path, llm, verifier)
+    reply = service.handle(store.create_session().id, "faça uma comparação sobre bitcoin vs ethereum")
+    assert reply.verification.correction_attempted and len(verifier.calls) == 2
+    assert [s.tool for s in reply.trajectory] == ["get_market_data", "search_knowledge_base"]
+    assert reply.answer.startswith("O Ethereum usa Proof of Stake")
+
+
 def test_verification_failure_is_reported_not_corrected(tmp_path):
     llm = scripted("O Ethereum usa Proof of Stake.")
     verifier = ScriptedVerifier(result("verification_failed"))
