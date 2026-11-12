@@ -24,7 +24,7 @@ Unir as capacidades das Fases 1 a 4 num **único agente** que:
 
 **Dentro:** agente com tool calling nativo, ferramentas estruturadas, adaptador de histórico, serviço de verificação, política de correção, dataset e avaliadores, runner local e LangSmith, interface Streamlit, testes e documentação.
 
-**Adaptado por decisão do autor (2026-11-05):**
+**Adaptações do enunciado (2026-11-05):**
 
 | Enunciado | Implementado | Motivo |
 |----------------------------------|--------------------------------|----------------------|
@@ -52,7 +52,7 @@ POST /conversations/{id}/agent
 | `app/integrated/` | Agente (`create_agent`), ferramentas estruturadas que delegam às implementações das Fases 2 e 4, adaptador de histórico e o turno |
 | `app/verification/` | Extração de afirmações, evidência, NLI, coerência lógica, política de correção |
 | `app/evaluation/` | Alvo, avaliadores (resposta e trajetória) e runner local/LangSmith |
-| `evaluation/phase5_dataset.json` | Dataset versionado (19 exemplos, 9 categorias) |
+| `evaluation/phase5_dataset.json` | Dataset versionado (versão 3: 20 exemplos, 10 categorias) |
 | `ui/` | Interface Streamlit e cliente HTTP |
 
 Detalhes em `docs/agent-integration.md`, `docs/response-verification.md` e `docs/langsmith-evaluation.md`.
@@ -108,7 +108,7 @@ Detalhes em `docs/agent-integration.md`, `docs/response-verification.md` e `docs
 
 ### 5.6 Interface: retomar conversa pelo id
 
-- **Sintoma (2026-11-08, pedido do autor):** a barra lateral só permitia retomar uma conversa digitando o `session_id` (32 caracteres hexadecimais).
+- **Sintoma (2026-11-08, uso da interface):** a barra lateral só permitia retomar uma conversa digitando o `session_id` (32 caracteres hexadecimais).
 - **Correção:**
   - endpoint `GET /conversations` (mais recentes primeiro);
   - título gerado pelo modelo após o 1º turno, na manutenção em segundo plano (sem latência extra), com a primeira pergunta truncada como alternativa;
@@ -133,6 +133,18 @@ Detalhes em `docs/agent-integration.md`, `docs/response-verification.md` e `docs
 - **Avaliação:** novo exemplo `advice-01` no dataset (versão 3, 20 exemplos), exigindo `get_market_data` para SOL e ETH e a recusa da recomendação.
 - **Evidência (`docs/evidence/final/advice-probe.jsonl`):** depois das três camadas, 6 de 6 execuções (3 por formulação) consultaram SOL e ETH, apresentaram os dados e declinaram a recomendação. Testes offline: `test_refusal_without_lookup_of_cited_assets_is_corrected`, `test_skipped_lookup_only_flags_refusals_with_cited_assets` e `test_empty_final_answer_uses_the_single_correction`.
 - **Aprendizado:** uma regra de "não faça X" num modelo pequeno tende a virar "não faça nada". A restrição precisa dizer o que **continua** sendo feito, e a falha mais provável precisa de uma checagem por código.
+
+### 5.9 Comparação entre redes respondida só com preço
+
+- **Sintoma (uso real, 2026-11-12):** em "faça uma comparação sobre solana vs ethereum", o agente chamou só `get_market_data` e respondeu com preço, rank e volume de SOL e ETH. A pergunta era sobre as **redes**: contratos inteligentes, consenso, finalidade.
+- **Causas:** (1) a base de conhecimento não tinha nada sobre Solana, e Ethereum tinha uma frase sobre EVM; pela regra 4, sem trecho recuperado o agente não pode fazer afirmação conceitual; (2) o prompt só mandava para `search_knowledge_base` perguntas do tipo "o que é / como funciona / diferença entre", e "comparação X vs Y" caía nos dados de mercado; (3) o limite de 2 a 6 frases não comportava tecnologia + mercado.
+- **Correção:**
+  1. **Corpus:** `solana.md` (PoH, Tower BFT, programas em Rust/SBF, modelo de contas, Sealevel, níveis de confirmação e finalidade, Alpenglow, trade-offs) e `comparacao-l1.md` (Ethereum × Solana por eixo, em seções de prosa menores que o chunk de 800 caracteres, com um resumo inicial que já cita finalidade); `ethereum-staking.md` ganhou as seções "Contratos inteligentes" e "Finalidade" (Gasper, Casper FFG, ~12,8 min). Sem preços (teste `test_corpus_has_no_market_prices`).
+  2. **Prompt e descrições:** comparação entre redes → `search_knowledge_base` **e** `get_market_data` de cada ativo; resposta em tecnologia + mercado, até 12 frases. A descrição de `search_knowledge_base` e o prompt do Query Rewriting citam Solana, contratos inteligentes e finalidade.
+  3. **Guarda determinística (`skipped_concepts` em `app/integrated/service.py`):** pergunta com "vs/compar/diferen", dois ou mais ativos e sem `search_knowledge_base` aciona a correção única, pedindo a busca conceitual. Comparações só de mercado ("compare o preço de BTC e ETH") ficam de fora.
+- **Primeira tentativa do corpus:** com a tabela comparativa, o chunk mais próximo da pergunta era só o título da seção (a tabela passava de 800 caracteres e foi separada). A tabela virou prosa por eixo.
+- **Avaliação:** o dataset da Fase 5 não mudou (limite de 15 a 20 exemplos e números da versão 3 já reportados); o caso fica nos testes `test_skipped_concepts_flags_network_comparisons_without_knowledge_base` e `test_network_comparison_without_knowledge_base_is_corrected`.
+- **Evidência (`docs/evidence/final/network-comparison-probe.jsonl`):** recuperação com distância 0,105 no resumo de `comparacao-l1.md`; o turno real chamou `search_knowledge_base` + `get_market_data` (SOL, ETH), explicou consenso, contratos inteligentes e finalidade, trouxe os dados com data e terminou `verified`, sem correção (100,7 s).
 
 ## 6. Evidências e métricas
 

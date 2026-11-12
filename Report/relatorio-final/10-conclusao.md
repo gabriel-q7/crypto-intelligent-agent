@@ -28,7 +28,7 @@ Ao fim das cinco fases, o Crypto Intelligence Agent é uma aplicação local com
 - **Ferramentas no lugar de memória do modelo.** Com os dados vindo das ferramentas, um modelo de 2B em CPU foi suficiente para orquestrar API, SQL e documentos. A hipótese que motivou o uso de um modelo local pequeno se confirmou.
 - **Código determinístico nos pontos fracos do modelo.** Comparações, rankings, períodos, checagem de números e montagem de fontes saíram do LLM e passaram a ser feitos por código. Isso eliminou classes inteiras de erro observadas nas primeiras fases.
 - **Separar "sem evidência" de "contra a evidência".** O desenho de status da verificação permite entregar respostas parcialmente sustentadas com transparência, em vez de rejeitá-las ou aprová-las por inteiro.
-- **APIs atuais desde o início de cada fase.** A política de não usar nada depreciado evitou retrabalho: a migração do agente para `create_agent` na Fase 5 só tocou `app/integrated/`, e a auditoria final terminou sem avisos.
+- **APIs atuais a partir da Fase 3.** A política de não usar nada depreciado evitou retrabalho: a migração do agente para `create_agent` na Fase 5 só tocou `app/integrated/`, e a auditoria final terminou sem avisos.
 
 ## Limitações
 

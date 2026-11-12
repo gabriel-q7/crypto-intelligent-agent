@@ -141,7 +141,7 @@ Saída final para a pergunta de referência:
 
 ### 5.4 O plano não respondia ao usuário — inclusão da resposta mínima
 
-- **Sintoma (apontado na revisão do usuário):** "O que é staking de ETH?" retornava só o plano (`"Definir o que é staking de ETH"`, `"Explorar o processo..."`), sem nenhuma explicação. A pergunta é conceitual e o modelo sabe respondê-la sem dados externos.
+- **Sintoma (identificado na revisão das saídas):** "O que é staking de ETH?" retornava só o plano (`"Definir o que é staking de ETH"`, `"Explorar o processo..."`), sem nenhuma explicação. A pergunta é conceitual e o modelo sabe respondê-la sem dados externos.
 - **Causa:** o schema da especificação só tinha campos de **plano**; o modelo não tinha onde responder.
 - **Correção:** dois campos novos no `CryptoAnalysisRequest`:
   - `answer_status`: `answered` (conceito respondido com conhecimento do modelo), `requires_market_data` (depende de dados de mercado), `needs_clarification` (pergunta ambígua);
@@ -172,15 +172,15 @@ Motivos para bloquear:
 3. **Requisito da especificação:** "impedir a invenção de preços, volumes e dados atuais" e "não inventar dados de mercado".
 4. **Prompt não é garantia.** Modelos 7B nem sempre obedecem instruções (5.3). A regra precisava de uma verificação determinística, assim como o formato tem o Pydantic.
 
-Decisão do usuário sobre o comportamento da trava, entre três opções (rejeitar a análise, substituir a resposta, remover a trava): **substituir**. Implementação refinada: apenas as frases com valor monetário ou percentual são removidas e um aviso padrão é acrescentado ("Nesta fase não tenho acesso a dados de mercado atualizados e respondo apenas com o conhecimento do modelo [...]"); o ocorrido é registrado em `assumptions`. Assim a parte conceitual da resposta é preservada.
+Para o comportamento da trava havia três opções: rejeitar a análise, substituir a resposta ou remover a trava. A escolhida foi **substituir**, de forma localizada: apenas as frases com valor monetário ou percentual são removidas e um aviso padrão é acrescentado ("Nesta fase não tenho acesso a dados de mercado atualizados e respondo apenas com o conhecimento do modelo [...]"); o ocorrido é registrado em `assumptions`. Assim a parte conceitual da resposta é preservada.
 
-Complemento no prompt, também pedido pelo usuário: quando a pergunta depende de dados, a resposta deve **dizer explicitamente** que o agente não tem dados atualizados nesta fase, em vez de apenas descrever o que será analisado.
+O prompt também passou a exigir que, quando a pergunta depende de dados, a resposta **diga explicitamente** que o agente não tem dados atualizados nesta fase, em vez de apenas descrever o que será analisado.
 
 Limites conhecidos da trava (heurística por expressão regular, não garantia): falso positivo em termos como "ataque de 51%"; falso negativo em valores sem símbolo de moeda ("65 mil", "65k").
 
 ### 5.6 Benchmark de modelos: qwen2.5:7b × gemma4:e4b
 
-**Objetivo (pedido do usuário):** medir o desempenho do modelo atual e comparar com o `gemma4:e4b`, com troca de modelo simples pelo env.
+**Objetivo:** medir o desempenho do modelo atual e compará-lo com o `gemma4:e4b`, com troca de modelo simples por variável de ambiente. O `mistral:7b` e o `gemma4:e2b` entraram depois na mesma comparação.
 
 **Troca de modelo:** antes, `OLLAMA_MODEL` definido no shell não chegava ao container (o `env_file` não é sobrescrito pelo shell). O `compose.yaml` passou a interpolar `OLLAMA_MODEL` no serviço `app`, com prioridade shell > `.env` > padrão; como o `app` depende do `ollama-pull`, que usa a mesma variável, `OLLAMA_MODEL=gemma4:e4b docker compose run --rm app ...` baixa e usa o modelo novo. A CLI também ganhou `--model`.
 
@@ -206,9 +206,9 @@ Limites conhecidos da trava (heurística por expressão regular, não garantia):
 
 ¹ Calculado só sobre as respostas válidas (4 de 6).
 
-**mistral:7b (adicionado depois, 1 repetição):** o mais lento (geração 2,4 tok/s; o tokenizador gera ~2.985 tokens para o mesmo prompt, +19% que o Qwen) e o único com saídas inválidas — omitiu `confidence` em "Compare BTC e ETH" e `answer` em "TVL do Aave". O modo JSON do Ollama garante sintaxe, não a presença dos campos; a validação Pydantic rejeitou as duas saídas, como esperado. Nas respostas válidas, conteúdo correto e aviso de ausência de dados presente. Dados: `benchmarks/results/20261017T235946_mistral-7b.json`.
+**mistral:7b (1 repetição):** o mais lento (geração 2,4 tok/s; o tokenizador gera ~2.985 tokens para o mesmo prompt, +19% que o Qwen) e o único com saídas inválidas — omitiu `confidence` em "Compare BTC e ETH" e `answer` em "TVL do Aave". O modo JSON do Ollama garante sintaxe, não a presença dos campos; a validação Pydantic rejeitou as duas saídas, como esperado. Nas respostas válidas, conteúdo correto e aviso de ausência de dados presente. Dados: `benchmarks/results/20261017T235946_mistral-7b.json`.
 
-**gemma4:e2b (adicionado depois, thinking desligado, 1 repetição):** o mais rápido em todas as métricas de tempo — latência média 42 s (−40% vs Qwen, −49% vs Gemma E4B), leitura do prompt 75 tok/s e geração 16,7 tok/s — com 100% de JSON válido, `answer_status` e `assets`. Respostas conceituais corretas (staking citando Proof-of-Stake) e aviso de ausência de dados em todas as perguntas de mercado; todas as etapas vieram do modelo (sem etapa derivada nem trava acionada). Ponto fraco: planos mais rasos — 1 etapa no TVL do Aave e `max_drawdown` ausente na comparação. Dados: `benchmarks/results/20261018T002057_gemma4-e2b_thinking-off.json`.
+**gemma4:e2b (thinking desligado, 1 repetição):** o mais rápido em todas as métricas de tempo — latência média 42 s (−40% vs Qwen, −49% vs Gemma E4B), leitura do prompt 75 tok/s e geração 16,7 tok/s — com 100% de JSON válido, `answer_status` e `assets`. Respostas conceituais corretas (staking citando Proof-of-Stake) e aviso de ausência de dados em todas as perguntas de mercado; todas as etapas vieram do modelo (sem etapa derivada nem trava acionada). Ponto fraco: planos mais rasos — 1 etapa no TVL do Aave e `max_drawdown` ausente na comparação. Dados: `benchmarks/results/20261018T002057_gemma4-e2b_thinking-off.json`.
 
 **Leitura dos resultados:**
 
@@ -217,11 +217,9 @@ Limites conhecidos da trava (heurística por expressão regular, não garantia):
 - O **thinking não compensa** neste caso de uso: +42% de latência média, p95 2× maior, mesma acurácia.
 - Em **qualidade**, o Gemma acertou 6/6 classificações e não repetiu o erro conceitual do Qwen ("nós de mineração").
 
-**Recomendação (atualizada após o E2B):** **`gemma4:e2b` com `OLLAMA_REASONING=false`** — o mais rápido (42 s por pergunta, −40% vs Qwen) e com acurácia máxima neste conjunto; ocupa 4,6 GB. A ressalva são planos mais rasos que os do E4B, o que importa a partir da fase em que as etapas forem executadas por ferramentas. `mistral:7b` descartado (mais lento e 33% de saídas inválidas); `gemma4:e4b` sem thinking fica como alternativa de plano mais detalhado; thinking não compensa. O padrão do projeto não foi alterado; a decisão fica para o usuário.
+**Ambiente após os testes:** por falta de disco (o `/` chegou a 100%, 7,9 MB livres), só o `qwen2.5:7b` foi mantido no volume do Ollama; `gemma4:e4b`, `gemma4:e2b` e `mistral:7b` foram removidos após o benchmark (resultados preservados em `benchmarks/results/`; para repetir: `--pull`). Também foi corrigido um bug do `--pull`: o download usava o cliente com timeout de inferência (300 s) e falhava em modelos de alguns GB.
 
-**Decisão (2026-10-18, pelo usuário):** o padrão do projeto passou a ser **`gemma4:e2b` com `OLLAMA_REASONING=false`** (`.env`, `.env.example`, `compose.yaml` e `app/config.py`). A semântica de `OLLAMA_REASONING` ficou: ausente → `false` (padrão do projeto); vazio → padrão do modelo; `true`/`false` explícitos. No Compose isso exigiu `${OLLAMA_REASONING-false}` (sem `:`), porque `:-` trataria o valor vazio como ausente. O `qwen2.5:7b` continua no volume como alternativa.
-
-**Ambiente após os testes:** por falta de disco (o `/` chegou a 100%, 7,9 MB livres), a pedido do usuário só o `qwen2.5:7b` foi mantido no volume do Ollama; `gemma4:e4b`, `gemma4:e2b` e `mistral:7b` foram removidos após o benchmark (resultados preservados em `benchmarks/results/`; para repetir: `--pull`). Também foi corrigido um bug do `--pull`: o download usava o cliente com timeout de inferência (300 s) e falhava em modelos de alguns GB.
+**Decisão (2026-10-18):** o padrão do projeto passou a ser **`gemma4:e2b` com `OLLAMA_REASONING=false`** (`.env`, `.env.example`, `compose.yaml` e `app/config.py`). Foi o mais rápido (42 s por pergunta, −40% em relação ao Qwen), com acurácia máxima neste conjunto, e ocupa 4,6 GB. A ressalva são planos mais rasos que os do E4B, o que passa a importar quando as etapas forem executadas por ferramentas. O `mistral:7b` foi descartado (mais lento e 33% de saídas inválidas), o `gemma4:e4b` sem thinking ficou como alternativa de plano mais detalhado, e o thinking não compensou. Como o `ollama-pull` baixa o modelo definido em `OLLAMA_MODEL`, o `gemma4:e2b` volta ao volume na subida seguinte, e o `qwen2.5:7b` continua disponível como alternativa. A semântica de `OLLAMA_REASONING` ficou: ausente → `false` (padrão do projeto); vazio → padrão do modelo; `true`/`false` explícitos. No Compose isso exigiu `${OLLAMA_REASONING-false}` (sem `:`), porque `:-` trataria o valor vazio como ausente.
 
 **Limitações do benchmark:** 6 perguntas e 1 repetição por modo do Gemma; acurácia medida só em `answer_status` e `assets` (correção do conteúdo de `answer` foi avaliada manualmente); apenas CPU.
 
@@ -278,7 +276,7 @@ Cobertura dos testes unitários: schemas (normalização, obrigatórios, limites
 - **Retry/fallback** (`with_retry`, `with_fallbacks`) para `AnalysisOutputError`.
 - **Avaliar outros modelos e GPU:** comparar qualidade e latência (ex.: modelos maiores ou com melhor aderência a JSON).
 - **Reduzir o prompt:** a leitura de ~2.400 tokens domina a latência; avaliar `format_instructions` mais enxuto (o JSON schema completo) e o custo/benefício de cada exemplo few-shot, medindo com o benchmark.
-- ~~**Definir o modelo padrão**~~ — feito: `gemma4:e2b` sem thinking (5.6). Revisar quando as etapas passarem a ser executadas, já que o E2B gera planos mais rasos.
+- **Revisar o modelo padrão** (`gemma4:e2b` sem thinking, adotado na seção 5.6) quando as etapas passarem a ser executadas, já que ele gera planos mais rasos.
 - **Verificação de fatos conceituais:** com RAG ou fontes de referência, checar respostas `answered` (ex.: o erro "nós de mineração").
 - **Substituir a trava heurística:** com dados reais disponíveis, valores em `answer` podem vir das ferramentas, com fonte e data, em vez de serem bloqueados.
 - **Pergunta aberta:** `confidence` deve continuar sendo autoavaliação do modelo ou ser calculada a partir de sinais objetivos (ativos identificados, período presente, número de premissas)?

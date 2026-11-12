@@ -57,14 +57,14 @@ Detalhes por módulo em `docs/architecture.md`.
 | Decisão | Alternativas | Motivo |
 |---|---|---|
 | APIs legadas via `langchain-classic`, isoladas em `app/legacy/` | Rebaixar para LangChain 0.x; usar só `create_agent` | No LangChain 1.x o legado saiu do pacote `langchain`. O `langchain-classic` 1.0.8 é compatível com o `langchain-core` 1.6.12 da Fase 1, sem rebaixar nada. Isolamento permite trocar depois |
-| `RouterChain` só para **classificar** | `MultiPromptChain` completo | `MultiPromptChain` exige destinos `LLMChain`; nossos destinos são chains LCEL com API |
+| `RouterChain` só para **classificar** | `MultiPromptChain` completo | `MultiPromptChain` exige destinos `LLMChain`; os destinos do projeto são chains LCEL com API |
 | Saída montada por **código** (grounding), não pelo LLM | Pedir ao ReAct um "Final Answer" em JSON | Modelo 2B + protocolo textual = JSON frágil. Fontes, horários e achados vindos das observações reais eliminam a chance de inventar esses campos |
-| Verificação de valores da resposta contra as observações | Confiar no prompt | Na Fase 1 vimos que prompt não garante comportamento |
+| Verificação de valores da resposta contra as observações | Confiar no prompt | A Fase 1 mostrou que prompt não garante comportamento |
 | Ferramentas de entrada única com normalização | Ferramentas estruturadas | O zero-shot só aceita uma string |
 | `nomic-embed-text` via Ollama | sentence-transformers (torch) | Reaproveita o container, 274 MB, sem PyTorch (o disco esteve no limite na Fase 1) |
 | Memória própria, limitada por turnos e caracteres, com marcação de dados históricos | `ConversationBufferWindowMemory` | O zero-shot não tem slot de memória e a janela não limita tamanho |
 | `OLLAMA_NUM_CTX=8192` | Padrão 4096 | O prompt do agente (cerca de 1.700 tokens antes das observações) mais histórico e observações passaria de 4096, com truncamento silencioso |
-| Aplicação HTTP (FastAPI) | Scripts avulsos; CLI única | Decisão do usuário (seção 5.5) |
+| Aplicação HTTP (FastAPI) | Scripts avulsos; CLI única | Entrada única, com as dependências criadas uma vez (seção 5.5) |
 | Retry só para falhas transitórias | Retry geral | Resposta inválida com temperatura 0 tende a se repetir |
 
 ## 5. Problemas encontrados e como foram resolvidos
@@ -116,15 +116,16 @@ Correções menores no grounding, achadas com respostas reais:
 
 ### 5.5 Formato da aplicação: scripts → CLI única (descartada) → HTTP
 
-- **Inicial:** um script por tarefa em `scripts/`, seguindo o "executar por scripts Python" da Fase 1.
-- **Questionamento do usuário:** os vários `__init__.py` seriam consequência dos scripts? Resposta: os `__init__.py` são padrão de pacote Python e ficam em qualquer formato. Só o `scripts/__init__.py` vinha da escolha de scripts. O desvio real eram 8 pontos de entrada com inicialização repetida, sem entrada única e sem instalação.
-- **Proposta:** CLI única com subcomandos. Aprovada e depois **cancelada pelo usuário** antes da implementação.
-- **Decisão final (usuário): serviço HTTP com FastAPI.**
-  - `app/main.py` com contêiner de dependências criado no ciclo de vida da aplicação;
-  - 10 endpoints;
-  - `scripts/` removido;
-  - o benchmark virou módulo de manutenção (`python -m app.services.benchmark_runner`), por levar de 10 a 40 min.
-- **Ajuste no stream:** a primeira versão de `/analyze/stream` acumulava os parciais e só enviava no fim. Foi corrigida para enviar cada parcial assim que gerado.
+A primeira versão seguiu o "executar por scripts Python" da Fase 1, com um script por tarefa em `scripts/`. Na revisão da estrutura, a quantidade de `__init__.py` levantou a dúvida se seria efeito dos scripts. Não era: os `__init__.py` são padrão de pacote Python e existem em qualquer formato, e só o `scripts/__init__.py` vinha dessa escolha. O problema real eram 8 pontos de entrada com inicialização repetida, sem entrada única e sem instalação.
+
+A primeira alternativa, uma CLI única com subcomandos, foi descartada antes da implementação em favor de um **serviço HTTP com FastAPI**:
+
+- `app/main.py` com contêiner de dependências criado no ciclo de vida da aplicação;
+- 10 endpoints;
+- `scripts/` removido;
+- o benchmark virou módulo de manutenção (`python -m app.services.benchmark_runner`), por levar de 10 a 40 min.
+
+Na migração, a primeira versão de `/analyze/stream` acumulava os parciais e só enviava no fim. Foi corrigida para enviar cada parcial assim que gerado.
 
 ### 5.6 Exemplos do Swagger
 
@@ -136,7 +137,7 @@ As etapas JSON das chains ganharam `with_retry` para falhas de conexão com o Ol
 
 ### 5.8 Troca de FAISS por Chroma
 
-- **Decisão do usuário (2026-10-26):** usar Chroma como base vetorial no lugar do FAISS. O enunciado pedia FAISS; a mudança é um desvio deliberado e registrado.
+- **Decisão (2026-10-26):** usar Chroma como base vetorial no lugar do FAISS. O enunciado pedia FAISS; a mudança é um desvio deliberado e registrado.
 - **Registro completo da decisão:** [docs/vector-store-decision.md](../docs/vector-store-decision.md) (contexto, problemas do FAISS, motivação, alternativas, consequências, validação e como reverter).
 - **Por que mudar (problemas observados com o FAISS durante a fase):**
   1. `langchain-community` em descontinuação, com aviso em toda execução; não existe `langchain-faiss`;
@@ -166,7 +167,7 @@ Detalhes em `docs/stage-2-evidence.md`.
 
 | Verificação | Resultado |
 |---|---|
-| Testes offline | 196 passed (~4 s) |
+| Testes offline | 196 passed (~4 s) antes da troca para Chroma; 199 depois (seção 5.8) |
 | Integração + rede | 11 passed (340 s) |
 | `GET /health/coinpaprika` | 7/7 |
 | Agente ReAct (ETH) | `complete`, 32 s, valores e horários reais |
@@ -199,5 +200,4 @@ Ver `docs/reliability-decisions.md` (seção 6) e `docs/stage-2-evidence.md` (se
 - Migrar o agente para LangGraph ou `create_agent` com tool calling nativo, com ferramentas de argumentos tipados e retry no LLM.
 - Executar o plano da Fase 1 (`requested_metrics` → ferramentas), o planejamento hierárquico.
 - Memória persistente (sessões) e de longo prazo.
-- ~~Substituir o `langchain-community`~~ — resolvido com a troca para Chroma (5.8).
 - Avaliar se o few-shot de "informação ausente" precisa de reforço, ou de uma checagem determinística de "sem ativo".

@@ -18,10 +18,10 @@ Transformar a aplicação num assistente conversacional que:
 
 ## 2. Escopo e adaptações do enunciado
 
-O enunciado foi **adaptado por decisão do usuário** antes da implementação:
+O enunciado foi **adaptado** em dois pontos, definidos antes da implementação:
 
-1. **Nada depreciado.** O `ConversationBufferMemory` (exigido na seção 5) está depreciado desde o LangChain 0.3.1, com remoção na 2.0, e **não foi usado**. Histórico e janela são próprios, sobre SQLite.
-2. **Framework de memória especializado.** A seção 12 pedia só comparar. O usuário pediu para usar um: LangMem primeiro; depois da avaliação, Mem0.
+1. **Nada depreciado.** O `ConversationBufferMemory` (exigido na seção 5 do enunciado) está depreciado desde o LangChain 0.3.1, com remoção na 2.0, e **não foi usado**. Histórico e janela são próprios, sobre SQLite.
+2. **Framework de memória especializado.** A seção 12 do enunciado pedia só comparar frameworks; o projeto adotou um. O primeiro candidato foi o LangMem; depois dos spikes, o escolhido foi o Mem0 (seção 5.1).
 
 Mantido do enunciado:
 - API existente;
@@ -55,7 +55,7 @@ Detalhes em `docs/architecture.md` (seção 8) e `docs/memory-strategy.md`.
 
 | Decisão | Alternativas | Motivo |
 |---|---|---|
-| Não usar `ConversationBufferMemory` | Usar isolado em `app/legacy/` (como o ReAct da Fase 2) | Diretriz do usuário: depreciado (remoção na 2.0); `InMemoryChatMessageHistory` também depreciado |
+| Não usar `ConversationBufferMemory` | Usar isolado em `app/legacy/` (como o ReAct da Fase 2) | Política de não usar APIs depreciadas: remoção na 2.0; `InMemoryChatMessageHistory` também depreciado |
 | Mem0 para a memória longa | LangMem, Letta, código próprio | Spikes (seção 5.1): único sem depreciação, Chroma e SQLite nativos, isolamento por `run_id` testado |
 | Resumo e janela em código próprio (LCEL) | `summarize_messages` do LangMem | LangMem descartado (depreciação na dependência); o Mem0 não resume conversa |
 | Fatos que sobrevivem ao resumo extraídos dos **metadados** | Deixar tudo para o LLM | Lição das Fases 1 e 2: modelo pequeno erra e omite. Resultados anteriores, correções e entidades não podem depender dele |
@@ -71,7 +71,7 @@ Detalhes em `docs/architecture.md` (seção 8) e `docs/memory-strategy.md`.
 
 | Candidato | Achado | Decisão |
 |---|---|---|
-| **LangMem 0.0.30** | Dependências compatíveis; `summarize_messages` funcionou (22 s); **`trustcall` importa `langgraph.constants.Send`, depreciado no LangGraph 1.0** (o aviso aparece em qualquer uso); 1 de 3 extrações inventou memória | Pela política combinada, parar e consultar → usuário pediu Mem0/Letta |
+| **LangMem 0.0.30** | Dependências compatíveis; `summarize_messages` funcionou (22 s); **`trustcall` importa `langgraph.constants.Send`, depreciado no LangGraph 1.0** (o aviso aparece em qualquer uso); 1 de 3 extrações inventou memória | Descartado pela política de não usar APIs depreciadas; avaliação passou para Letta e Mem0 |
 | **Letta** | Documentação oficial: a imagem Docker "não é mais mantida nem suportada"; Postgres + pgvector; laço de agente próprio | Descartado sem execução |
 | **Mem0 2.2.1** | Sem depreciação; Chroma e SQLite; isolamento por `run_id` ✅; extração **lenta** (68–89 s) e **guardou preço como fato** | **Escolhido**, com mitigações (seção 4) |
 

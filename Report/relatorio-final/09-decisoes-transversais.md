@@ -36,7 +36,7 @@ O caso do LangMem mostrou que a depreciação também vem de **dependências tra
 
 ### A exceção: APIs legadas exigidas na Fase 2
 
-O enunciado da Fase 2 exigia `initialize_agent`, `ZERO_SHOT_REACT_DESCRIPTION` e `RouterChain`. No LangChain 1.x essas APIs saíram do pacote `langchain` e vivem no `langchain-classic`. A política ainda não existia, e elas foram usadas como pedido, com duas salvaguardas:
+O enunciado da Fase 2 exigia `initialize_agent`, `ZERO_SHOT_REACT_DESCRIPTION` e `RouterChain`. No LangChain 1.x essas APIs saíram do pacote `langchain` e vivem no `langchain-classic`. A política ainda não existia, e elas foram usadas como o enunciado exigia, com duas salvaguardas:
 
 - ficam **isoladas** em `app/legacy/`, consumidas por interfaces modernas (o `CryptoAgent` cuida de memória, rastreamento e montagem da saída; o `RouterChain` só classifica);
 - atendem só os endpoints da Fase 2 (`POST /agent` e `POST /route?router=legacy`).
@@ -45,17 +45,17 @@ Na Fase 5 o agente principal migrou para `create_agent`. O código legado contin
 
 ## Desvios deliberados do enunciado
 
-Todos foram decididos pelo autor, com o motivo registrado na fase correspondente.
+Cada desvio tem o motivo registrado no capítulo da fase correspondente.
 
 | Fase | Enunciado | Implementado | Motivo |
 |---:|------------------------------------|---------------------------|------------------------------|
 | 2 | Scripts Python | Aplicação HTTP (FastAPI) | Uma entrada única com dependências criadas uma vez, no lugar de oito scripts com inicialização repetida |
 | 2 | FAISS | Chroma | Descontinuação do `langchain-community`, pickle inseguro, sem atualização incremental nem filtro por metadados |
 | 3 | `ConversationBufferMemory` | SQLite + janela + resumo próprios | Depreciado |
-| 3 | Só comparar frameworks de memória | Usar um (Mem0) | Pedido do autor; LangMem descartado por depreciação transitiva, Letta por imagem Docker sem suporte |
+| 3 | Só comparar frameworks de memória | Usar um (Mem0) | Framework mantido para a memória de longo prazo, no lugar de código próprio; LangMem descartado por depreciação transitiva, Letta por imagem Docker sem suporte |
 | 5 | `create_openai_tools_agent` + `AgentExecutor` | `create_agent` | Pacote legado; `create_agent` é o substituto oficial |
 | 5 | `RunnableWithMessageHistory` | `SessionHistoryAdapter` | Depreciado |
-| 5 | NLI com Transformers (`mDeBERTa-v3-base-mnli-xnli`) | NLI com `gemma4:e2b` via Ollama | Cerca de 2 GB a mais (torch, transformers e modelo) com 5 GB livres em disco, e um segundo motor de inferência na mesma CPU |
+| 5 | NLI com Transformers (`mDeBERTa-v3-base-mnli-xnli`) | NLI com `gemma4:e2b` via Ollama | Cerca de 2 GB a mais (torch, transformers e modelo) com 5,3 GB livres em disco, e um segundo motor de inferência na mesma CPU |
 
 ## Modelo local (Ollama) em CPU
 
@@ -120,4 +120,4 @@ Uma lição repetida em todas as fases: **o que pode ser calculado por código n
 
 - **Testes offline** (padrão do `pytest`): LLM falso, API simulada e bancos temporários. Rodam em segundos e cobrem contratos, regras determinísticas, segurança do SQL e fluxos completos da API.
 - **Testes de integração** (opt-in com `-m integration` e `-m network`): Ollama, CoinPaprika, Chroma e Mem0 reais. Como a saída do modelo varia mesmo com temperatura 0, esses testes usam critérios de comportamento (ferramenta certa, melhora de ranking, status esperado), e não igualdade de texto.
-- **Avaliação (Fase 5):** dataset versionado de 19 exemplos, avaliadores de resposta e de trajetória, execução local ou no LangSmith.
+- **Avaliação (Fase 5):** dataset versionado (20 exemplos na versão final), avaliadores de resposta e de trajetória, execução local ou no LangSmith.
