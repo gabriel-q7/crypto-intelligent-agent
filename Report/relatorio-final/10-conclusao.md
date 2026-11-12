@@ -21,7 +21,7 @@ Ao fim das cinco fases, o Crypto Intelligence Agent é uma aplicação local com
 | 4 | Text-to-Query real (9 perguntas) | 9 status corretos, nenhum SQL inseguro executado |
 | 4 | Diagnóstico de recuperação (halving) | Trecho relevante do 3º para o 1º lugar com Query Rewriting (MRR 0,33 → 1,0) |
 | 5 | Avaliação final do agente integrado | 20 de 20 exemplos executados; média de trajetória 0,962 e de resposta 0,951; `groundedness` 1,0; 14 dos 15 exemplos do agente terminaram `verified` |
-| 1–5 | Suíte offline com todos os avisos visíveis | 374 testes aprovados, nenhum aviso de depreciação |
+| 1–5 | Suíte offline com todos os avisos visíveis | 376 testes aprovados, nenhum aviso de depreciação |
 
 ## O que funcionou
 
@@ -36,6 +36,7 @@ Ao fim das cinco fases, o Crypto Intelligence Agent é uma aplicação local com
 - **Verificação com modelo de 2B:** a NLI tem confiança autodeclarada e confunde "sem evidência" com "contradição" em parte dos casos; a checagem numérica confere presença de valor, não a métrica a que ele foi atribuído.
 - **Juiz e agente são o mesmo modelo:** as notas do juiz são indício, compensado por avaliadores determinísticos.
 - **Dados:** o plano gratuito da CoinPaprika não oferece série histórica; o histórico local depende de coletas manuais.
+- **Conhecimento conceitual restrito ao corpus local:** comparações técnicas entre redes só cobrem o que está documentado na base (Bitcoin, Ethereum e Solana); o conteúdo precisa de revisão manual.
 - **Sem autenticação:** adequado só ao uso local de um usuário.
 - **LangSmith:** implementado, mas não exercitado neste ambiente; os resultados vêm da execução local equivalente.
 
@@ -46,4 +47,5 @@ Ao fim das cinco fases, o Crypto Intelligence Agent é uma aplicação local com
 3. Extração de afirmações com divisão de fatos compostos e checagem da métrica atribuída a cada número.
 4. Remoção do código legado da Fase 2 (`app/legacy/`), já substituído pelo agente integrado.
 5. Autenticação e dono por sessão antes de qualquer uso multiusuário.
-6. Experimentos no LangSmith para comparar versões de prompt e de modelo ao longo do tempo.
+6. Ampliar a base de conhecimento para outras redes e incluir a comparação entre redes no dataset de avaliação.
+7. Experimentos no LangSmith para comparar versões de prompt e de modelo ao longo do tempo.

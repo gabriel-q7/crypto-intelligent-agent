@@ -156,6 +156,7 @@ Detalhes em `docs/agent-integration.md`, `docs/response-verification.md` e `docs
 | Avaliação final (`local-final-v3`, 2026-11-08) | Ver a seção 6.1 |
 | Integração final da Fase 5 (2026-11-08) | 6 passed, 1 skipped; ver a seção 6.2 |
 | Testes offline (Fases 1–5) | Ver o capítulo de decisões transversais (auditoria de depreciação) |
+| Comparação entre redes (2026-11-12, seção 5.9) | PROBE_RESULT |
 
 ### 6.1 Avaliação final
 
@@ -223,6 +224,7 @@ Execução de `tests/integration/test_phase5_live.py` com Ollama, CoinPaprika, S
 - **Uma frase, uma afirmação:** uma frase com dois fatos vira uma afirmação só.
 - **Recusas passam como `verified`** (seção 5.3).
 - **Resposta cautelosa perde rótulos:** ao recompor a resposta por frases, linhas de métricas em lista perdem o nome do ativo a que se referem (`api-rag-02` na avaliação final).
+- **Comparação entre redes limitada ao corpus:** o agente só compara as redes descritas na base local (hoje Ethereum, Solana e Bitcoin); para outras, a resposta volta a ter só dados de mercado. O conteúdo técnico (por exemplo, a Alpenglow da Solana) envelhece e precisa de revisão manual. Na resposta real, o tempo de finalidade do Ethereum nem sempre aparece, embora esteja no trecho recuperado.
 - **Ativo inexistente sem consulta:** em "moeda XYZQWE", o agente pede esclarecimento sem consultar a API (seção 6.1).
 - **LangSmith não exercitado neste ambiente:** o rastreamento e o runner estão implementados e testados offline, mas as variáveis `LANGSMITH_*` não foram configuradas; o teste de trace foi pulado e os resultados são da execução local equivalente.
 - **Juiz com viés de autoavaliação:** o mesmo modelo responde e julga; as notas do juiz são indício, não prova.
@@ -234,6 +236,7 @@ Execução de `tests/integration/test_phase5_live.py` com Ollama, CoinPaprika, S
 - **"Sem evidência" e "contra a evidência" são coisas diferentes,** e o modelo pequeno confunde as duas. O desenho de status (`neutral`, `unsupported`, `verification_failed`) existe para não punir a resposta pela limitação da verificação.
 - **Avaliação precisa distinguir falha do sistema de falha da infraestrutura.** Médias com exemplos que nem rodaram contam uma história falsa.
 - **Depreciação continua aparecendo no fim:** até a interface tinha um parâmetro depreciado. A auditoria com todos os avisos visíveis deve fazer parte da entrega.
+- **O corpus define o que o agente sabe explicar.** Com a regra "conceito só a partir dos trechos", uma lacuna na base não vira resposta errada, vira resposta incompleta (só preço). O formato do documento também importa: uma tabela maior que o chunk separou o título do conteúdo, e o trecho mais próximo da pergunta ficou vazio.
 - **Modo JSON é configuração global do LLM.** Uma tarefa nova de texto livre (o título) quebrou em silêncio; o teste com o modelo real revelou o que o dublê não revelaria.
 
 ## 9. Pendências
@@ -242,5 +245,7 @@ Execução de `tests/integration/test_phase5_live.py` com Ollama, CoinPaprika, S
 - Extração de afirmações com divisão de fatos compostos e checagem de atribuição de métrica.
 - Resposta cautelosa que preserve a estrutura da resposta (listas e rótulos de ativo).
 - Consultar a busca de ativos (`search_crypto_asset`) quando a pergunta citar um nome desconhecido, antes de pedir esclarecimento.
+- Incluir a comparação entre redes (seção 5.9) no dataset numa nova versão e repetir a avaliação completa.
+- Cobrir outras redes na base (por exemplo, L2 e outras L1 citadas pelos usuários) ou responder explicitamente quando a rede não está coberta.
 - NLI com cabeça treinada (Transformers) se houver disco, mantendo a mesma interface `classify`.
 - Autenticação e dono por sessão antes de qualquer uso com mais de um usuário.

@@ -32,7 +32,7 @@ O caso do LangMem mostrou que a depreciação também vem de **dependências tra
 
 - **Spikes com avisos visíveis:** cada candidato foi importado e executado com `warnings.simplefilter("always")` no ambiente da imagem antes da adoção.
 - **Teste automático:** `test_phase3_modules_use_no_deprecated_langchain_apis` importa os módulos da Fase 3 num interpretador limpo, com `LangChainDeprecationWarning` tratado como erro. Rodar num subprocesso foi necessário porque recarregar módulos no mesmo processo recriava classes de exceção e quebrava outros testes.
-- **Auditoria final (2026-11-08):** a suíte offline completa rodou com `-W always::DeprecationWarning -W always::PendingDeprecationWarning -W always::FutureWarning`: **374 testes aprovados e nenhum aviso** (`docs/evidence/final/pytest-deprecation-audit.log`).
+- **Auditoria final (2026-11-12, refeita após a seção 5.9 da Fase 5):** a suíte offline completa rodou com `-W always::DeprecationWarning -W always::PendingDeprecationWarning -W always::FutureWarning`: **376 testes aprovados e nenhum aviso** (`docs/evidence/final/pytest-deprecation-audit.log`).
 
 ### A exceção: APIs legadas exigidas na Fase 2
 

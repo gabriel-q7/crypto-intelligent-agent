@@ -242,6 +242,13 @@ def verify_test_logs() -> None:
     good = [r for r in rows if {"get_market_data"} <= set(r["tools"]) and r["declines_advice"] and r["answer"].strip()]
     expect(FASE5, f"{len(good)} de {len(rows)} execuções", "resultado do teste de pedido de recomendação")
 
+    probe = EVIDENCE_FINAL / "network-comparison-probe.jsonl"
+    rows = [json.loads(line) for line in probe.read_text(encoding="utf-8").splitlines() if line.strip()]
+    good = [r for r in rows if {"search_knowledge_base", "get_market_data"} <= set(r["tools"]) and r["answer"].strip()]
+    verified = [r for r in rows if r["verification"] == "verified"]
+    expect(FASE5, f"{len(good)} de {len(rows)} comparações", "comparações entre redes com base + mercado")
+    expect(FASE5, f"{len(verified)} `verified`", "comparações entre redes verificadas")
+
     final_integration = EVIDENCE_FINAL / "integration-phase5.log"
     if final_integration.exists():
         log = final_integration.read_text(encoding="utf-8")
