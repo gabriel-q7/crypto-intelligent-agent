@@ -38,7 +38,7 @@ Ao fim das cinco fases, o Crypto Intelligence Agent é uma aplicação local com
 - **Dados:** o plano gratuito da CoinPaprika não oferece série histórica; o histórico local depende de coletas manuais.
 - **Profundidade desigual nas comparações entre redes:** a base local cobre a fundo Bitcoin, Ethereum e Solana; as demais redes contam só com o perfil da CoinPaprika (consenso e descrição curta).
 - **Sem autenticação:** adequado só ao uso local de um usuário.
-- **LangSmith:** implementado, mas não exercitado neste ambiente; os resultados vêm da execução local equivalente.
+- **LangSmith:** o rastreamento de uso real foi analisado (13 turnos; a verificação ocupa 48% do tempo do turno na mediana) e revelou defeitos que a avaliação agregada não mostrava; o dataset e os experimentos ainda não foram rodados no LangSmith.
 
 ## Trabalhos futuros
 

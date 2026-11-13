@@ -114,3 +114,20 @@ O alvo (`app/evaluation/target.py`) usa o `AppContainer` real, cria uma sessão 
 Ver o diário da Fase 5 ([Report/fase-05-agente-integrado.md](../Report/fase-05-agente-integrado.md), seções 5.5 e 6). Arquivos: `docs/evidence/phase-5/eval-local-baseline.json` (dataset v1), `eval-local-final.json` (v2), `eval-local-final-v3.json` (v3, resultado final), `eval-local-advice-01.json` (reavaliação do `advice-01`) e `eval-local-after-fixes.json` (este último com 8 exemplos interrompidos por falha de infraestrutura; não usar como resultado).
 
 Os exemplos que falham ao executar (Ollama fora, DNS, timeout) ficam fora das médias e aparecem em `summary.errored`; `summary.n_scored` informa quantos foram avaliados.
+
+## 7. Exportação e análise dos traces
+
+`scripts/langsmith_export.py` lê o projeto `LANGSMITH_PROJECT` pela API atual do SDK (`client.runs.query`, assíncrona; `list_runs` está depreciado) e grava em `docs/evidence/langsmith/`:
+
+- `turns.jsonl`: um turno real por linha, com pergunta, status, verificação, correção, ferramentas, latência por etapa (`prefetch_s`, `agent_s`, `verification_s`, `nli_s`, `coherence_s`, `correction_s`, `tool_s`), chamadas ao LLM e tokens (do agente e da verificação), erros do verificador e a resposta;
+- `summary.json`: agregados (mínimo, mediana, média, máximo) e o inventário do projeto.
+
+```bash
+docker compose run --rm --no-deps -v ./scripts:/app/scripts -v ./docs:/app/docs app python scripts/langsmith_export.py
+```
+
+"Turno real" é um trace `integrated.turn` com pelo menos uma chamada `llm` ao `ChatOllama`. Os turnos da suíte offline (dublês de LLM) ficam fora da análise e só entram na contagem do inventário. Cada ferramenta aparece duas vezes no trace (a estruturada da Fase 5 delega à de entrada única); a exportação conta só a externa.
+
+Resultados e defeitos encontrados: diário da Fase 5, seções 5.11 e 6.3.
+
+**Atenção:** com `LANGSMITH_TRACING=true` no `.env`, o `make test` também envia traces, porque o container carrega o `.env`. Para não misturar testes com uso real, desligue o tracing na suíte offline (pendência registrada na Fase 5).

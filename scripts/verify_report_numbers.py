@@ -258,6 +258,28 @@ def verify_test_logs() -> None:
     times = sorted(r["elapsed_s"] for r in rows)
     expect(FASE5, f"de {br(times[0], 1)} s a {br(times[-1], 1)} s:", "latência das comparações com consultas pelo código")
 
+    summary_path = REPO_ROOT / "docs" / "evidence" / "langsmith" / "summary.json"
+    if summary_path.exists():
+        ls = json.loads(summary_path.read_text(encoding="utf-8"))
+        expect(FASE5, f"**{ls['real_turns']} turnos reais**", "turnos reais exportados do LangSmith")
+        expect(FASE5, f"**{ls['root_traces']:,} traces raiz**".replace(",", "."), "traces raiz do projeto LangSmith")
+        expect(FASE5, f"{ls['test_turns']} dos {ls['integrated_turns']} `integrated.turn`", "turnos de teste no LangSmith")
+        expect(FASE5, br(ls["project_stats"]["error_rate"] * 100, 1) + "%", "taxa de erro do projeto LangSmith")
+        for key, label in (("latency_s", "Turno completo"), ("verification_s", "Verificação (`verification.verify`)")):
+            s = ls[key]
+            expect(FASE5, f"{label} | {br(s['median'], 1)} s | {br(s['min'], 1)} s | {br(s['max'], 1)} s |",
+                   f"latência {key} no LangSmith")
+        share = ls["verification_share"]
+        expect(FASE5, f"**{round(share['median'] * 100)}% do tempo do turno** (de {round(share['min'] * 100)}% "
+                      f"a {round(share['max'] * 100)}%)", "participação da verificação no turno")
+        tokens = ls["tokens"]
+        expect(FASE5, f"| Tokens (total) | {tokens['median']:,.0f} | {tokens['min']:,.0f} | {tokens['max']:,.0f} |"
+               .replace(",", "."), "tokens por turno no LangSmith")
+        failed = ls["verification"].get("verification_failed", 0)
+        check(failed == ls["turns_with_verifier_errors"], "verification_failed sem erro do verificador no LangSmith")
+        expect(FASE5, f"({failed} de {failed})", "verification_failed causadas pelo verificador")
+        expect(FASE5, f"{ls['corrections']} de {ls['real_turns']} turnos passaram pela correção", "correções no LangSmith")
+
     final_integration = EVIDENCE_FINAL / "integration-phase5.log"
     if final_integration.exists():
         log = final_integration.read_text(encoding="utf-8")

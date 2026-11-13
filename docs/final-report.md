@@ -2,7 +2,7 @@
 title: "Crypto Intelligence Agent"
 subtitle: "Relatório técnico das Fases 1 a 5"
 author: "Gabriel Aguiar Aquino"
-date: "12 de novembro de 2026"
+date: "13 de novembro de 2026"
 lang: pt-BR
 geometry: margin=2.2cm
 toc: true
@@ -1212,6 +1212,17 @@ Detalhes em `docs/agent-integration.md`, `docs/response-verification.md` e `docs
 - **Testes offline:** `test_network_comparison_tools_are_called_by_code_and_model_only_writes`, `test_prefetch_skips_questions_that_are_not_network_comparisons`, `test_asset_profile_tool_is_opt_in`, `test_asset_profile_returns_technical_fields_without_prices`, `test_profile_becomes_portuguese_evidence_and_finding`.
 - **Aprendizado:** acrescentar ferramenta a um modelo de 2B não acrescenta capacidade; muda o roteamento, e para pior. Quando a pergunta tem forma conhecida e as consultas necessárias são sempre as mesmas, o código deve fazê-las e o modelo deve só redigir.
 
+### O que os traces do LangSmith mostraram
+
+O rastreamento no LangSmith foi ligado em 2026-11-12 (projeto `crypto-intelligence-agent`). Os traces foram exportados por `scripts/langsmith_export.py` para `docs/evidence/langsmith/` (`turns.jsonl` e `summary.json`); as métricas estão na seção 6.3. A leitura dos traces encontrou quatro problemas que os logs e a avaliação local não mostravam:
+
+1. **A suíte offline também gera traces.** O `.env` liga `LANGSMITH_TRACING=true` e o `docker compose run app pytest` carrega o `.env`. Dos **2.334 traces raiz** do projeto, só **13 são turnos reais** do agente; 100 dos 113 `integrated.turn` e 528 traces de dublês (`FakeListChatModel`, `RoutingFakeChat`) vêm dos testes. A taxa de erro do projeto (12,4%) mede, na maior parte, os erros que os testes provocam de propósito. O conteúdo dos testes também sai da máquina.
+2. **Todas as `verification_failed` têm a mesma causa (3 de 3).** O verificador de coerência (LLM em modo JSON) escreveu uma descrição com mais de 400 caracteres; o schema `CoherenceOutput` (`max_length=400`) rejeitou a saída inteira e a verificação terminou como "não pôde ser concluída". A falha é do limite de validação, não do modelo: o problema apontado se perde por causa do tamanho do texto.
+3. **"solana vs bitcoin" (uso real, 2026-11-13): erro factual aprovado pela NLI.** A busca na base trouxe só trechos de `comparacao-l1.md` (Ethereum × Solana, distâncias 0,200 a 0,226), e o modelo respondeu que "ambas utilizam Proof of Stake", falando do Ethereum no lugar do Bitcoin. A NLI marcou essa frase como `entailment`, citando os trechos sobre Ethereum e Solana, embora o perfil do BTC na evidência dissesse `Proof of Work`. A NLI confere se a frase é sustentada por algum trecho, mas não se o trecho fala dos mesmos ativos.
+4. **Falso positivo da regra de sentido.** No mesmo turno, a regra `direction_mismatch` leu "visando **alta** velocidade" como "diz que SOL subiu" (variação 24h de −5,08%). A regra procura palavras de alta e queda na frase sem confirmar que elas se referem ao preço.
+
+- **Aprendizado:** a avaliação agregada (seção 6.1) e as amostras de teste real (seções 5.9 e 5.10) não revelaram nenhum desses quatro problemas; o trace por etapa revelou. Também ficou claro que o rastreamento precisa ser desligado nos testes offline, ou as métricas do projeto deixam de medir o sistema.
+
 ## Evidências e métricas
 
 | Verificação | Resultado |
@@ -1220,6 +1231,7 @@ Detalhes em `docs/agent-integration.md`, `docs/response-verification.md` e `docs
 | Integração da Fase 5, 1ª execução | 5 passed, 1 failed (NLI, seção 5.2), 1 skipped (LangSmith não configurado), em 665,73 s |
 | Avaliação de base (`local-baseline`, 19 exemplos, 2026-11-06) | Média de trajetória 0,927; média de resposta 0,869; 0 exemplos com erro |
 | Avaliação final (`local-final-v3`, 2026-11-08) | Ver a seção 6.1 |
+| Rastreamento no LangSmith (2026-11-12 a 2026-11-13) | 13 turnos reais exportados; ver a seção 6.3 |
 | Integração final da Fase 5 (2026-11-08) | 6 passed, 1 skipped; ver a seção 6.2 |
 | Testes offline (Fases 1–5) | Ver o capítulo de decisões transversais (auditoria de depreciação) |
 | Comparação entre redes com consultas feitas pelo código (2026-11-13, seção 5.10) | 3 turnos reais (Solana × Ethereum, Cardano × Avalanche, "diferença entre"): 3 de 3 `complete` e `verified` |
@@ -1283,6 +1295,35 @@ Execução de `tests/integration/test_phase5_live.py` com Ollama, CoinPaprika, S
 | Cliente Streamlit contra a API real | Aprovado |
 
 
+### Rastreamento no LangSmith (2026-11-12 a 2026-11-13)
+
+Exportação de `docs/evidence/langsmith/summary.json` (`scripts/langsmith_export.py`): **13 turnos reais** do agente integrado com `gemma4:e2b` em CPU, todos perguntas de comparação entre redes (seções 5.9 e 5.10). É uma amostra pequena e de um só tipo de pergunta; os números descrevem esse tipo de turno, não o agente em geral.
+
+| Etapa (por turno) | Mediana | Mínimo | Máximo |
+|---|---|---|---|
+| Turno completo | 120,3 s | 54,2 s | 206,2 s |
+| Agente (`integrated.agent_run`, inclui a reexecução da correção) | 60,4 s | 20,4 s | 96,5 s |
+| Verificação (`verification.verify`) | 53,1 s | 33,6 s | 108,0 s |
+| — NLI das afirmações conceituais | 48,0 s | 28,3 s | 101,0 s |
+| — Coerência (regras + LLM) | 7,8 s | 2,6 s | 23,5 s |
+| Ferramentas (CoinPaprika, Chroma) | 0,9 s | 0,0 s | 10,1 s |
+| Pré-consulta das comparações (4 turnos) | 1,9 s | 0,8 s | 10,1 s |
+| Correção (5 turnos) | 30,0 s | 9,2 s | 40,2 s |
+
+| Custo (por turno) | Mediana | Mínimo | Máximo |
+|---|---|---|---|
+| Chamadas ao LLM | 10 | 8 | 20 |
+| Tokens (total) | 12.589 | 10.151 | 24.537 |
+| Tokens do agente | 4.719 | 3.804 | 11.418 |
+| Tokens da verificação | 8.090 | 4.770 | 15.583 |
+
+Leitura:
+- **A verificação custa tanto quanto a resposta:** mediana de **48% do tempo do turno** (de 37% a 67%) e mais tokens que o próprio agente. Quase todo esse tempo é a NLI, uma chamada ao LLM por afirmação conceitual; comparações entre redes têm muitas afirmações conceituais.
+- **As ferramentas não são o gargalo:** menos de 1 s na mediana; o tempo está no LLM local.
+- **A correção é frequente nessas perguntas:** 5 de 13 turnos passaram pela correção única, cada uma com mais 30 s na mediana.
+- **Resultado:** 7 `verified`, 2 `partially_verified`, 1 `unsupported` (Cardano × Avalanche antes da seção 5.10) e 3 `verification_failed`, todas pelo limite de 400 caracteres da seção 5.11.
+- **O que não foi exercitado:** o dataset e os experimentos (`make eval-upload`, `make eval`) não foram criados no LangSmith; a avaliação da seção 6.1 continua sendo a execução local equivalente.
+
 ## Limitações conhecidas
 
 - **NLI por LLM de 2B:** confiança autodeclarada, sensível ao texto da evidência e lenta (10 a 40 s de verificação em respostas com várias afirmações conceituais).
@@ -1294,7 +1335,9 @@ Execução de `tests/integration/test_phase5_live.py` com Ollama, CoinPaprika, S
 - **Comparação entre redes com profundidade desigual:** redes descritas na base local (Bitcoin, Ethereum e Solana) têm contratos, execução e finalidade; para as demais, só o perfil da CoinPaprika (consenso e uma descrição curta, em inglês, às vezes defasada). O conteúdo da base (por exemplo, a Alpenglow da Solana) envelhece e precisa de revisão manual. Na resposta real, os tempos de finalidade nem sempre aparecem, embora estejam nos trechos recuperados.
 - **Consultas fixas custam latência:** toda comparação entre redes faz 5 consultas (base, perfis e mercado), mesmo quando a pergunta não pede mercado.
 - **Ativo inexistente sem consulta:** em "moeda XYZQWE", o agente pede esclarecimento sem consultar a API (seção 6.1).
-- **LangSmith não exercitado neste ambiente:** o rastreamento e o runner estão implementados e testados offline, mas as variáveis `LANGSMITH_*` não foram configuradas; o teste de trace foi pulado e os resultados são da execução local equivalente.
+- **LangSmith exercitado só no rastreamento:** os traces de uso real foram analisados (seções 5.11 e 6.3), mas o dataset e os experimentos não foram criados no LangSmith; a avaliação da seção 6.1 vem da execução local equivalente. Com o `.env` atual, a suíte offline também envia traces (seção 5.11).
+- **NLI sem checagem de ativo:** uma afirmação sobre os ativos A e B pode sair `entailment` a partir de um trecho sobre A e C (seção 5.11).
+- **Regra de sentido por palavra-chave:** "alta"/"queda" fora do contexto de preço gera falso positivo (seção 5.11).
 - **Juiz com viés de autoavaliação:** o mesmo modelo responde e julga; as notas do juiz são indício, não prova.
 - **Latência:** um turno leva de 10 s a quase 3 min em CPU; cada correção é mais uma execução do agente.
 
@@ -1309,7 +1352,11 @@ Execução de `tests/integration/test_phase5_live.py` com Ollama, CoinPaprika, S
 
 ## Pendências
 
-- Configurar o LangSmith e repetir a avaliação como experimento rastreado.
+- Desligar o rastreamento na suíte offline (`LANGSMITH_TRACING=false` no `conftest`), para que o projeto do LangSmith só receba uso real e integração.
+- Truncar a descrição da coerência em vez de rejeitar a saída (`CoherenceOutput.description`), para que a verificação não falhe por tamanho de texto.
+- Na NLI, exigir que a evidência cite os mesmos ativos da afirmação; na regra de sentido, exigir referência a preço ou variação.
+- Na pré-consulta das comparações, buscar a base por rede (não só pela pergunta inteira), para não trazer só o documento Ethereum × Solana.
+- Criar o dataset e rodar a avaliação como experimento no LangSmith (`make eval-upload`, `make eval`).
 - Extração de afirmações com divisão de fatos compostos e checagem de atribuição de métrica.
 - Resposta cautelosa que preserve a estrutura da resposta (listas e rótulos de ativo).
 - Consultar a busca de ativos (`search_crypto_asset`) quando a pergunta citar um nome desconhecido, antes de pedir esclarecimento.
@@ -1390,7 +1437,7 @@ Cada desvio tem o motivo registrado no capítulo da fase correspondente.
 A escolha de servir o modelo localmente pelo Ollama, em vez de usar uma API comercial, partiu da natureza do problema:
 
 1. **O conhecimento que importa vem das ferramentas.** Uma análise de mercado cripto depende de preços, volumes e capitalizações que mudam a cada minuto. Nenhum modelo, por maior que seja, tem esses valores no treinamento. A qualidade da resposta depende de o agente **escolher a ferramenta certa, passar os argumentos certos e usar o resultado sem inventar**, e não da memória do modelo. Por isso um modelo pequeno é suficiente, desde que siga o protocolo de ferramentas. O projeto serviu justamente para medir esse potencial: até onde um modelo local leve consegue orquestrar ferramentas reais.
-2. **Privacidade.** Perguntas, histórico de conversa e memórias de longo prazo ficam na máquina. Só as consultas à CoinPaprika (símbolos de ativos) saem para a internet; o LangSmith é opcional e desligado por padrão.
+2. **Privacidade.** Perguntas, histórico de conversa e memórias de longo prazo ficam na máquina. Só as consultas à CoinPaprika (símbolos de ativos) saem para a internet; o LangSmith é opcional e desligado por padrão. Quando ligado, perguntas e respostas vão para o LangSmith; com o `.env` atual, a suíte offline também envia os traces dos testes (Fase 5, seção 5.11).
 3. **Avaliar o estado dos modelos locais.** Outro objetivo era verificar a qualidade que modelos abertos já alcançam num computador pessoal, sem GPU dedicada.
 4. **Custo e reprodutibilidade.** Sem cobrança por token e sem dependência de disponibilidade de um provedor; qualquer pessoa reproduz o ambiente com `make up`.
 
@@ -1494,7 +1541,7 @@ Ao fim das cinco fases, o Crypto Intelligence Agent é uma aplicação local com
 - **Dados:** o plano gratuito da CoinPaprika não oferece série histórica; o histórico local depende de coletas manuais.
 - **Profundidade desigual nas comparações entre redes:** a base local cobre a fundo Bitcoin, Ethereum e Solana; as demais redes contam só com o perfil da CoinPaprika (consenso e descrição curta).
 - **Sem autenticação:** adequado só ao uso local de um usuário.
-- **LangSmith:** implementado, mas não exercitado neste ambiente; os resultados vêm da execução local equivalente.
+- **LangSmith:** o rastreamento de uso real foi analisado (13 turnos; a verificação ocupa 48% do tempo do turno na mediana) e revelou defeitos que a avaliação agregada não mostrava; o dataset e os experimentos ainda não foram rodados no LangSmith.
 
 ## Trabalhos futuros
 

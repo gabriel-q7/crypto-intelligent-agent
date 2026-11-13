@@ -64,7 +64,7 @@ Cada desvio tem o motivo registrado no capítulo da fase correspondente.
 A escolha de servir o modelo localmente pelo Ollama, em vez de usar uma API comercial, partiu da natureza do problema:
 
 1. **O conhecimento que importa vem das ferramentas.** Uma análise de mercado cripto depende de preços, volumes e capitalizações que mudam a cada minuto. Nenhum modelo, por maior que seja, tem esses valores no treinamento. A qualidade da resposta depende de o agente **escolher a ferramenta certa, passar os argumentos certos e usar o resultado sem inventar**, e não da memória do modelo. Por isso um modelo pequeno é suficiente, desde que siga o protocolo de ferramentas. O projeto serviu justamente para medir esse potencial: até onde um modelo local leve consegue orquestrar ferramentas reais.
-2. **Privacidade.** Perguntas, histórico de conversa e memórias de longo prazo ficam na máquina. Só as consultas à CoinPaprika (símbolos de ativos) saem para a internet; o LangSmith é opcional e desligado por padrão.
+2. **Privacidade.** Perguntas, histórico de conversa e memórias de longo prazo ficam na máquina. Só as consultas à CoinPaprika (símbolos de ativos) saem para a internet; o LangSmith é opcional e desligado por padrão. Quando ligado, perguntas e respostas vão para o LangSmith; com o `.env` atual, a suíte offline também envia os traces dos testes (Fase 5, seção 5.11).
 3. **Avaliar o estado dos modelos locais.** Outro objetivo era verificar a qualidade que modelos abertos já alcançam num computador pessoal, sem GPU dedicada.
 4. **Custo e reprodutibilidade.** Sem cobrança por token e sem dependência de disponibilidade de um provedor; qualquer pessoa reproduz o ambiente com `make up`.
 
