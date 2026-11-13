@@ -4,7 +4,7 @@ Endpoints usados (plano gratuito):
 - ``GET /search/``                 identificar ativos por nome, símbolo ou id;
 - ``GET /tickers/{coin_id}``       preço, volume, market cap, variações, ATH;
 - ``GET /coins/{coin_id}/ohlcv/today``  OHLCV do dia corrente (UTC);
-- ``GET /coins/{coin_id}``         perfil do ativo (tipo, tags, início);
+- ``GET /coins/{coin_id}``         perfil do ativo (tipo, consenso, descrição, links, tags, início);
 - ``GET /global``                  visão geral do mercado.
 
 Histórico de OHLCV (``/ohlcv/historical``) é bloqueado no plano gratuito (HTTP 402) e não é usado.
@@ -119,6 +119,11 @@ class CoinProfile(BaseModel):
     started_at: datetime | None = None
     development_status: str | None = None
     proof_type: str | None = None
+    open_source: bool | None = None
+    description: str | None = None
+    whitepaper_url: str | None = None
+    website: str | None = None
+    source_code: str | None = None
     tags: list[str] = []
     source: SourceInfo
 
@@ -133,6 +138,25 @@ class GlobalMarket(BaseModel):
 
 
 # --------------------------------------------------------------------------- cliente
+
+
+DESCRIPTION_MAX_CHARS = 800
+SOURCE_SUFFIX = re.compile(r"\s*Source:\s*CoinPaprika\.com\s*$", re.IGNORECASE)
+
+
+def clean_description(text: str | None) -> str | None:
+    """Descrição do ativo sem o crédito final da CoinPaprika e com tamanho limitado (o modelo é pequeno)."""
+    if not text:
+        return None
+    text = SOURCE_SUFFIX.sub("", " ".join(text.split()))
+    if len(text) > DESCRIPTION_MAX_CHARS:
+        text = text[:DESCRIPTION_MAX_CHARS].rsplit(" ", 1)[0] + "…"
+    return text or None
+
+
+def first_link(links: dict | None, kind: str) -> str | None:
+    values = (links or {}).get(kind) or []
+    return values[0] if values else None
 
 
 def validate_coin_id(coin_id: str) -> str:
@@ -353,6 +377,13 @@ class CoinPaprikaClient:
             "started_at": data.get("started_at"),
             "development_status": data.get("development_status"),
             "proof_type": data.get("proof_type"),
+            # hash_algorithm e org_structure ficam de fora: o ETH ainda vem com "Ethash" (algoritmo do PoW,
+            # anterior ao The Merge) e a estrutura ("Semi-centralized") é opinião da fonte (2026-11-13).
+            "open_source": data.get("open_source"),
+            "description": clean_description(data.get("description")),
+            "whitepaper_url": (data.get("whitepaper") or {}).get("link") or None,
+            "website": first_link(data.get("links"), "website"),
+            "source_code": first_link(data.get("links"), "source_code"),
             "tags": [t.get("name") for t in data.get("tags") or [] if t.get("name")][:10],
             "source": SourceInfo(endpoint=path, retrieved_at=retrieved_at),
         }

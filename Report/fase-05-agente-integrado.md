@@ -144,7 +144,20 @@ Detalhes em `docs/agent-integration.md`, `docs/response-verification.md` e `docs
   3. **Guarda determinística (`skipped_concepts` em `app/integrated/service.py`):** pergunta com "vs/compar/diferen", dois ou mais ativos e sem `search_knowledge_base` aciona a correção única, pedindo a busca conceitual. Comparações só de mercado ("compare o preço de BTC e ETH") ficam de fora.
 - **Primeira tentativa do corpus:** com a tabela comparativa, o chunk mais próximo da pergunta era só o título da seção (a tabela passava de 800 caracteres e foi separada). A tabela virou prosa por eixo.
 - **Avaliação:** o dataset da Fase 5 não mudou (limite de 15 a 20 exemplos e números da versão 3 já reportados); o caso fica nos testes `test_skipped_concepts_flags_network_comparisons_without_knowledge_base` e `test_network_comparison_without_knowledge_base_is_corrected`.
-- **Evidência (`docs/evidence/final/network-comparison-probe.jsonl`):** recuperação com distância 0,105 no resumo de `comparacao-l1.md`; o turno real chamou `search_knowledge_base` + `get_market_data` (SOL, ETH), explicou consenso, contratos inteligentes e finalidade, trouxe os dados com data e terminou `verified`, sem correção (100,7 s).
+- **Evidência (`docs/evidence/final/network-comparison-probe.jsonl`, 2026-11-12):** recuperação com distância 0,105 no resumo de `comparacao-l1.md`. Seis turnos reais, 3 por formulação: **6 de 6 comparações** consultaram `search_knowledge_base` e explicaram consenso e contratos inteligentes. Com "faça uma comparação sobre solana vs ethereum", as 3 execuções também buscaram SOL e ETH em `get_market_data`, mas nenhuma citou a finalidade; a verificação terminou 1 `partially_verified` (2 afirmações `neutral`) e 2 `verification_failed` (erro do verificador numa afirmação), de 120,6 s a 206,2 s. Com "Qual a diferença entre Ethereum e Solana?", as 3 citaram a finalidade, não buscaram dados de mercado (a pergunta não pede) e terminaram com 3 `verified`, de 54,2 s a 83,2 s.
+
+### 5.10 Redes fora da base: perfil da CoinPaprika e consultas feitas pelo código
+
+- **Motivação:** a seção 5.9 resolve Ethereum × Solana escrevendo documentos, o que não escala: cada rede nova exigiria um Markdown. Alternativas avaliadas: perfil da CoinPaprika (já integrada), Wikipedia por ferramenta, ingestão automática de documentação oficial, cache das buscas externas no Chroma e busca web. Escolhida primeiro a mais barata: o perfil da CoinPaprika.
+- **1ª tentativa — ferramenta à disposição do modelo:** `get_asset_profile` lê `/coins/{id}` (consenso, código aberto, início, descrição, whitepaper, site, repositório) para qualquer moeda, e o prompt passou a indicá-la nas comparações. No teste real (`docs/evidence/final/asset-profile-probe.jsonl`, 2026-11-13), piorou: em "cardano vs avalanche" o modelo chamou só a base, que não cobre as redes, e respondeu que não havia informação (`unsupported`); em "solana vs ethereum" chamou perfil e mercado, **deixou de consultar a base**, leu "finalidade" como "propósito" e, mesmo com a correção pedindo a base, não a chamou.
+- **Dado defasado na fonte:** a CoinPaprika ainda informa `hash_algorithm: Ethash` para o ETH, o algoritmo do PoW anterior ao The Merge, e `org_structure` é opinião ("Semi-centralized"). Os dois campos foram retirados; ficaram consenso, descrição e links.
+- **Correção — o código escolhe as ferramentas:** quando a pergunta compara redes (`network_comparison`: "vs/compar/diferen", dois ou mais ativos e não só de mercado), `IntegratedAgentService._prefetch` executa `search_knowledge_base` com a pergunta, `get_asset_profile` e `get_market_data` de cada rede, e injeta as chamadas no grafo como se o modelo as tivesse feito (`prefetch_messages`: `AIMessage.tool_calls` + `ToolMessage`), seguidas de uma instrução de redação em duas partes (tecnologia e mercado; o que não estiver nas observações, "não encontrado nas fontes"). O modelo só redige. As consultas entram na trajetória, na evidência da verificação e nas fontes da resposta. Fora de comparação entre redes, nada muda: o modelo continua escolhendo as ferramentas. O perfil só é ligado no agente integrado (`profile=True`); os agentes ReAct das Fases 2 e 4 ficaram como estavam.
+- **Evidência (`docs/evidence/final/network-comparison-prefetch-probe.jsonl`, 2026-11-13):** 3 turnos reais, todos com as 5 consultas (base, 2 perfis, 2 mercados) e **3 de 3 `complete` e `verified`**, de 102,6 s a 158,1 s:
+  - "faça uma comparação sobre solana vs ethereum": consenso, contratos inteligentes, escalabilidade e mercado, sem correção; a finalidade aparece como título, mas os tempos não;
+  - "faça uma comparação sobre cardano vs avalanche" (fora da base): consenso PoS, Ouroboros (Cardano) e finalidade abaixo de um segundo (Avalanche) vindos do perfil, mais mercado; passou por uma correção;
+  - "Qual a diferença entre Ethereum e Solana?": consenso, contratos, finalidade (12,8 minutos × menos de 1 segundo / 13 segundos), escalabilidade e mercado, sem correção.
+- **Testes offline:** `test_network_comparison_tools_are_called_by_code_and_model_only_writes`, `test_prefetch_skips_questions_that_are_not_network_comparisons`, `test_asset_profile_tool_is_opt_in`, `test_asset_profile_returns_technical_fields_without_prices`, `test_profile_becomes_portuguese_evidence_and_finding`.
+- **Aprendizado:** acrescentar ferramenta a um modelo de 2B não acrescenta capacidade; muda o roteamento, e para pior. Quando a pergunta tem forma conhecida e as consultas necessárias são sempre as mesmas, o código deve fazê-las e o modelo deve só redigir.
 
 ## 6. Evidências e métricas
 
@@ -156,7 +169,8 @@ Detalhes em `docs/agent-integration.md`, `docs/response-verification.md` e `docs
 | Avaliação final (`local-final-v3`, 2026-11-08) | Ver a seção 6.1 |
 | Integração final da Fase 5 (2026-11-08) | 6 passed, 1 skipped; ver a seção 6.2 |
 | Testes offline (Fases 1–5) | Ver o capítulo de decisões transversais (auditoria de depreciação) |
-| Comparação entre redes (2026-11-12, seção 5.9) | PROBE_RESULT |
+| Comparação entre redes com consultas feitas pelo código (2026-11-13, seção 5.10) | 3 turnos reais (Solana × Ethereum, Cardano × Avalanche, "diferença entre"): 3 de 3 `complete` e `verified` |
+| Comparação entre redes (2026-11-12, seção 5.9) | 6 turnos reais: todos usaram a base de conhecimento; 3 verificados; a finalidade só apareceu na formulação "diferença entre" |
 
 ### 6.1 Avaliação final
 
@@ -224,7 +238,8 @@ Execução de `tests/integration/test_phase5_live.py` com Ollama, CoinPaprika, S
 - **Uma frase, uma afirmação:** uma frase com dois fatos vira uma afirmação só.
 - **Recusas passam como `verified`** (seção 5.3).
 - **Resposta cautelosa perde rótulos:** ao recompor a resposta por frases, linhas de métricas em lista perdem o nome do ativo a que se referem (`api-rag-02` na avaliação final).
-- **Comparação entre redes limitada ao corpus:** o agente só compara as redes descritas na base local (hoje Ethereum, Solana e Bitcoin); para outras, a resposta volta a ter só dados de mercado. O conteúdo técnico (por exemplo, a Alpenglow da Solana) envelhece e precisa de revisão manual. Na resposta real, o tempo de finalidade do Ethereum nem sempre aparece, embora esteja no trecho recuperado.
+- **Comparação entre redes com profundidade desigual:** redes descritas na base local (Bitcoin, Ethereum e Solana) têm contratos, execução e finalidade; para as demais, só o perfil da CoinPaprika (consenso e uma descrição curta, em inglês, às vezes defasada). O conteúdo da base (por exemplo, a Alpenglow da Solana) envelhece e precisa de revisão manual. Na resposta real, os tempos de finalidade nem sempre aparecem, embora estejam nos trechos recuperados.
+- **Consultas fixas custam latência:** toda comparação entre redes faz 5 consultas (base, perfis e mercado), mesmo quando a pergunta não pede mercado.
 - **Ativo inexistente sem consulta:** em "moeda XYZQWE", o agente pede esclarecimento sem consultar a API (seção 6.1).
 - **LangSmith não exercitado neste ambiente:** o rastreamento e o runner estão implementados e testados offline, mas as variáveis `LANGSMITH_*` não foram configuradas; o teste de trace foi pulado e os resultados são da execução local equivalente.
 - **Juiz com viés de autoavaliação:** o mesmo modelo responde e julga; as notas do juiz são indício, não prova.
@@ -246,6 +261,6 @@ Execução de `tests/integration/test_phase5_live.py` com Ollama, CoinPaprika, S
 - Resposta cautelosa que preserve a estrutura da resposta (listas e rótulos de ativo).
 - Consultar a busca de ativos (`search_crypto_asset`) quando a pergunta citar um nome desconhecido, antes de pedir esclarecimento.
 - Incluir a comparação entre redes (seção 5.9) no dataset numa nova versão e repetir a avaliação completa.
-- Cobrir outras redes na base (por exemplo, L2 e outras L1 citadas pelos usuários) ou responder explicitamente quando a rede não está coberta.
+- Aprofundar redes fora da base sem escrever documentos: ferramenta de referência (Wikipedia ou documentação oficial) com cache no Chroma, usando as mesmas consultas fixas da seção 5.10.
 - NLI com cabeça treinada (Transformers) se houver disco, mantendo a mesma interface `classify`.
 - Autenticação e dono por sessão antes de qualquer uso com mais de um usuário.

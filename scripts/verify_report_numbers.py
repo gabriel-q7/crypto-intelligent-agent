@@ -244,10 +244,19 @@ def verify_test_logs() -> None:
 
     probe = EVIDENCE_FINAL / "network-comparison-probe.jsonl"
     rows = [json.loads(line) for line in probe.read_text(encoding="utf-8").splitlines() if line.strip()]
-    good = [r for r in rows if {"search_knowledge_base", "get_market_data"} <= set(r["tools"]) and r["answer"].strip()]
+    good = [r for r in rows if "search_knowledge_base" in r["tools"] and r["answer"].strip()]
     verified = [r for r in rows if r["verification"] == "verified"]
-    expect(FASE5, f"{len(good)} de {len(rows)} comparações", "comparações entre redes com base + mercado")
+    expect(FASE5, f"{len(good)} de {len(rows)} comparações", "comparações entre redes que usaram a base")
     expect(FASE5, f"{len(verified)} `verified`", "comparações entre redes verificadas")
+
+    probe = EVIDENCE_FINAL / "network-comparison-prefetch-probe.jsonl"
+    rows = [json.loads(line) for line in probe.read_text(encoding="utf-8").splitlines() if line.strip()]
+    fixed = ["search_knowledge_base", "get_asset_profile", "get_asset_profile", "get_market_data", "get_market_data"]
+    check(all(r["tools"] == fixed for r in rows), "comparação com consultas pelo código sem as 5 consultas fixas")
+    done = [r for r in rows if r["status"] == "complete" and r["verification"] == "verified"]
+    expect(FASE5, f"**{len(done)} de {len(rows)} `complete` e `verified`**", "comparações com consultas pelo código")
+    times = sorted(r["elapsed_s"] for r in rows)
+    expect(FASE5, f"de {br(times[0], 1)} s a {br(times[-1], 1)} s:", "latência das comparações com consultas pelo código")
 
     final_integration = EVIDENCE_FINAL / "integration-phase5.log"
     if final_integration.exists():

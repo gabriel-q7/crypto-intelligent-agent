@@ -52,11 +52,14 @@ O modelo configurado **não** foi trocado. `gemma4:e2b` suporta tool calling nat
 |---|---|---|---|
 | `get_market_data` | api | `asset` | `market_tools.get_market_data` (CoinPaprika `/tickers`) |
 | `get_market_details` | api | `asset` | OHLCV do dia + perfil |
+| `get_asset_profile` | api | `asset` | Perfil técnico (`/coins/{id}`): consenso, código aberto, descrição, whitepaper, site e repositório. Só no agente integrado (`build_agent_tools(..., profile=True)`) |
 | `get_global_market` | api | — | `/global` |
 | `search_crypto_asset` | api | `query` | `/search/` |
 | `query_market_database` | sql | `question` | `TextToQueryService` (SQL validado, somente leitura) |
 | `search_knowledge_base` | rag | `question` | `RetrievalAgent` (Query Rewriting sobre `crypto_knowledge`) |
 | `calculate_percent_change` | deterministic | `old_value`, `new_value` | `calculation_tools` |
+
+**Comparação entre redes ("solana vs ethereum"):** o código, e não o modelo, escolhe as ferramentas. `IntegratedAgentService._prefetch` detecta a comparação (`network_comparison`: "vs/compar/diferen", dois ou mais ativos, não só de mercado), executa `search_knowledge_base` com a pergunta, `get_asset_profile` e `get_market_data` de cada rede, e injeta as chamadas como `AIMessage.tool_calls` + `ToolMessage` (`prefetch_messages`), seguidas de uma instrução de redação. O modelo só escreve a resposta; a trajetória e a evidência incluem essas consultas. Motivo: com a ferramenta de perfil à disposição, o modelo de 2B ora deixava de consultar a base, ora não usava o perfil (Report, seção 5.10).
 
 As observações mantêm o contrato da Fase 2 (`ok`, `data`, `source` com `source_updated_at`/`retrieved_at` ou `error.kind`). As exigências de grounding (não inventar valores, separar ao vivo de snapshot e de documento, declarar falta de cobertura) estão no prompt de sistema e são **checadas depois** pela verificação.
 

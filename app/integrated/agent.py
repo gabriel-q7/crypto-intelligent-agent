@@ -14,7 +14,7 @@ A trajetória (ferramenta, argumentos, saída, ordem, erros) é lida das mensage
 
 import json
 import logging
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 
 from langchain.agents import create_agent
@@ -38,15 +38,18 @@ Ferramentas e quando usar (chame SÓ as necessárias; várias numa mesma respost
   (passe a pergunta completa). São dados armazenados, com horário de coleta; não são cotação ao vivo.
 - Conceitos (o que é, como funciona, diferença entre...) → search_knowledge_base com a pergunta conceitual completa,
   MESMO que a pergunta também peça dados de mercado.
-- Comparação entre redes/blockchains ("X vs Y", "compare X e Y") → search_knowledge_base com a pergunta completa
-  (consenso, contratos inteligentes, finalidade, escalabilidade) E get_market_data de cada ativo.
+- Comparação entre redes/blockchains ("X vs Y", "compare X e Y"): as consultas (base de conhecimento, perfil técnico e
+  mercado de cada rede) já chegam feitas na conversa; use essas observações e não repita as chamadas.
+- Perfil técnico de uma rede (consenso, código aberto, descrição, whitepaper) → get_asset_profile,
+  sobretudo quando a base de conhecimento não cobre a rede.
 - Variação entre dois números já obtidos → calculate_percent_change.
 
 Regras:
 1. Nunca invente valores de mercado: todo número vem de uma ferramenta desta conversa. Cite a fonte e o horário.
 2. Diferencie dado ao vivo (CoinPaprika) de snapshot armazenado (SQLite) e de documento (base local).
 3. Se uma ferramenta falhar ou não tiver dados (ok=false), diga o que faltou; não estime nem diga que há histórico que não existe.
-4. Afirmações conceituais só a partir dos trechos de search_knowledge_base; sem trechos relevantes, diga que a base local não cobre.
+4. Afirmações conceituais só a partir dos trechos de search_knowledge_base ou do perfil de get_asset_profile (cite
+   a CoinPaprika); o que nenhum dos dois trouxer (ex.: finalidade de uma rede fora da base), diga que não foi encontrado.
 5. Valores citados em mensagens anteriores da conversa são antigos: consulte de novo se o usuário pedir dado atual.
 6. Sem previsões de preço nem recomendações de investimento ("compre", "venda", "qual é melhor para investir").
    Um pedido de recomendação ou de previsão sobre ativos citados NÃO dispensa a consulta: chame get_market_data
@@ -127,6 +130,25 @@ def run_agent(
     answer = _text(final.content).strip() if final else ""
     logger.info("integrated agent tools=%s answer_chars=%d", [s.tool for s in steps], len(answer))
     return AgentRun(answer=answer, steps=steps, observations=observations, messages=list(messages))
+
+
+def prefetch_messages(tools: Mapping[str, BaseTool], calls: Sequence[tuple[str, dict]]) -> list[BaseMessage]:
+    """Executa ``calls`` no código e devolve-as como se o modelo as tivesse pedido (``AIMessage.tool_calls`` +
+    ``ToolMessage``). O grafo segue a partir daí e ``trajectory`` lê esses passos como os demais."""
+    requested, results = [], []
+    for i, (name, args) in enumerate(calls, start=1):
+        if name not in tools:
+            continue
+        call_id = f"prefetch-{i}"
+        requested.append({"name": name, "args": args, "id": call_id, "type": "tool_call"})
+        try:
+            output = tools[name].invoke(args)
+        except Exception as exc:  # a ferramenta já devolve JSON de erro; isto cobre falha inesperada
+            output = json.dumps({"ok": False, "tool": name, "error": {"kind": "tool_error", "message": str(exc)}})
+        results.append(ToolMessage(content=_text(output), tool_call_id=call_id, name=name))
+    if not requested:
+        return []
+    return [AIMessage(content="", tool_calls=requested), *results]
 
 
 def observations_json(observations: list[dict]) -> str:

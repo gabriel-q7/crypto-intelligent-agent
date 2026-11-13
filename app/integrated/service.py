@@ -15,13 +15,15 @@ import hashlib
 import logging
 import re
 import time
+from collections.abc import Sequence
 
 from langchain_core.messages import HumanMessage
 from langchain_core.runnables import Runnable
+from langchain_core.tools import BaseTool
 from langsmith import traceable, tracing_context
 
 from app.conversation.chatbot import ConversationService
-from app.integrated.agent import AgentRun, run_agent
+from app.integrated.agent import AgentRun, prefetch_messages, run_agent, trajectory
 from app.integrated.history import SessionHistoryAdapter
 from app.integrated.schemas import AgentReply
 from app.intent.classifier import find_assets
@@ -63,14 +65,35 @@ def skipped_lookup(message: str, run: AgentRun) -> list[str]:
     return find_assets(message)
 
 
-def skipped_concepts(message: str, run: AgentRun) -> list[str]:
-    """Ativos de uma comparação entre redes respondida sem consultar a base de conhecimento."""
-    if not COMPARISON.search(message) or any(s.tool == "search_knowledge_base" for s in run.steps):
-        return []
-    if MARKET_ONLY.search(message) and not TECHNICAL.search(message):
+def network_comparison(message: str) -> list[str]:
+    """Ativos de uma comparação entre redes ("solana vs ethereum"); vazio se não for uma."""
+    if not COMPARISON.search(message) or (MARKET_ONLY.search(message) and not TECHNICAL.search(message)):
         return []
     assets = find_assets(message)
     return assets if len(assets) >= 2 else []
+
+
+def skipped_concepts(message: str, run: AgentRun) -> list[str]:
+    """Ativos de uma comparação entre redes respondida sem consultar a base de conhecimento."""
+    if any(s.tool == "search_knowledge_base" for s in run.steps):
+        return []
+    return network_comparison(message)
+
+
+def comparison_calls(message: str, assets: Sequence[str]) -> list[tuple[str, dict]]:
+    """Consultas fixas de uma comparação entre redes: o código decide, não o modelo (2B ignora o roteamento)."""
+    calls: list[tuple[str, dict]] = [("search_knowledge_base", {"question": message})]
+    calls += [("get_asset_profile", {"asset": a}) for a in assets]
+    calls += [("get_market_data", {"asset": a}) for a in assets]
+    return calls
+
+
+def comparison_instruction(assets: Sequence[str]) -> str:
+    return (f"As consultas para comparar {' e '.join(assets)} já foram feitas acima (base de conhecimento, perfil técnico "
+            "da CoinPaprika e dados de mercado). Redija a comparação usando só essas observações, sem chamar ferramentas: "
+            "(a) tecnologia — consenso, contratos inteligentes, finalidade e escalabilidade de cada rede; o que não "
+            "estiver nas observações, diga que não foi encontrado nas fontes; (b) mercado — preço, market cap e variação "
+            "24h com fonte e horário.")
 
 
 def session_tag(session_id: str) -> str:
@@ -87,15 +110,30 @@ class IntegratedAgentService:
         history: SessionHistoryAdapter,
         conversation: ConversationService,
         model_name: str | None = None,
+        tools: Sequence[BaseTool] = (),
     ) -> None:
         self.agent, self.verifier, self.store = agent, verifier, store
         self.history, self.conversation, self.model_name = history, conversation, model_name
+        # Ferramentas que o código chama direto nas comparações entre redes (as mesmas do agente).
+        self.tools = {t.name: t for t in tools}
 
     # ------------------------------------------------------------------ etapas rastreadas
 
     @traceable(name="integrated.agent_run", run_type="chain")
     def _run(self, history, message, extra=()) -> AgentRun:
         return run_agent(self.agent, history, message, extra=extra)
+
+    @traceable(name="integrated.prefetch", run_type="chain")
+    def _prefetch(self, message: str) -> list:
+        """Comparação entre redes: o código consulta base, perfil e mercado de cada rede antes do modelo."""
+        assets = network_comparison(message)
+        if not assets or not self.tools:
+            return []
+        messages = prefetch_messages(self.tools, comparison_calls(message, assets))
+        if not messages:
+            return []
+        logger.info("integrated prefetch assets=%s tools=%d", assets, len(messages) - 1)
+        return [*messages, HumanMessage(content=comparison_instruction(assets))]
 
     @traceable(name="integrated.correction", run_type="chain")
     def _correct(self, history, message: str, first: AgentRun, verification: VerificationResult) -> AgentRun:
@@ -131,7 +169,12 @@ class IntegratedAgentService:
         with self.conversation.session_lock(session_id):
             user = self.store.append_message(session_id, "user", message, {"engine": "agent"})
             bundle = self.history.load(session_id, message, before_seq=user.seq)
-            first = self._run(bundle.messages, message)
+            prefetched = self._prefetch(message)
+            first = self._run(bundle.messages, message, extra=prefetched)
+            if prefetched:  # passos e observações da pré-consulta entram na trajetória e na evidência
+                pre_steps, pre_obs = trajectory(prefetched)
+                first = AgentRun(answer=first.answer, steps=pre_steps + _renumber(first.steps, len(pre_steps)),
+                                 observations=pre_obs + first.observations, messages=first.messages)
             verification = self.verifier.verify(message, first.answer, first.observations)
 
             final, answer, original = first, first.answer, None

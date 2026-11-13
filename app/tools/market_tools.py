@@ -113,7 +113,8 @@ def _guarded(tool: str, fn: Callable[[str], str]) -> Callable[[str], str]:
     return run
 
 
-def build_market_tools(client: CoinPaprikaClient | None = None) -> list[Tool]:
+def build_market_tools(client: CoinPaprikaClient | None = None, profile: bool = False) -> list[Tool]:
+    """``profile=True`` acrescenta ``get_asset_profile`` (só o agente integrado da Fase 5 usa)."""
     client = client or CoinPaprikaClient()
 
     def coin_id_for(value: str) -> str:
@@ -139,11 +140,16 @@ def build_market_tools(client: CoinPaprikaClient | None = None) -> list[Tool]:
         }
         return _ok("get_market_details", data, ohlcv.source.model_dump(mode="json"))
 
+    def asset_profile(value: str) -> str:
+        info = client.get_coin_profile(coin_id_for(value))
+        return _ok("get_asset_profile", info.model_dump(mode="json", exclude={"source"}),
+                   info.source.model_dump(mode="json"))
+
     def global_guarded(_: str) -> str:
         # Entrada ignorada: aceita qualquer texto (o modelo às vezes escreve "none" ou "").
         return to_json(observe_global(client))
 
-    return [
+    tools = [
         Tool(
             name="search_crypto_asset",
             func=_guarded("search_crypto_asset", search),
@@ -178,3 +184,13 @@ def build_market_tools(client: CoinPaprikaClient | None = None) -> list[Tool]:
             ),
         ),
     ]
+    if profile:
+        tools.append(Tool(
+            name="get_asset_profile",
+            func=_guarded("get_asset_profile", asset_profile),
+            description=(
+                "Perfil técnico de UM ativo na CoinPaprika: consenso, código aberto, "
+                "descrição, whitepaper, site e repositório. Sem preços. Entrada: símbolo, nome ou id."
+            ),
+        ))
+    return tools

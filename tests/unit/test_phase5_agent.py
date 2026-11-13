@@ -59,6 +59,14 @@ def fake_tools(calls: list | None = None) -> list[StructuredTool]:
 # --------------------------------------------------------------------------- ferramentas e agente
 
 
+def test_structured_tools_expose_asset_profile_when_available():
+    base = [Tool(name="get_asset_profile", func=lambda x: json.dumps({"ok": True, "tool": "get_asset_profile", "data": x}),
+                 description="perfil")]
+    [tool] = structured_tools(base)
+    assert tool.name == "get_asset_profile" and TOOL_CATEGORY[tool.name] == "api"
+    assert json.loads(tool.invoke({"asset": "SOL"}))["data"] == "SOL"
+
+
 def test_structured_tools_delegate_to_existing_single_input_tools():
     seen = []
     base = [Tool(name=n, func=lambda x, n=n: (seen.append((n, x)) or json.dumps({"ok": True, "tool": n})), description=n)
@@ -129,13 +137,48 @@ def test_history_isolated_by_session(tmp_path):
 # --------------------------------------------------------------------------- serviço: correção e persistência
 
 
-def make_service(tmp_path, llm, verifier, db="c.sqlite3"):
+def make_service(tmp_path, llm, verifier, db="c.sqlite3", prefetch_tools=()):
     store, memory = ConversationStore(tmp_path / db), InMemoryBackend()
     conversation = ConversationService(store, memory, FakeListChatModel(responses=["{}"]), None, lambda q: [],
                                        SETTINGS, background=False)
     service = IntegratedAgentService(build_integrated_agent(llm, fake_tools()), verifier, store,
-                                     SessionHistoryAdapter(store, memory, SETTINGS), conversation, "fake")
+                                     SessionHistoryAdapter(store, memory, SETTINGS), conversation, "fake",
+                                     tools=prefetch_tools)
     return service, store, memory
+
+
+def profile_tool(calls: list) -> StructuredTool:
+    def profile(asset: str) -> str:
+        calls.append(("get_asset_profile", asset))
+        return json.dumps({"ok": True, "tool": "get_asset_profile",
+                           "data": {"name": asset, "symbol": asset, "proof_type": "Proof of Stake"},
+                           "source": {"provider": "CoinPaprika", "endpoint": f"/coins/{asset}"}})
+
+    return StructuredTool.from_function(profile, name="get_asset_profile", description="perfil", args_schema=AssetArgs)
+
+
+def test_network_comparison_tools_are_called_by_code_and_model_only_writes(tmp_path):
+    calls: list = []
+    tools = [*fake_tools(calls), profile_tool(calls)]
+    llm = scripted("O Ethereum usa Proof of Stake desde 2022; o BTC está em US$ 81.545,05 (CoinPaprika).")
+    service, store, _ = make_service(tmp_path, llm, ScriptedVerifier(result("verified")), prefetch_tools=tools)
+    reply = service.handle(store.create_session().id, "faça uma comparação sobre bitcoin vs ethereum")
+    expected = ["search_knowledge_base", "get_asset_profile", "get_asset_profile", "get_market_data", "get_market_data"]
+    assert [s.tool for s in reply.trajectory] == expected and [s.order for s in reply.trajectory] == [1, 2, 3, 4, 5]
+    assert calls == [("search_knowledge_base", "faça uma comparação sobre bitcoin vs ethereum"),
+                     ("get_asset_profile", "BTC"), ("get_asset_profile", "ETH"),
+                     ("get_market_data", "BTC"), ("get_market_data", "ETH")]
+    assert not reply.verification.correction_attempted and reply.answer.startswith("O Ethereum usa Proof of Stake")
+    assert {"get_asset_profile", "search_knowledge_base"} <= {s.tool for s in reply.data_sources}
+
+
+def test_prefetch_skips_questions_that_are_not_network_comparisons(tmp_path):
+    calls: list = []
+    llm = scripted(tool_call("get_market_data", {"asset": "BTC"}, "c1"), "O BTC está em US$ 81.545,05 (CoinPaprika).")
+    service, store, _ = make_service(tmp_path, llm, ScriptedVerifier(result("verified")),
+                                     prefetch_tools=[*fake_tools(calls), profile_tool(calls)])
+    reply = service.handle(store.create_session().id, "Compare o preço de BTC e ETH")
+    assert [s.tool for s in reply.trajectory] == ["get_market_data"]  # só mercado: o modelo escolhe
 
 
 def test_verified_answer_is_delivered_without_correction_and_persisted_once(tmp_path):

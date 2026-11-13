@@ -6,7 +6,7 @@ nova aqui. Toda chamada devolve a mesma observação JSON (``ok``/``error``/``so
 
 | Categoria | Ferramentas |
 |---|---|
-| API (CoinPaprika ao vivo) | search_crypto_asset, get_market_data, get_market_details, get_global_market |
+| API (CoinPaprika ao vivo) | search_crypto_asset, get_market_data, get_market_details, get_asset_profile, get_global_market |
 | SQL (snapshots SQLite) | query_market_database |
 | RAG (Chroma + Query Rewriting) | search_knowledge_base |
 | Determinística | calculate_percent_change |
@@ -19,6 +19,7 @@ TOOL_CATEGORY = {
     "search_crypto_asset": "api",
     "get_market_data": "api",
     "get_market_details": "api",
+    "get_asset_profile": "api",
     "get_global_market": "api",
     "query_market_database": "sql",
     "search_knowledge_base": "rag",
@@ -54,6 +55,11 @@ DESCRIPTIONS = {
         "variações 1h/24h/7d/30d e ATH, com horário de atualização. Chame uma vez por ativo."
     ),
     "get_market_details": "OHLCV do dia e perfil (tipo, consenso, tags) de UM ativo, ao vivo (CoinPaprika).",
+    "get_asset_profile": (
+        "Perfil técnico de UM ativo/rede (CoinPaprika, ao vivo): consenso (proof_type), código aberto, "
+        "descrição, whitepaper, site e repositório. Sem preços. Use em comparações "
+        "entre redes e quando a base de conhecimento não cobrir a rede. Chame uma vez por ativo."
+    ),
     "get_global_market": "Market cap total, volume 24h e dominância do BTC, ao vivo (CoinPaprika).",
     "query_market_database": (
         "Consulta o BANCO LOCAL de snapshots de mercado já coletados (SQLite) com uma pergunta em linguagem "
@@ -82,6 +88,7 @@ def structured_tools(base_tools: list[BaseTool]) -> list[StructuredTool]:
         "search_crypto_asset": (SearchArgs, lambda query: delegate("search_crypto_asset", query)),
         "get_market_data": (AssetArgs, lambda asset: delegate("get_market_data", asset)),
         "get_market_details": (AssetArgs, lambda asset: delegate("get_market_details", asset)),
+        "get_asset_profile": (AssetArgs, lambda asset: delegate("get_asset_profile", asset)),
         "get_global_market": (GlobalArgs, lambda: delegate("get_global_market", "global")),
         "query_market_database": (QuestionArgs, lambda question: delegate("query_market_database", question)),
         "search_knowledge_base": (QuestionArgs, lambda question: delegate("search_knowledge_base", question)),

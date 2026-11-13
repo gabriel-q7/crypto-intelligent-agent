@@ -16,3 +16,6 @@ htmlcov/
 
 # Coleção Chroma gerada localmente (POST /knowledge/ingest)
 data/
+
+# Relatório em PDF gerado localmente (make report)
+docs/*.pdf

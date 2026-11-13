@@ -59,6 +59,16 @@ Ordem de registro em `app/agents/factory.py::build_agent_tools`.
 | Saída | `{profile, ohlcv_today_usd}` |
 | Lógica | `GET /coins/{id}` + `GET /coins/{id}/ohlcv/today`. O OHLCV histórico é bloqueado no plano gratuito (402) e não é usado |
 
+### 3a. `get_asset_profile` — API (só no agente integrado)
+
+| | |
+|---|---|
+| Descrição | Perfil técnico de uma rede/ativo, sem preços |
+| Entrada | Símbolo, nome ou id |
+| Saída | `CoinProfile`: tipo, consenso (`proof_type`), status de desenvolvimento, código aberto, data de início, descrição (até 800 caracteres, sem o crédito "Source: CoinPaprika.com"), whitepaper, site, repositório, tags |
+| Lógica | `GET /coins/{id}`. `hash_algorithm` e `org_structure` ficam de fora: o ETH ainda vem com `Ethash` (anterior ao The Merge) e a estrutura é opinião da fonte |
+| Uso | Chamada pelo código em toda comparação entre redes (`IntegratedAgentService._prefetch`); cobre redes que a base de conhecimento não documenta |
+
 ### 4. `get_global_market` — API
 
 | | |

@@ -46,7 +46,8 @@ class EvaluationTarget:
     def __init__(self, container: AppContainer) -> None:
         self.container = container
         self.tools = {t.name: t for t in structured_tools(
-            build_agent_tools(container.coinpaprika, container.knowledge, container.retrieval, container.text_to_query))}
+            build_agent_tools(container.coinpaprika, container.knowledge, container.retrieval, container.text_to_query,
+                              profile=True))}
 
     def _fresh_service(self) -> IntegratedAgentService:
         """'Reinício': novo store e novo serviço sobre os mesmos arquivos (SQLite e Mem0/Chroma)."""
@@ -55,7 +56,7 @@ class EvaluationTarget:
         return IntegratedAgentService(
             build_integrated_agent(c.tool_llm, list(self.tools.values())), c.integrated.verifier, store,
             SessionHistoryAdapter(store, c.memory_backend, c.conversation_settings), c.conversation,
-            model_name=c.settings.ollama_model,
+            model_name=c.settings.ollama_model, tools=list(self.tools.values()),
         )
 
     def __call__(self, inputs: dict) -> dict:

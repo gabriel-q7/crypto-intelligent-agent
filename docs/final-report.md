@@ -2,7 +2,7 @@
 title: "Crypto Intelligence Agent"
 subtitle: "Relatório técnico das Fases 1 a 5"
 author: "Gabriel Aguiar Aquino"
-date: "8 de novembro de 2026"
+date: "12 de novembro de 2026"
 lang: pt-BR
 geometry: margin=2.2cm
 toc: true
@@ -345,7 +345,7 @@ Saída final para a pergunta de referência:
 
 ### O plano não respondia ao usuário — inclusão da resposta mínima
 
-- **Sintoma (apontado na revisão do usuário):** "O que é staking de ETH?" retornava só o plano (`"Definir o que é staking de ETH"`, `"Explorar o processo..."`), sem nenhuma explicação. A pergunta é conceitual e o modelo sabe respondê-la sem dados externos.
+- **Sintoma (identificado na revisão das saídas):** "O que é staking de ETH?" retornava só o plano (`"Definir o que é staking de ETH"`, `"Explorar o processo..."`), sem nenhuma explicação. A pergunta é conceitual e o modelo sabe respondê-la sem dados externos.
 - **Causa:** o schema da especificação só tinha campos de **plano**; o modelo não tinha onde responder.
 - **Correção:** dois campos novos no `CryptoAnalysisRequest`:
   - `answer_status`: `answered` (conceito respondido com conhecimento do modelo), `requires_market_data` (depende de dados de mercado), `needs_clarification` (pergunta ambígua);
@@ -376,15 +376,15 @@ Motivos para bloquear:
 3. **Requisito da especificação:** "impedir a invenção de preços, volumes e dados atuais" e "não inventar dados de mercado".
 4. **Prompt não é garantia.** Modelos 7B nem sempre obedecem instruções (5.3). A regra precisava de uma verificação determinística, assim como o formato tem o Pydantic.
 
-Decisão do usuário sobre o comportamento da trava, entre três opções (rejeitar a análise, substituir a resposta, remover a trava): **substituir**. Implementação refinada: apenas as frases com valor monetário ou percentual são removidas e um aviso padrão é acrescentado ("Nesta fase não tenho acesso a dados de mercado atualizados e respondo apenas com o conhecimento do modelo [...]"); o ocorrido é registrado em `assumptions`. Assim a parte conceitual da resposta é preservada.
+Para o comportamento da trava havia três opções: rejeitar a análise, substituir a resposta ou remover a trava. A escolhida foi **substituir**, de forma localizada: apenas as frases com valor monetário ou percentual são removidas e um aviso padrão é acrescentado ("Nesta fase não tenho acesso a dados de mercado atualizados e respondo apenas com o conhecimento do modelo [...]"); o ocorrido é registrado em `assumptions`. Assim a parte conceitual da resposta é preservada.
 
-Complemento no prompt, também pedido pelo usuário: quando a pergunta depende de dados, a resposta deve **dizer explicitamente** que o agente não tem dados atualizados nesta fase, em vez de apenas descrever o que será analisado.
+O prompt também passou a exigir que, quando a pergunta depende de dados, a resposta **diga explicitamente** que o agente não tem dados atualizados nesta fase, em vez de apenas descrever o que será analisado.
 
 Limites conhecidos da trava (heurística por expressão regular, não garantia): falso positivo em termos como "ataque de 51%"; falso negativo em valores sem símbolo de moeda ("65 mil", "65k").
 
 ### Benchmark de modelos: qwen2.5:7b × gemma4:e4b
 
-**Objetivo (pedido do usuário):** medir o desempenho do modelo atual e comparar com o `gemma4:e4b`, com troca de modelo simples pelo env.
+**Objetivo:** medir o desempenho do modelo atual e compará-lo com o `gemma4:e4b`, com troca de modelo simples por variável de ambiente. O `mistral:7b` e o `gemma4:e2b` entraram depois na mesma comparação.
 
 **Troca de modelo:** antes, `OLLAMA_MODEL` definido no shell não chegava ao container (o `env_file` não é sobrescrito pelo shell). O `compose.yaml` passou a interpolar `OLLAMA_MODEL` no serviço `app`, com prioridade shell > `.env` > padrão; como o `app` depende do `ollama-pull`, que usa a mesma variável, `OLLAMA_MODEL=gemma4:e4b docker compose run --rm app ...` baixa e usa o modelo novo. A CLI também ganhou `--model`.
 
@@ -416,9 +416,9 @@ Limites conhecidos da trava (heurística por expressão regular, não garantia):
 
 ¹ Calculado só sobre as respostas válidas (4 de 6).
 
-**mistral:7b (adicionado depois, 1 repetição):** o mais lento (geração 2,4 tok/s; o tokenizador gera ~2.985 tokens para o mesmo prompt, +19% que o Qwen) e o único com saídas inválidas — omitiu `confidence` em "Compare BTC e ETH" e `answer` em "TVL do Aave". O modo JSON do Ollama garante sintaxe, não a presença dos campos; a validação Pydantic rejeitou as duas saídas, como esperado. Nas respostas válidas, conteúdo correto e aviso de ausência de dados presente. Dados: `benchmarks/results/20261017T235946_mistral-7b.json`.
+**mistral:7b (1 repetição):** o mais lento (geração 2,4 tok/s; o tokenizador gera ~2.985 tokens para o mesmo prompt, +19% que o Qwen) e o único com saídas inválidas — omitiu `confidence` em "Compare BTC e ETH" e `answer` em "TVL do Aave". O modo JSON do Ollama garante sintaxe, não a presença dos campos; a validação Pydantic rejeitou as duas saídas, como esperado. Nas respostas válidas, conteúdo correto e aviso de ausência de dados presente. Dados: `benchmarks/results/20261017T235946_mistral-7b.json`.
 
-**gemma4:e2b (adicionado depois, thinking desligado, 1 repetição):** o mais rápido em todas as métricas de tempo — latência média 42 s (−40% vs Qwen, −49% vs Gemma E4B), leitura do prompt 75 tok/s e geração 16,7 tok/s — com 100% de JSON válido, `answer_status` e `assets`. Respostas conceituais corretas (staking citando Proof-of-Stake) e aviso de ausência de dados em todas as perguntas de mercado; todas as etapas vieram do modelo (sem etapa derivada nem trava acionada). Ponto fraco: planos mais rasos — 1 etapa no TVL do Aave e `max_drawdown` ausente na comparação. Dados: `benchmarks/results/20261018T002057_gemma4-e2b_thinking-off.json`.
+**gemma4:e2b (thinking desligado, 1 repetição):** o mais rápido em todas as métricas de tempo — latência média 42 s (−40% vs Qwen, −49% vs Gemma E4B), leitura do prompt 75 tok/s e geração 16,7 tok/s — com 100% de JSON válido, `answer_status` e `assets`. Respostas conceituais corretas (staking citando Proof-of-Stake) e aviso de ausência de dados em todas as perguntas de mercado; todas as etapas vieram do modelo (sem etapa derivada nem trava acionada). Ponto fraco: planos mais rasos — 1 etapa no TVL do Aave e `max_drawdown` ausente na comparação. Dados: `benchmarks/results/20261018T002057_gemma4-e2b_thinking-off.json`.
 
 **Leitura dos resultados:**
 
@@ -427,11 +427,9 @@ Limites conhecidos da trava (heurística por expressão regular, não garantia):
 - O **thinking não compensa** neste caso de uso: +42% de latência média, p95 2× maior, mesma acurácia.
 - Em **qualidade**, o Gemma acertou 6/6 classificações e não repetiu o erro conceitual do Qwen ("nós de mineração").
 
-**Recomendação (atualizada após o E2B):** **`gemma4:e2b` com `OLLAMA_REASONING=false`** — o mais rápido (42 s por pergunta, −40% vs Qwen) e com acurácia máxima neste conjunto; ocupa 4,6 GB. A ressalva são planos mais rasos que os do E4B, o que importa a partir da fase em que as etapas forem executadas por ferramentas. `mistral:7b` descartado (mais lento e 33% de saídas inválidas); `gemma4:e4b` sem thinking fica como alternativa de plano mais detalhado; thinking não compensa. O padrão do projeto não foi alterado; a decisão fica para o usuário.
+**Ambiente após os testes:** por falta de disco (o `/` chegou a 100%, 7,9 MB livres), só o `qwen2.5:7b` foi mantido no volume do Ollama; `gemma4:e4b`, `gemma4:e2b` e `mistral:7b` foram removidos após o benchmark (resultados preservados em `benchmarks/results/`; para repetir: `--pull`). Também foi corrigido um bug do `--pull`: o download usava o cliente com timeout de inferência (300 s) e falhava em modelos de alguns GB.
 
-**Decisão (2026-10-18, pelo usuário):** o padrão do projeto passou a ser **`gemma4:e2b` com `OLLAMA_REASONING=false`** (`.env`, `.env.example`, `compose.yaml` e `app/config.py`). A semântica de `OLLAMA_REASONING` ficou: ausente → `false` (padrão do projeto); vazio → padrão do modelo; `true`/`false` explícitos. No Compose isso exigiu `${OLLAMA_REASONING-false}` (sem `:`), porque `:-` trataria o valor vazio como ausente. O `qwen2.5:7b` continua no volume como alternativa.
-
-**Ambiente após os testes:** por falta de disco (o `/` chegou a 100%, 7,9 MB livres), a pedido do usuário só o `qwen2.5:7b` foi mantido no volume do Ollama; `gemma4:e4b`, `gemma4:e2b` e `mistral:7b` foram removidos após o benchmark (resultados preservados em `benchmarks/results/`; para repetir: `--pull`). Também foi corrigido um bug do `--pull`: o download usava o cliente com timeout de inferência (300 s) e falhava em modelos de alguns GB.
+**Decisão (2026-10-18):** o padrão do projeto passou a ser **`gemma4:e2b` com `OLLAMA_REASONING=false`** (`.env`, `.env.example`, `compose.yaml` e `app/config.py`). Foi o mais rápido (42 s por pergunta, −40% em relação ao Qwen), com acurácia máxima neste conjunto, e ocupa 4,6 GB. A ressalva são planos mais rasos que os do E4B, o que passa a importar quando as etapas forem executadas por ferramentas. O `mistral:7b` foi descartado (mais lento e 33% de saídas inválidas), o `gemma4:e4b` sem thinking ficou como alternativa de plano mais detalhado, e o thinking não compensou. Como o `ollama-pull` baixa o modelo definido em `OLLAMA_MODEL`, o `gemma4:e2b` volta ao volume na subida seguinte, e o `qwen2.5:7b` continua disponível como alternativa. A semântica de `OLLAMA_REASONING` ficou: ausente → `false` (padrão do projeto); vazio → padrão do modelo; `true`/`false` explícitos. No Compose isso exigiu `${OLLAMA_REASONING-false}` (sem `:`), porque `:-` trataria o valor vazio como ausente.
 
 **Limitações do benchmark:** 6 perguntas e 1 repetição por modo do Gemma; acurácia medida só em `answer_status` e `assets` (correção do conteúdo de `answer` foi avaliada manualmente); apenas CPU.
 
@@ -488,7 +486,7 @@ Cobertura dos testes unitários: schemas (normalização, obrigatórios, limites
 - **Retry/fallback** (`with_retry`, `with_fallbacks`) para `AnalysisOutputError`.
 - **Avaliar outros modelos e GPU:** comparar qualidade e latência (ex.: modelos maiores ou com melhor aderência a JSON).
 - **Reduzir o prompt:** a leitura de ~2.400 tokens domina a latência; avaliar `format_instructions` mais enxuto (o JSON schema completo) e o custo/benefício de cada exemplo few-shot, medindo com o benchmark.
-- **Definir o modelo padrão** — feito: `gemma4:e2b` sem thinking (5.6). Revisar quando as etapas passarem a ser executadas, já que o E2B gera planos mais rasos.
+- **Revisar o modelo padrão** (`gemma4:e2b` sem thinking, adotado na seção 5.6) quando as etapas passarem a ser executadas, já que ele gera planos mais rasos.
 - **Verificação de fatos conceituais:** com RAG ou fontes de referência, checar respostas `answered` (ex.: o erro "nós de mineração").
 - **Substituir a trava heurística:** com dados reais disponíveis, valores em `answer` podem vir das ferramentas, com fonte e data, em vez de serem bloqueados.
 - **Pergunta aberta:** `confidence` deve continuar sendo autoavaliação do modelo ou ser calculada a partir de sinais objetivos (ativos identificados, período presente, número de premissas)?
@@ -558,14 +556,14 @@ Detalhes por módulo em `docs/architecture.md`.
 | Decisão | Alternativas | Motivo |
 |---|---|---|
 | APIs legadas via `langchain-classic`, isoladas em `app/legacy/` | Rebaixar para LangChain 0.x; usar só `create_agent` | No LangChain 1.x o legado saiu do pacote `langchain`. O `langchain-classic` 1.0.8 é compatível com o `langchain-core` 1.6.12 da Fase 1, sem rebaixar nada. Isolamento permite trocar depois |
-| `RouterChain` só para **classificar** | `MultiPromptChain` completo | `MultiPromptChain` exige destinos `LLMChain`; nossos destinos são chains LCEL com API |
+| `RouterChain` só para **classificar** | `MultiPromptChain` completo | `MultiPromptChain` exige destinos `LLMChain`; os destinos do projeto são chains LCEL com API |
 | Saída montada por **código** (grounding), não pelo LLM | Pedir ao ReAct um "Final Answer" em JSON | Modelo 2B + protocolo textual = JSON frágil. Fontes, horários e achados vindos das observações reais eliminam a chance de inventar esses campos |
-| Verificação de valores da resposta contra as observações | Confiar no prompt | Na Fase 1 vimos que prompt não garante comportamento |
+| Verificação de valores da resposta contra as observações | Confiar no prompt | A Fase 1 mostrou que prompt não garante comportamento |
 | Ferramentas de entrada única com normalização | Ferramentas estruturadas | O zero-shot só aceita uma string |
 | `nomic-embed-text` via Ollama | sentence-transformers (torch) | Reaproveita o container, 274 MB, sem PyTorch (o disco esteve no limite na Fase 1) |
 | Memória própria, limitada por turnos e caracteres, com marcação de dados históricos | `ConversationBufferWindowMemory` | O zero-shot não tem slot de memória e a janela não limita tamanho |
 | `OLLAMA_NUM_CTX=8192` | Padrão 4096 | O prompt do agente (cerca de 1.700 tokens antes das observações) mais histórico e observações passaria de 4096, com truncamento silencioso |
-| Aplicação HTTP (FastAPI) | Scripts avulsos; CLI única | Decisão do usuário (seção 5.5) |
+| Aplicação HTTP (FastAPI) | Scripts avulsos; CLI única | Entrada única, com as dependências criadas uma vez (seção 5.5) |
 | Retry só para falhas transitórias | Retry geral | Resposta inválida com temperatura 0 tende a se repetir |
 
 ## Problemas encontrados e como foram resolvidos
@@ -617,15 +615,16 @@ Correções menores no grounding, achadas com respostas reais:
 
 ### Formato da aplicação: scripts → CLI única (descartada) → HTTP
 
-- **Inicial:** um script por tarefa em `scripts/`, seguindo o "executar por scripts Python" da Fase 1.
-- **Questionamento do usuário:** os vários `__init__.py` seriam consequência dos scripts? Resposta: os `__init__.py` são padrão de pacote Python e ficam em qualquer formato. Só o `scripts/__init__.py` vinha da escolha de scripts. O desvio real eram 8 pontos de entrada com inicialização repetida, sem entrada única e sem instalação.
-- **Proposta:** CLI única com subcomandos. Aprovada e depois **cancelada pelo usuário** antes da implementação.
-- **Decisão final (usuário): serviço HTTP com FastAPI.**
-  - `app/main.py` com contêiner de dependências criado no ciclo de vida da aplicação;
-  - 10 endpoints;
-  - `scripts/` removido;
-  - o benchmark virou módulo de manutenção (`python -m app.services.benchmark_runner`), por levar de 10 a 40 min.
-- **Ajuste no stream:** a primeira versão de `/analyze/stream` acumulava os parciais e só enviava no fim. Foi corrigida para enviar cada parcial assim que gerado.
+A primeira versão seguiu o "executar por scripts Python" da Fase 1, com um script por tarefa em `scripts/`. Na revisão da estrutura, a quantidade de `__init__.py` levantou a dúvida se seria efeito dos scripts. Não era: os `__init__.py` são padrão de pacote Python e existem em qualquer formato, e só o `scripts/__init__.py` vinha dessa escolha. O problema real eram 8 pontos de entrada com inicialização repetida, sem entrada única e sem instalação.
+
+A primeira alternativa, uma CLI única com subcomandos, foi descartada antes da implementação em favor de um **serviço HTTP com FastAPI**:
+
+- `app/main.py` com contêiner de dependências criado no ciclo de vida da aplicação;
+- 10 endpoints;
+- `scripts/` removido;
+- o benchmark virou módulo de manutenção (`python -m app.services.benchmark_runner`), por levar de 10 a 40 min.
+
+Na migração, a primeira versão de `/analyze/stream` acumulava os parciais e só enviava no fim. Foi corrigida para enviar cada parcial assim que gerado.
 
 ### Exemplos do Swagger
 
@@ -637,7 +636,7 @@ As etapas JSON das chains ganharam `with_retry` para falhas de conexão com o Ol
 
 ### Troca de FAISS por Chroma
 
-- **Decisão do usuário (2026-10-26):** usar Chroma como base vetorial no lugar do FAISS. O enunciado pedia FAISS; a mudança é um desvio deliberado e registrado.
+- **Decisão (2026-10-26):** usar Chroma como base vetorial no lugar do FAISS. O enunciado pedia FAISS; a mudança é um desvio deliberado e registrado.
 - **Registro completo da decisão:** [docs/vector-store-decision.md](https://github.com/gabriel-q7/crypto-intelligent-agent/blob/main/docs/vector-store-decision.md) (contexto, problemas do FAISS, motivação, alternativas, consequências, validação e como reverter).
 - **Por que mudar (problemas observados com o FAISS durante a fase):**
   1. `langchain-community` em descontinuação, com aviso em toda execução; não existe `langchain-faiss`;
@@ -667,7 +666,7 @@ Detalhes em `docs/stage-2-evidence.md`.
 
 | Verificação | Resultado |
 |---|---|
-| Testes offline | 196 passed (~4 s) |
+| Testes offline | 196 passed (~4 s) antes da troca para Chroma; 199 depois (seção 5.8) |
 | Integração + rede | 11 passed (340 s) |
 | `GET /health/coinpaprika` | 7/7 |
 | Agente ReAct (ETH) | `complete`, 32 s, valores e horários reais |
@@ -700,7 +699,6 @@ Ver `docs/reliability-decisions.md` (seção 6) e `docs/stage-2-evidence.md` (se
 - Migrar o agente para LangGraph ou `create_agent` com tool calling nativo, com ferramentas de argumentos tipados e retry no LLM.
 - Executar o plano da Fase 1 (`requested_metrics` → ferramentas), o planejamento hierárquico.
 - Memória persistente (sessões) e de longo prazo.
-- Substituir o `langchain-community` — resolvido com a troca para Chroma (5.8).
 - Avaliar se o few-shot de "informação ausente" precisa de reforço, ou de uma checagem determinística de "sem ativo".
 
 
@@ -729,10 +727,10 @@ Transformar a aplicação num assistente conversacional que:
 
 ## Escopo e adaptações do enunciado
 
-O enunciado foi **adaptado por decisão do usuário** antes da implementação:
+O enunciado foi **adaptado** em dois pontos, definidos antes da implementação:
 
-1. **Nada depreciado.** O `ConversationBufferMemory` (exigido na seção 5) está depreciado desde o LangChain 0.3.1, com remoção na 2.0, e **não foi usado**. Histórico e janela são próprios, sobre SQLite.
-2. **Framework de memória especializado.** A seção 12 pedia só comparar. O usuário pediu para usar um: LangMem primeiro; depois da avaliação, Mem0.
+1. **Nada depreciado.** O `ConversationBufferMemory` (exigido na seção 5 do enunciado) está depreciado desde o LangChain 0.3.1, com remoção na 2.0, e **não foi usado**. Histórico e janela são próprios, sobre SQLite.
+2. **Framework de memória especializado.** A seção 12 do enunciado pedia só comparar frameworks; o projeto adotou um. O primeiro candidato foi o LangMem; depois dos spikes, o escolhido foi o Mem0 (seção 5.1).
 
 Mantido do enunciado:
 - API existente;
@@ -766,7 +764,7 @@ Detalhes em `docs/architecture.md` (seção 8) e `docs/memory-strategy.md`.
 
 | Decisão | Alternativas | Motivo |
 |---|---|---|
-| Não usar `ConversationBufferMemory` | Usar isolado em `app/legacy/` (como o ReAct da Fase 2) | Diretriz do usuário: depreciado (remoção na 2.0); `InMemoryChatMessageHistory` também depreciado |
+| Não usar `ConversationBufferMemory` | Usar isolado em `app/legacy/` (como o ReAct da Fase 2) | Política de não usar APIs depreciadas: remoção na 2.0; `InMemoryChatMessageHistory` também depreciado |
 | Mem0 para a memória longa | LangMem, Letta, código próprio | Spikes (seção 5.1): único sem depreciação, Chroma e SQLite nativos, isolamento por `run_id` testado |
 | Resumo e janela em código próprio (LCEL) | `summarize_messages` do LangMem | LangMem descartado (depreciação na dependência); o Mem0 não resume conversa |
 | Fatos que sobrevivem ao resumo extraídos dos **metadados** | Deixar tudo para o LLM | Lição das Fases 1 e 2: modelo pequeno erra e omite. Resultados anteriores, correções e entidades não podem depender dele |
@@ -782,7 +780,7 @@ Detalhes em `docs/architecture.md` (seção 8) e `docs/memory-strategy.md`.
 
 | Candidato | Achado | Decisão |
 |---|---|---|
-| **LangMem 0.0.30** | Dependências compatíveis; `summarize_messages` funcionou (22 s); **`trustcall` importa `langgraph.constants.Send`, depreciado no LangGraph 1.0** (o aviso aparece em qualquer uso); 1 de 3 extrações inventou memória | Pela política combinada, parar e consultar → usuário pediu Mem0/Letta |
+| **LangMem 0.0.30** | Dependências compatíveis; `summarize_messages` funcionou (22 s); **`trustcall` importa `langgraph.constants.Send`, depreciado no LangGraph 1.0** (o aviso aparece em qualquer uso); 1 de 3 extrações inventou memória | Descartado pela política de não usar APIs depreciadas; avaliação passou para Letta e Mem0 |
 | **Letta** | Documentação oficial: a imagem Docker "não é mais mantida nem suportada"; Postgres + pgvector; laço de agente próprio | Descartado sem execução |
 | **Mem0 2.2.1** | Sem depreciação; Chroma e SQLite; isolamento por `run_id` (ok); extração **lenta** (68–89 s) e **guardou preço como fato** | **Escolhido**, com mitigações (seção 4) |
 
@@ -1079,7 +1077,7 @@ Unir as capacidades das Fases 1 a 4 num **único agente** que:
 
 **Dentro:** agente com tool calling nativo, ferramentas estruturadas, adaptador de histórico, serviço de verificação, política de correção, dataset e avaliadores, runner local e LangSmith, interface Streamlit, testes e documentação.
 
-**Adaptado por decisão do autor (2026-11-05):**
+**Adaptações do enunciado (2026-11-05):**
 
 | Enunciado | Implementado | Motivo |
 |----------------------------------|--------------------------------|----------------------|
@@ -1107,7 +1105,7 @@ POST /conversations/{id}/agent
 | `app/integrated/` | Agente (`create_agent`), ferramentas estruturadas que delegam às implementações das Fases 2 e 4, adaptador de histórico e o turno |
 | `app/verification/` | Extração de afirmações, evidência, NLI, coerência lógica, política de correção |
 | `app/evaluation/` | Alvo, avaliadores (resposta e trajetória) e runner local/LangSmith |
-| `evaluation/phase5_dataset.json` | Dataset versionado (19 exemplos, 9 categorias) |
+| `evaluation/phase5_dataset.json` | Dataset versionado (versão 3: 20 exemplos, 10 categorias) |
 | `ui/` | Interface Streamlit e cliente HTTP |
 
 Detalhes em `docs/agent-integration.md`, `docs/response-verification.md` e `docs/langsmith-evaluation.md`.
@@ -1163,7 +1161,7 @@ Detalhes em `docs/agent-integration.md`, `docs/response-verification.md` e `docs
 
 ### Interface: retomar conversa pelo id
 
-- **Sintoma (2026-11-08, pedido do autor):** a barra lateral só permitia retomar uma conversa digitando o `session_id` (32 caracteres hexadecimais).
+- **Sintoma (2026-11-08, uso da interface):** a barra lateral só permitia retomar uma conversa digitando o `session_id` (32 caracteres hexadecimais).
 - **Correção:**
   - endpoint `GET /conversations` (mais recentes primeiro);
   - título gerado pelo modelo após o 1º turno, na manutenção em segundo plano (sem latência extra), com a primeira pergunta truncada como alternativa;
@@ -1189,6 +1187,31 @@ Detalhes em `docs/agent-integration.md`, `docs/response-verification.md` e `docs
 - **Evidência (`docs/evidence/final/advice-probe.jsonl`):** depois das três camadas, 6 de 6 execuções (3 por formulação) consultaram SOL e ETH, apresentaram os dados e declinaram a recomendação. Testes offline: `test_refusal_without_lookup_of_cited_assets_is_corrected`, `test_skipped_lookup_only_flags_refusals_with_cited_assets` e `test_empty_final_answer_uses_the_single_correction`.
 - **Aprendizado:** uma regra de "não faça X" num modelo pequeno tende a virar "não faça nada". A restrição precisa dizer o que **continua** sendo feito, e a falha mais provável precisa de uma checagem por código.
 
+### Comparação entre redes respondida só com preço
+
+- **Sintoma (uso real, 2026-11-12):** em "faça uma comparação sobre solana vs ethereum", o agente chamou só `get_market_data` e respondeu com preço, rank e volume de SOL e ETH. A pergunta era sobre as **redes**: contratos inteligentes, consenso, finalidade.
+- **Causas:** (1) a base de conhecimento não tinha nada sobre Solana, e Ethereum tinha uma frase sobre EVM; pela regra 4, sem trecho recuperado o agente não pode fazer afirmação conceitual; (2) o prompt só mandava para `search_knowledge_base` perguntas do tipo "o que é / como funciona / diferença entre", e "comparação X vs Y" caía nos dados de mercado; (3) o limite de 2 a 6 frases não comportava tecnologia + mercado.
+- **Correção:**
+  1. **Corpus:** `solana.md` (PoH, Tower BFT, programas em Rust/SBF, modelo de contas, Sealevel, níveis de confirmação e finalidade, Alpenglow, trade-offs) e `comparacao-l1.md` (Ethereum × Solana por eixo, em seções de prosa menores que o chunk de 800 caracteres, com um resumo inicial que já cita finalidade); `ethereum-staking.md` ganhou as seções "Contratos inteligentes" e "Finalidade" (Gasper, Casper FFG, ~12,8 min). Sem preços (teste `test_corpus_has_no_market_prices`).
+  2. **Prompt e descrições:** comparação entre redes → `search_knowledge_base` **e** `get_market_data` de cada ativo; resposta em tecnologia + mercado, até 12 frases. A descrição de `search_knowledge_base` e o prompt do Query Rewriting citam Solana, contratos inteligentes e finalidade.
+  3. **Guarda determinística (`skipped_concepts` em `app/integrated/service.py`):** pergunta com "vs/compar/diferen", dois ou mais ativos e sem `search_knowledge_base` aciona a correção única, pedindo a busca conceitual. Comparações só de mercado ("compare o preço de BTC e ETH") ficam de fora.
+- **Primeira tentativa do corpus:** com a tabela comparativa, o chunk mais próximo da pergunta era só o título da seção (a tabela passava de 800 caracteres e foi separada). A tabela virou prosa por eixo.
+- **Avaliação:** o dataset da Fase 5 não mudou (limite de 15 a 20 exemplos e números da versão 3 já reportados); o caso fica nos testes `test_skipped_concepts_flags_network_comparisons_without_knowledge_base` e `test_network_comparison_without_knowledge_base_is_corrected`.
+- **Evidência (`docs/evidence/final/network-comparison-probe.jsonl`, 2026-11-12):** recuperação com distância 0,105 no resumo de `comparacao-l1.md`. Seis turnos reais, 3 por formulação: **6 de 6 comparações** consultaram `search_knowledge_base` e explicaram consenso e contratos inteligentes. Com "faça uma comparação sobre solana vs ethereum", as 3 execuções também buscaram SOL e ETH em `get_market_data`, mas nenhuma citou a finalidade; a verificação terminou 1 `partially_verified` (2 afirmações `neutral`) e 2 `verification_failed` (erro do verificador numa afirmação), de 120,6 s a 206,2 s. Com "Qual a diferença entre Ethereum e Solana?", as 3 citaram a finalidade, não buscaram dados de mercado (a pergunta não pede) e terminaram com 3 `verified`, de 54,2 s a 83,2 s.
+
+### Redes fora da base: perfil da CoinPaprika e consultas feitas pelo código
+
+- **Motivação:** a seção 5.9 resolve Ethereum × Solana escrevendo documentos, o que não escala: cada rede nova exigiria um Markdown. Alternativas avaliadas: perfil da CoinPaprika (já integrada), Wikipedia por ferramenta, ingestão automática de documentação oficial, cache das buscas externas no Chroma e busca web. Escolhida primeiro a mais barata: o perfil da CoinPaprika.
+- **1ª tentativa — ferramenta à disposição do modelo:** `get_asset_profile` lê `/coins/{id}` (consenso, código aberto, início, descrição, whitepaper, site, repositório) para qualquer moeda, e o prompt passou a indicá-la nas comparações. No teste real (`docs/evidence/final/asset-profile-probe.jsonl`, 2026-11-13), piorou: em "cardano vs avalanche" o modelo chamou só a base, que não cobre as redes, e respondeu que não havia informação (`unsupported`); em "solana vs ethereum" chamou perfil e mercado, **deixou de consultar a base**, leu "finalidade" como "propósito" e, mesmo com a correção pedindo a base, não a chamou.
+- **Dado defasado na fonte:** a CoinPaprika ainda informa `hash_algorithm: Ethash` para o ETH, o algoritmo do PoW anterior ao The Merge, e `org_structure` é opinião ("Semi-centralized"). Os dois campos foram retirados; ficaram consenso, descrição e links.
+- **Correção — o código escolhe as ferramentas:** quando a pergunta compara redes (`network_comparison`: "vs/compar/diferen", dois ou mais ativos e não só de mercado), `IntegratedAgentService._prefetch` executa `search_knowledge_base` com a pergunta, `get_asset_profile` e `get_market_data` de cada rede, e injeta as chamadas no grafo como se o modelo as tivesse feito (`prefetch_messages`: `AIMessage.tool_calls` + `ToolMessage`), seguidas de uma instrução de redação em duas partes (tecnologia e mercado; o que não estiver nas observações, "não encontrado nas fontes"). O modelo só redige. As consultas entram na trajetória, na evidência da verificação e nas fontes da resposta. Fora de comparação entre redes, nada muda: o modelo continua escolhendo as ferramentas. O perfil só é ligado no agente integrado (`profile=True`); os agentes ReAct das Fases 2 e 4 ficaram como estavam.
+- **Evidência (`docs/evidence/final/network-comparison-prefetch-probe.jsonl`, 2026-11-13):** 3 turnos reais, todos com as 5 consultas (base, 2 perfis, 2 mercados) e **3 de 3 `complete` e `verified`**, de 102,6 s a 158,1 s:
+  - "faça uma comparação sobre solana vs ethereum": consenso, contratos inteligentes, escalabilidade e mercado, sem correção; a finalidade aparece como título, mas os tempos não;
+  - "faça uma comparação sobre cardano vs avalanche" (fora da base): consenso PoS, Ouroboros (Cardano) e finalidade abaixo de um segundo (Avalanche) vindos do perfil, mais mercado; passou por uma correção;
+  - "Qual a diferença entre Ethereum e Solana?": consenso, contratos, finalidade (12,8 minutos × menos de 1 segundo / 13 segundos), escalabilidade e mercado, sem correção.
+- **Testes offline:** `test_network_comparison_tools_are_called_by_code_and_model_only_writes`, `test_prefetch_skips_questions_that_are_not_network_comparisons`, `test_asset_profile_tool_is_opt_in`, `test_asset_profile_returns_technical_fields_without_prices`, `test_profile_becomes_portuguese_evidence_and_finding`.
+- **Aprendizado:** acrescentar ferramenta a um modelo de 2B não acrescenta capacidade; muda o roteamento, e para pior. Quando a pergunta tem forma conhecida e as consultas necessárias são sempre as mesmas, o código deve fazê-las e o modelo deve só redigir.
+
 ## Evidências e métricas
 
 | Verificação | Resultado |
@@ -1199,6 +1222,8 @@ Detalhes em `docs/agent-integration.md`, `docs/response-verification.md` e `docs
 | Avaliação final (`local-final-v3`, 2026-11-08) | Ver a seção 6.1 |
 | Integração final da Fase 5 (2026-11-08) | 6 passed, 1 skipped; ver a seção 6.2 |
 | Testes offline (Fases 1–5) | Ver o capítulo de decisões transversais (auditoria de depreciação) |
+| Comparação entre redes com consultas feitas pelo código (2026-11-13, seção 5.10) | 3 turnos reais (Solana × Ethereum, Cardano × Avalanche, "diferença entre"): 3 de 3 `complete` e `verified` |
+| Comparação entre redes (2026-11-12, seção 5.9) | 6 turnos reais: todos usaram a base de conhecimento; 3 verificados; a finalidade só apareceu na formulação "diferença entre" |
 
 ### Avaliação final
 
@@ -1266,6 +1291,8 @@ Execução de `tests/integration/test_phase5_live.py` com Ollama, CoinPaprika, S
 - **Uma frase, uma afirmação:** uma frase com dois fatos vira uma afirmação só.
 - **Recusas passam como `verified`** (seção 5.3).
 - **Resposta cautelosa perde rótulos:** ao recompor a resposta por frases, linhas de métricas em lista perdem o nome do ativo a que se referem (`api-rag-02` na avaliação final).
+- **Comparação entre redes com profundidade desigual:** redes descritas na base local (Bitcoin, Ethereum e Solana) têm contratos, execução e finalidade; para as demais, só o perfil da CoinPaprika (consenso e uma descrição curta, em inglês, às vezes defasada). O conteúdo da base (por exemplo, a Alpenglow da Solana) envelhece e precisa de revisão manual. Na resposta real, os tempos de finalidade nem sempre aparecem, embora estejam nos trechos recuperados.
+- **Consultas fixas custam latência:** toda comparação entre redes faz 5 consultas (base, perfis e mercado), mesmo quando a pergunta não pede mercado.
 - **Ativo inexistente sem consulta:** em "moeda XYZQWE", o agente pede esclarecimento sem consultar a API (seção 6.1).
 - **LangSmith não exercitado neste ambiente:** o rastreamento e o runner estão implementados e testados offline, mas as variáveis `LANGSMITH_*` não foram configuradas; o teste de trace foi pulado e os resultados são da execução local equivalente.
 - **Juiz com viés de autoavaliação:** o mesmo modelo responde e julga; as notas do juiz são indício, não prova.
@@ -1277,6 +1304,7 @@ Execução de `tests/integration/test_phase5_live.py` com Ollama, CoinPaprika, S
 - **"Sem evidência" e "contra a evidência" são coisas diferentes,** e o modelo pequeno confunde as duas. O desenho de status (`neutral`, `unsupported`, `verification_failed`) existe para não punir a resposta pela limitação da verificação.
 - **Avaliação precisa distinguir falha do sistema de falha da infraestrutura.** Médias com exemplos que nem rodaram contam uma história falsa.
 - **Depreciação continua aparecendo no fim:** até a interface tinha um parâmetro depreciado. A auditoria com todos os avisos visíveis deve fazer parte da entrega.
+- **O corpus define o que o agente sabe explicar.** Com a regra "conceito só a partir dos trechos", uma lacuna na base não vira resposta errada, vira resposta incompleta (só preço). O formato do documento também importa: uma tabela maior que o chunk separou o título do conteúdo, e o trecho mais próximo da pergunta ficou vazio.
 - **Modo JSON é configuração global do LLM.** Uma tarefa nova de texto livre (o título) quebrou em silêncio; o teste com o modelo real revelou o que o dublê não revelaria.
 
 ## Pendências
@@ -1285,6 +1313,8 @@ Execução de `tests/integration/test_phase5_live.py` com Ollama, CoinPaprika, S
 - Extração de afirmações com divisão de fatos compostos e checagem de atribuição de métrica.
 - Resposta cautelosa que preserve a estrutura da resposta (listas e rótulos de ativo).
 - Consultar a busca de ativos (`search_crypto_asset`) quando a pergunta citar um nome desconhecido, antes de pedir esclarecimento.
+- Incluir a comparação entre redes (seção 5.9) no dataset numa nova versão e repetir a avaliação completa.
+- Aprofundar redes fora da base sem escrever documentos: ferramenta de referência (Wikipedia ou documentação oficial) com cache no Chroma, usando as mesmas consultas fixas da seção 5.10.
 - NLI com cabeça treinada (Transformers) se houver disco, mantendo a mesma interface `classify`.
 - Autenticação e dono por sessão antes de qualquer uso com mais de um usuário.
 
@@ -1328,11 +1358,11 @@ O caso do LangMem mostrou que a depreciação também vem de **dependências tra
 
 - **Spikes com avisos visíveis:** cada candidato foi importado e executado com `warnings.simplefilter("always")` no ambiente da imagem antes da adoção.
 - **Teste automático:** `test_phase3_modules_use_no_deprecated_langchain_apis` importa os módulos da Fase 3 num interpretador limpo, com `LangChainDeprecationWarning` tratado como erro. Rodar num subprocesso foi necessário porque recarregar módulos no mesmo processo recriava classes de exceção e quebrava outros testes.
-- **Auditoria final (2026-11-08):** a suíte offline completa rodou com `-W always::DeprecationWarning -W always::PendingDeprecationWarning -W always::FutureWarning`: **374 testes aprovados e nenhum aviso** (`docs/evidence/final/pytest-deprecation-audit.log`).
+- **Auditoria final (2026-11-13, refeita após as seções 5.9 e 5.10 da Fase 5):** a suíte offline completa rodou com `-W always::DeprecationWarning -W always::PendingDeprecationWarning -W always::FutureWarning`: **383 testes aprovados e nenhum aviso** (`docs/evidence/final/pytest-deprecation-audit.log`).
 
 ### A exceção: APIs legadas exigidas na Fase 2
 
-O enunciado da Fase 2 exigia `initialize_agent`, `ZERO_SHOT_REACT_DESCRIPTION` e `RouterChain`. No LangChain 1.x essas APIs saíram do pacote `langchain` e vivem no `langchain-classic`. A política ainda não existia, e elas foram usadas como pedido, com duas salvaguardas:
+O enunciado da Fase 2 exigia `initialize_agent`, `ZERO_SHOT_REACT_DESCRIPTION` e `RouterChain`. No LangChain 1.x essas APIs saíram do pacote `langchain` e vivem no `langchain-classic`. A política ainda não existia, e elas foram usadas como o enunciado exigia, com duas salvaguardas:
 
 - ficam **isoladas** em `app/legacy/`, consumidas por interfaces modernas (o `CryptoAgent` cuida de memória, rastreamento e montagem da saída; o `RouterChain` só classifica);
 - atendem só os endpoints da Fase 2 (`POST /agent` e `POST /route?router=legacy`).
@@ -1341,17 +1371,17 @@ Na Fase 5 o agente principal migrou para `create_agent`. O código legado contin
 
 ## Desvios deliberados do enunciado
 
-Todos foram decididos pelo autor, com o motivo registrado na fase correspondente.
+Cada desvio tem o motivo registrado no capítulo da fase correspondente.
 
 | Fase | Enunciado | Implementado | Motivo |
 |---:|------------------------------------|---------------------------|------------------------------|
 | 2 | Scripts Python | Aplicação HTTP (FastAPI) | Uma entrada única com dependências criadas uma vez, no lugar de oito scripts com inicialização repetida |
 | 2 | FAISS | Chroma | Descontinuação do `langchain-community`, pickle inseguro, sem atualização incremental nem filtro por metadados |
 | 3 | `ConversationBufferMemory` | SQLite + janela + resumo próprios | Depreciado |
-| 3 | Só comparar frameworks de memória | Usar um (Mem0) | Pedido do autor; LangMem descartado por depreciação transitiva, Letta por imagem Docker sem suporte |
+| 3 | Só comparar frameworks de memória | Usar um (Mem0) | Framework mantido para a memória de longo prazo, no lugar de código próprio; LangMem descartado por depreciação transitiva, Letta por imagem Docker sem suporte |
 | 5 | `create_openai_tools_agent` + `AgentExecutor` | `create_agent` | Pacote legado; `create_agent` é o substituto oficial |
 | 5 | `RunnableWithMessageHistory` | `SessionHistoryAdapter` | Depreciado |
-| 5 | NLI com Transformers (`mDeBERTa-v3-base-mnli-xnli`) | NLI com `gemma4:e2b` via Ollama | Cerca de 2 GB a mais (torch, transformers e modelo) com 5 GB livres em disco, e um segundo motor de inferência na mesma CPU |
+| 5 | NLI com Transformers (`mDeBERTa-v3-base-mnli-xnli`) | NLI com `gemma4:e2b` via Ollama | Cerca de 2 GB a mais (torch, transformers e modelo) com 5,3 GB livres em disco, e um segundo motor de inferência na mesma CPU |
 
 ## Modelo local (Ollama) em CPU
 
@@ -1416,7 +1446,7 @@ Uma lição repetida em todas as fases: **o que pode ser calculado por código n
 
 - **Testes offline** (padrão do `pytest`): LLM falso, API simulada e bancos temporários. Rodam em segundos e cobrem contratos, regras determinísticas, segurança do SQL e fluxos completos da API.
 - **Testes de integração** (opt-in com `-m integration` e `-m network`): Ollama, CoinPaprika, Chroma e Mem0 reais. Como a saída do modelo varia mesmo com temperatura 0, esses testes usam critérios de comportamento (ferramenta certa, melhora de ranking, status esperado), e não igualdade de texto.
-- **Avaliação (Fase 5):** dataset versionado de 19 exemplos, avaliadores de resposta e de trajetória, execução local ou no LangSmith.
+- **Avaliação (Fase 5):** dataset versionado (20 exemplos na versão final), avaliadores de resposta e de trajetória, execução local ou no LangSmith.
 
 
 \newpage
@@ -1447,14 +1477,14 @@ Ao fim das cinco fases, o Crypto Intelligence Agent é uma aplicação local com
 | 4 | Text-to-Query real (9 perguntas) | 9 status corretos, nenhum SQL inseguro executado |
 | 4 | Diagnóstico de recuperação (halving) | Trecho relevante do 3º para o 1º lugar com Query Rewriting (MRR 0,33 → 1,0) |
 | 5 | Avaliação final do agente integrado | 20 de 20 exemplos executados; média de trajetória 0,962 e de resposta 0,951; `groundedness` 1,0; 14 dos 15 exemplos do agente terminaram `verified` |
-| 1–5 | Suíte offline com todos os avisos visíveis | 374 testes aprovados, nenhum aviso de depreciação |
+| 1–5 | Suíte offline com todos os avisos visíveis | 383 testes aprovados, nenhum aviso de depreciação |
 
 ## O que funcionou
 
 - **Ferramentas no lugar de memória do modelo.** Com os dados vindo das ferramentas, um modelo de 2B em CPU foi suficiente para orquestrar API, SQL e documentos. A hipótese que motivou o uso de um modelo local pequeno se confirmou.
 - **Código determinístico nos pontos fracos do modelo.** Comparações, rankings, períodos, checagem de números e montagem de fontes saíram do LLM e passaram a ser feitos por código. Isso eliminou classes inteiras de erro observadas nas primeiras fases.
 - **Separar "sem evidência" de "contra a evidência".** O desenho de status da verificação permite entregar respostas parcialmente sustentadas com transparência, em vez de rejeitá-las ou aprová-las por inteiro.
-- **APIs atuais desde o início de cada fase.** A política de não usar nada depreciado evitou retrabalho: a migração do agente para `create_agent` na Fase 5 só tocou `app/integrated/`, e a auditoria final terminou sem avisos.
+- **APIs atuais a partir da Fase 3.** A política de não usar nada depreciado evitou retrabalho: a migração do agente para `create_agent` na Fase 5 só tocou `app/integrated/`, e a auditoria final terminou sem avisos.
 
 ## Limitações
 
@@ -1462,6 +1492,7 @@ Ao fim das cinco fases, o Crypto Intelligence Agent é uma aplicação local com
 - **Verificação com modelo de 2B:** a NLI tem confiança autodeclarada e confunde "sem evidência" com "contradição" em parte dos casos; a checagem numérica confere presença de valor, não a métrica a que ele foi atribuído.
 - **Juiz e agente são o mesmo modelo:** as notas do juiz são indício, compensado por avaliadores determinísticos.
 - **Dados:** o plano gratuito da CoinPaprika não oferece série histórica; o histórico local depende de coletas manuais.
+- **Profundidade desigual nas comparações entre redes:** a base local cobre a fundo Bitcoin, Ethereum e Solana; as demais redes contam só com o perfil da CoinPaprika (consenso e descrição curta).
 - **Sem autenticação:** adequado só ao uso local de um usuário.
 - **LangSmith:** implementado, mas não exercitado neste ambiente; os resultados vêm da execução local equivalente.
 
@@ -1472,7 +1503,8 @@ Ao fim das cinco fases, o Crypto Intelligence Agent é uma aplicação local com
 3. Extração de afirmações com divisão de fatos compostos e checagem da métrica atribuída a cada número.
 4. Remoção do código legado da Fase 2 (`app/legacy/`), já substituído pelo agente integrado.
 5. Autenticação e dono por sessão antes de qualquer uso multiusuário.
-6. Experimentos no LangSmith para comparar versões de prompt e de modelo ao longo do tempo.
+6. Fonte de referência externa (Wikipedia ou documentação oficial) com cache no Chroma para aprofundar redes fora da base, e a comparação entre redes no dataset de avaliação.
+7. Experimentos no LangSmith para comparar versões de prompt e de modelo ao longo do tempo.
 
 
 \newpage

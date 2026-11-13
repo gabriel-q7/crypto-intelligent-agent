@@ -123,7 +123,8 @@ class AppContainer:
         if self.integrated is None:
             verification = get_verification_settings()
             self.tool_llm = self.tool_llm or build_llm(self.settings, json_mode=False)
-            tools = structured_tools(build_agent_tools(self.coinpaprika, self.knowledge, self.retrieval, self.text_to_query))
+            tools = structured_tools(build_agent_tools(self.coinpaprika, self.knowledge, self.retrieval, self.text_to_query,
+                                                       profile=True))
             self.integrated = IntegratedAgentService(
                 build_integrated_agent(self.tool_llm, tools),
                 VerificationService(self.llm, verification.coherence_llm, verification.evidence_per_claim),
@@ -131,6 +132,7 @@ class AppContainer:
                 SessionHistoryAdapter(self.conversation_store, self.memory_backend, self.conversation_settings),
                 self.conversation,
                 model_name=self.settings.ollama_model,
+                tools=tools,
             )
 
     def market_ingestor(self) -> MarketDataIngestor:

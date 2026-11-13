@@ -65,6 +65,22 @@ def _ticker_text(d: dict) -> str:
     return "; ".join(parts)
 
 
+def profile_text(d: dict) -> str:
+    """Perfil técnico em frase única: os rótulos em português aproximam a evidência das afirmações da resposta."""
+    parts = [f"{d.get('name')} ({d.get('symbol')}), perfil técnico na CoinPaprika"]
+    labels = [("proof_type", "consenso"), ("type", "tipo"), ("development_status", "status de desenvolvimento")]
+    parts += [f"{label} {d[key]}" for key, label in labels if d.get(key)]
+    if d.get("open_source") is not None:
+        parts.append("código aberto" if d["open_source"] else "código fechado")
+    if d.get("started_at"):
+        parts.append(f"início {str(d['started_at'])[:10]}")
+    if d.get("tags"):
+        parts.append("tags " + ", ".join(d["tags"]))
+    if d.get("description"):
+        parts.append(f"descrição: {d['description']}")
+    return "; ".join(parts)
+
+
 def build_evidence(observations: list[dict]) -> list[EvidenceItem]:
     items: list[EvidenceItem] = []
 
@@ -91,6 +107,8 @@ def build_evidence(observations: list[dict]) -> list[EvidenceItem]:
                     f"{profile.get('type')}; OHLCV do dia: abertura {format_usd(ohlcv.get('open'))}, máxima "
                     f"{format_usd(ohlcv.get('high'))}, mínima {format_usd(ohlcv.get('low'))}, último {format_usd(ohlcv.get('close'))}")
             add("api", tool, text, obs, [profile.get("symbol", ""), profile.get("name", "")], _numbers(data))
+        elif tool == "get_asset_profile":
+            add("api", tool, profile_text(data), obs, [data.get("symbol", ""), data.get("name", "")], [])
         elif tool == "get_global_market":
             text = (f"Mercado global: market cap {format_usd(data.get('market_cap_usd'))}, volume 24h "
                     f"{format_usd(data.get('volume_24h_usd'))}, dominância do BTC {format_pct(data.get('bitcoin_dominance_percentage')).lstrip('+')}")

@@ -59,17 +59,19 @@ def build_agent_tools(
     knowledge: KnowledgeSearcher,
     retrieval: RetrievalAgent | None = None,
     market_db: TextToQueryService | None = None,
+    profile: bool = False,
 ) -> list[BaseTool]:
     """Ferramentas do agente principal.
 
     Fase 2: CoinPaprika (API) + busca de conhecimento. Fase 4: cálculo determinístico,
     Text-to-Query no banco de snapshots e Retrieval Agent (com Query Rewriting) no lugar da
-    busca simples — mesmo nome de ferramenta, ``search_knowledge_base``.
+    busca simples — mesmo nome de ferramenta, ``search_knowledge_base``. ``profile`` acrescenta o perfil
+    técnico da CoinPaprika (``get_asset_profile``), usado só pelo agente integrado.
     """
     knowledge_tool = (
         build_retrieval_tool(retrieval) if retrieval else build_knowledge_tool(knowledge.index, knowledge.settings.top_k)
     )
-    tools: list[BaseTool] = [*build_market_tools(client), knowledge_tool, *build_calculation_tools()]
+    tools: list[BaseTool] = [*build_market_tools(client, profile), knowledge_tool, *build_calculation_tools()]
     if market_db:
         tools.append(build_market_db_tool(market_db))
     return tools

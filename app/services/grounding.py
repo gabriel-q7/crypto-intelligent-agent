@@ -200,6 +200,9 @@ def findings_from(observations: Iterable[dict]) -> list[Finding]:
             findings.append(_finding(obs, f"{profile['name']}: OHLCV do dia — abertura {format_usd(ohlcv['open'])}, máxima {format_usd(ohlcv['high'])}, mínima {format_usd(ohlcv['low'])}, último {format_usd(ohlcv['close'])}"))
             if profile.get("proof_type"):
                 findings.append(_finding(obs, f"{profile['name']}: consenso {profile['proof_type']}"))
+        elif tool == "get_asset_profile":
+            consensus = f" — consenso {data['proof_type']}" if data.get("proof_type") else ""
+            findings.append(_finding(obs, f"{data['name']}: perfil técnico{consensus}"))
         elif tool == "get_global_market":
             findings.append(_finding(obs, f"Mercado global: market cap {format_usd(data['market_cap_usd'])}, volume 24h {format_usd(data['volume_24h_usd'])}, dominância BTC {format_pct(data['bitcoin_dominance_percentage']).lstrip('+')}"))
         elif tool == "search_knowledge_base":
