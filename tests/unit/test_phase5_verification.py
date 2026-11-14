@@ -117,6 +117,9 @@ def test_inverted_comparison_detected():
 def test_inconsistent_calculation_detected():
     assert check_calculations("O preço foi de US$ 100,00 para US$ 110,00, alta de 25%.")[0].kind == "calculation"
     assert not check_calculations("O preço foi de US$ 100,00 para US$ 110,00, alta de 10%.")
+    # Dois valores de métricas diferentes na mesma frase não são um cálculo de variação.
+    assert not check_calculations("Cardano (ADA): O preço atual é de US$ 0,168283, com um Market Cap de "
+                                  "US$ 6,561 bilhões e uma variação de 24 horas de -3,9%.")
 
 
 def test_period_mismatch_and_ignored_limitation():
@@ -214,3 +217,98 @@ def test_sql_row_selected_by_cited_value():
     selected = select_evidence(claim, evidence)
     assert "TRX" in selected[0].text
     assert numeric_check(claim, selected).label == "entailment"
+
+
+# --------------------------------------------------------------------------- defeitos vistos no LangSmith (seção 5.11)
+
+OBS_PROFILE_BTC = {
+    "ok": True, "tool": "get_asset_profile",
+    "data": {"name": "Bitcoin", "symbol": "BTC", "proof_type": "Proof of Work", "description": "Peer-to-peer cash."},
+    "source": {"provider": "CoinPaprika", "endpoint": "/coins/btc-bitcoin", "retrieved_at": "2026-11-13T23:21:00Z"},
+}
+OBS_RAG_ETH_SOL = {
+    "ok": True, "tool": "search_knowledge_base",
+    "data": [{"source": "comparacao-l1.md", "title": "Comparação", "chunk_id": "comparacao-l1.md#5", "score": 0.2,
+              "content": "Consenso: Ethereum e Solana utilizam Proof of Stake; Ethereum com Gasper, Solana com Tower BFT."}],
+    "source": {"provider": "base de conhecimento local (Chroma)", "endpoint": "crypto_knowledge"},
+}
+
+
+def test_long_coherence_description_is_truncated_not_rejected():
+    long = "A resposta afirma algo que não decorre do que foi apresentado. " * 12
+    llm = FakeListChatModel(responses=[json.dumps({"issues": [{"kind": "unsupported_conclusion", "description": long}]})])
+    [finding] = llm_findings(llm, "Compare SOL e BTC", "Resposta qualquer.")
+    assert finding.kind == "unsupported_conclusion" and len(finding.description) <= 400
+    assert finding.description.endswith("…")
+
+
+def test_direction_rule_ignores_high_speed_and_keeps_price_moves():
+    sol = {"ok": True, "tool": "get_market_data", "data": {"symbol": "SOL", "name": "Solana", "percent_change_24h": -5.08}}
+    assert not check_direction("A Solana busca desempenho na camada 1, visando alta velocidade.", [sol])
+    assert not check_direction("A Solana tem alta performance e taxas baixas.", [sol])
+    assert check_direction("A Solana subiu 5,08% em 24 horas.", [sol])
+    assert check_direction("O preço da Solana está em alta.", [sol])
+
+
+def test_evidence_for_every_asset_of_the_claim_is_selected():
+    evidence = build_evidence([OBS_RAG_ETH_SOL, OBS_PROFILE_BTC])
+    claim = Claim(id="C1", text="Ambas utilizam Proof of Stake.", kind="conceptual", sentence_index=0,
+                  entities=["SOL", "BTC"])
+    selected = select_evidence(claim, evidence, k=1)
+    assert {e.tool for e in selected} == {"search_knowledge_base", "get_asset_profile"}
+
+
+def test_claim_about_an_asset_without_evidence_is_neutral_without_llm():
+    evidence = build_evidence([OBS_RAG_ETH_SOL])
+    claim = Claim(id="C1", text="Solana e Bitcoin utilizam Proof of Stake.", kind="conceptual", sentence_index=0,
+                  entities=["SOL", "BTC"])
+    result = verify_claim(claim, evidence, LLMNLIClassifier(FakeListChatModel(responses=["não deveria ser chamado"])))
+    assert result.label == "neutral" and result.method == "no_evidence" and "BTC" in result.rationale
+
+
+def test_collective_claim_takes_the_assets_of_the_question():
+    # Caso real (2026-11-13): "solana vs bitcoin" → "Ambas utilizam Proof of Stake" aprovada pela NLI.
+    answer = "Consenso: Ambas utilizam Proof of Stake."
+    llm = FakeListChatModel(responses=[json.dumps({"issues": []})])  # a NLI nem é chamada: regra de consenso
+    result = VerificationService(llm).verify("faça uma comparação sobre solana vs bitcoin", answer,
+                                             [OBS_RAG_ETH_SOL, OBS_PROFILE_BTC])
+    [claim] = result.claims
+    assert claim.claim.entities == ["SOL", "BTC"] and claim.label == "contradiction"
+    assert claim.method == "consensus_check" and result.status == "contradicted"
+
+
+def test_offline_suite_does_not_send_traces_to_langsmith():
+    from langsmith.utils import tracing_is_enabled
+
+    assert tracing_is_enabled() is False
+
+
+OBS_PROFILE_SOL = {
+    "ok": True, "tool": "get_asset_profile",
+    "data": {"name": "Solana", "symbol": "SOL", "proof_type": "Delegated Proof of Stake"},
+    "source": {"provider": "CoinPaprika", "endpoint": "/coins/sol-solana", "retrieved_at": "2026-11-13T23:21:00Z"},
+}
+
+
+def _claim(text: str, entities: list[str]) -> Claim:
+    return Claim(id="C1", text=text, kind="conceptual", sentence_index=0, entities=entities)
+
+
+def test_consensus_contradiction_is_decided_by_profile_without_llm():
+    evidence = build_evidence([OBS_RAG_ETH_SOL, OBS_PROFILE_BTC, OBS_PROFILE_SOL])
+    never = LLMNLIClassifier(FakeListChatModel(responses=["não deveria ser chamado"]))
+    both_pos = verify_claim(_claim("Consenso: Ambas as redes utilizam Proof of Stake", ["SOL", "BTC"]), evidence, never)
+    assert both_pos.label == "contradiction" and both_pos.method == "consensus_check" and "BTC" in both_pos.rationale
+    btc_pos = verify_claim(_claim("O Bitcoin usa PoS.", ["BTC"]), evidence, never)
+    assert btc_pos.label == "contradiction"
+
+
+def test_llm_contradiction_on_a_consistent_consensus_becomes_neutral():
+    # Caso real: "Solana utiliza DPoS, enquanto o Bitcoin opera com PoW" foi marcada como contradição pela NLI.
+    evidence = build_evidence([OBS_RAG_ETH_SOL, OBS_PROFILE_BTC, OBS_PROFILE_SOL])
+    claim = _claim("Solana utiliza o Delegated Proof of Stake (DPoS), enquanto o Bitcoin opera com Proof of Work (PoW)",
+                   ["SOL", "BTC"])
+    result = verify_claim(claim, evidence, LLMNLIClassifier(FakeListChatModel(responses=[nli_reply("contradiction")])))
+    assert result.label == "neutral" and "confere com o perfil" in result.rationale
+    agrees = verify_claim(claim, evidence, LLMNLIClassifier(FakeListChatModel(responses=[nli_reply("entailment")])))
+    assert agrees.label == "entailment"

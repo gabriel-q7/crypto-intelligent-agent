@@ -21,7 +21,7 @@ Ao fim das cinco fases, o Crypto Intelligence Agent é uma aplicação local com
 | 4 | Text-to-Query real (9 perguntas) | 9 status corretos, nenhum SQL inseguro executado |
 | 4 | Diagnóstico de recuperação (halving) | Trecho relevante do 3º para o 1º lugar com Query Rewriting (MRR 0,33 → 1,0) |
 | 5 | Avaliação final do agente integrado | 20 de 20 exemplos executados; média de trajetória 0,962 e de resposta 0,951; `groundedness` 1,0; 14 dos 15 exemplos do agente terminaram `verified` |
-| 1–5 | Suíte offline com todos os avisos visíveis | 383 testes aprovados, nenhum aviso de depreciação |
+| 1–5 | Suíte offline com todos os avisos visíveis | 391 testes aprovados, nenhum aviso de depreciação |
 
 ## O que funcionou
 
@@ -38,7 +38,7 @@ Ao fim das cinco fases, o Crypto Intelligence Agent é uma aplicação local com
 - **Dados:** o plano gratuito da CoinPaprika não oferece série histórica; o histórico local depende de coletas manuais.
 - **Profundidade desigual nas comparações entre redes:** a base local cobre a fundo Bitcoin, Ethereum e Solana; as demais redes contam só com o perfil da CoinPaprika (consenso e descrição curta).
 - **Sem autenticação:** adequado só ao uso local de um usuário.
-- **LangSmith:** o rastreamento de uso real foi analisado (13 turnos; a verificação ocupa 48% do tempo do turno na mediana) e revelou defeitos que a avaliação agregada não mostrava; o dataset e os experimentos ainda não foram rodados no LangSmith.
+- **LangSmith:** o rastreamento de uso real foi analisado (13 turnos; a verificação ocupa 48% do tempo do turno na mediana) e revelou defeitos que a avaliação agregada não mostrava, já corrigidos; o dataset e os experimentos ainda não foram rodados no LangSmith.
 
 ## Trabalhos futuros
 

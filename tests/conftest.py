@@ -1,9 +1,22 @@
 import json
+import re
 
+import langsmith
 import pytest
 from langchain_core.language_models.fake_chat_models import FakeListChatModel
 
 from app.schemas import CryptoQuestion
+
+# O .env pode ligar LANGSMITH_TRACING e o container carrega o .env: sem isto, a suíte offline envia
+# os traces dos dublês ao LangSmith e polui as métricas do projeto (Fase 5, seção 5.11). Só uma
+# execução que seleciona integração/rede (ex.: -m "integration or network") mantém o rastreamento.
+POSITIVE_LIVE_MARK = re.compile(r"(?<!not )\b(integration|network)\b")
+
+
+def pytest_configure(config):
+    if not POSITIVE_LIVE_MARK.search(config.option.markexpr or ""):
+        langsmith.configure(enabled=False)
+
 
 VALID_OUTPUT = {
     "intent": "comparison",

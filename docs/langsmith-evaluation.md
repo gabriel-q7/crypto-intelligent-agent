@@ -130,4 +130,4 @@ docker compose run --rm --no-deps -v ./scripts:/app/scripts -v ./docs:/app/docs 
 
 Resultados e defeitos encontrados: diário da Fase 5, seções 5.11 e 6.3.
 
-**Atenção:** com `LANGSMITH_TRACING=true` no `.env`, o `make test` também envia traces, porque o container carrega o `.env`. Para não misturar testes com uso real, desligue o tracing na suíte offline (pendência registrada na Fase 5).
+**Testes offline não enviam traces:** `tests/conftest.py` desliga o rastreamento (`langsmith.configure(enabled=False)`) quando a execução não seleciona integração nem rede, mesmo com `LANGSMITH_TRACING=true` no `.env`. Os traces anteriores a 2026-11-13 ainda misturam testes e uso real; a exportação separa os dois.

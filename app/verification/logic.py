@@ -19,7 +19,7 @@ import re
 
 from langchain_core.exceptions import OutputParserException
 from langchain_core.language_models import BaseChatModel
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, Field, ValidationError, field_validator
 
 from app.chains.market_chains import ask_json
 from app.intent.classifier import find_assets, find_period
@@ -31,6 +31,10 @@ logger = logging.getLogger(__name__)
 
 UP = re.compile(r"\b(subiu|subiram|alta|valoriz\w*|ganho|avan[cç]\w*|aumento|aumentou|cresceu|positiv\w*)\b", re.I)
 DOWN = re.compile(r"\b(caiu|ca[ií]ram|queda|desvaloriz\w*|perda|recuo|recuou|diminuiu|negativ\w*|baixa)\b", re.I)
+# "alta velocidade", "alta performance": palavra de alta/queda só conta numa frase sobre preço ou variação
+# (falso positivo real no LangSmith, Fase 5, seção 5.11).
+PRICE_CONTEXT = re.compile(r"%|pre[cç]o|cota[cç]|varia[cç]|valoriz|desvaloriz|market ?cap|capitaliza|US\$|\$\s?\d",
+                           re.I)
 GREATER = re.compile(r"\b(maior|superior|acima|mais alt\w*|supera\w*|à frente)\b", re.I)
 LESSER = re.compile(r"\b(menor|inferior|abaixo|mais baix\w*)\b", re.I)
 LIMITATION = re.compile(
@@ -83,6 +87,8 @@ def check_direction(answer: str, observations: list[dict]) -> list[LogicalFindin
         if up == down:
             continue
         metric = _metric_in(sentence)
+        if not (PRICE_CONTEXT.search(sentence) or (metric and metric.startswith("percent"))):
+            continue
         field = metric if metric and metric.startswith("percent") else "percent_change_24h"
         real = values[assets[0]].get(field)
         if real is None or abs(real) < 0.01:
@@ -126,6 +132,10 @@ def check_calculations(answer: str) -> list[LogicalFinding]:
         money = [r[0] for raw, r in figures if not raw.endswith("%")]
         pct = [r[0] for raw, r in figures if raw.endswith("%")]
         if len(money) != 2 or len(pct) != 1 or money[0] == 0:
+            continue
+        # "preço US$ 0,168, market cap US$ 6,5 bi, variação −3,9%": dois valores de métricas diferentes não são
+        # um "de A para B" (falso positivo real no LangSmith, Fase 5, seção 5.11).
+        if sum(bool(METRICS[f].search(sentence)) for f in ("price_usd", "market_cap_usd", "volume_24h_usd")) > 1:
             continue
         expected = (money[1] - money[0]) / abs(money[0]) * 100
         if abs(abs(expected) - abs(pct[0])) > max(0.05 * abs(expected), 0.1):
@@ -179,9 +189,21 @@ Não aponte estilo, tamanho nem falta de detalhes. Se não houver problema claro
 Responda SOMENTE com JSON: {"issues": [{"kind": "internal_contradiction|unsupported_conclusion", "description": "..."}]}"""
 
 
+DESCRIPTION_MAX_CHARS = 400
+
+
 class CoherenceIssue(BaseModel):
     kind: str
-    description: str = Field(max_length=400)
+    description: str = Field(max_length=DESCRIPTION_MAX_CHARS)
+
+    @field_validator("description", mode="before")
+    @classmethod
+    def _truncate(cls, value):
+        # O modelo às vezes escreve mais do que o limite; rejeitar a saída inteira perdia o achado e
+        # derrubava a verificação (3 de 3 verification_failed no LangSmith, Fase 5, seção 5.11).
+        if isinstance(value, str) and len(value) > DESCRIPTION_MAX_CHARS:
+            return value[:DESCRIPTION_MAX_CHARS - 1].rstrip() + "…"
+        return value
 
 
 class CoherenceOutput(BaseModel):

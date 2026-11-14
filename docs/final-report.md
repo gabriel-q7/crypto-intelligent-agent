@@ -1223,6 +1223,27 @@ O rastreamento no LangSmith foi ligado em 2026-11-12 (projeto `crypto-intelligen
 
 - **Aprendizado:** a avaliação agregada (seção 6.1) e as amostras de teste real (seções 5.9 e 5.10) não revelaram nenhum desses quatro problemas; o trace por etapa revelou. Também ficou claro que o rastreamento precisa ser desligado nos testes offline, ou as métricas do projeto deixam de medir o sistema.
 
+**Correções (2026-11-13):**
+1. **Testes sem rastreamento:** `tests/conftest.py` chama `langsmith.configure(enabled=False)` no `pytest_configure`, a não ser que a execução selecione integração ou rede (`-m "integration or network"`). O interruptor é global e vale também para as threads do `TestClient`. Conferido no LangSmith: uma execução completa da suíte offline criou 0 traces raiz. Teste `test_offline_suite_does_not_send_traces_to_langsmith`.
+2. **Coerência truncada, não rejeitada:** um validador corta a descrição em 400 caracteres em vez de recusar a saída inteira. Teste `test_long_coherence_description_is_truncated_not_rejected`.
+3. **Comparação "solana vs bitcoin"**, em quatro partes:
+   - a pré-consulta busca a base também **por rede** ("Bitcoin: consenso, contratos inteligentes, finalidade e escalabilidade"); com isso o `bitcoin.md` passou a vir (distância 0,213), ao lado do documento comparativo;
+   - a seleção de evidência garante, para cada ativo da afirmação, ao menos uma evidência que fale dele; se nenhuma falar, a afirmação sai `neutral` sem chamar o LLM;
+   - "ambas/ambos/as duas/os dois" sem ativo na frase recebem os ativos da pergunta;
+   - **regra de consenso (`consensus_check`):** a família do consenso (PoS × PoW) atribuída a cada ativo é conferida contra o `proof_type` do perfil da CoinPaprika, sem LLM. Divergência vira `contradiction`; se o consenso confere e a NLI ainda diz `contradiction` (caso real: "Solana usa DPoS" contra o trecho "Proof of Stake"), o rótulo cai para `neutral`. Na primeira rodada após as três primeiras partes, a NLI ainda aprovou "Ambas as redes utilizam Proof of Stake" com o perfil do BTC na evidência; a regra foi a resposta a isso.
+   - a instrução de redação pede para falar só das redes comparadas.
+4. **Regras de coerência com contexto:** a regra de sentido só considera "alta/queda" em frase sobre preço ou variação; a regra de cálculo ignora frases com valores de métricas diferentes (preço e market cap), um 5º falso positivo, da mesma família, encontrado no teste das correções ("cardano vs avalanche" saiu `contradicted` por isso).
+
+**Resultado** (`docs/evidence/final/langsmith-fixes-probe.jsonl`, 2026-11-13; 1 execução por pergunta, com as 7 consultas fixas):
+
+| Pergunta | Antes (traces da seção 6.3) | Depois |
+|---|---|---|
+| solana vs bitcoin | "ambas usam Proof of Stake", `verification_failed` | consenso correto (PoW × DPoS); `partially_verified` |
+| solana vs ethereum | 4 de 6 execuções sem `verified` | `complete` e `verified`, sem correção |
+| cardano vs avalanche | `unsupported`; depois `verified` com correção | `complete` e `verified`, sem correção |
+
+O que sobrou em "solana vs bitcoin" é redação do modelo de 2B: em contratos inteligentes ele ainda descreve o Ethereum, e lê "finalidade" como "propósito" ("a finalidade do Bitcoin é a segurança"); essa frase saiu `neutral` e a resposta a marca como não confirmada. Testes offline: 391, todos aprovados.
+
 ## Evidências e métricas
 
 | Verificação | Resultado |
@@ -1335,9 +1356,9 @@ Leitura:
 - **Comparação entre redes com profundidade desigual:** redes descritas na base local (Bitcoin, Ethereum e Solana) têm contratos, execução e finalidade; para as demais, só o perfil da CoinPaprika (consenso e uma descrição curta, em inglês, às vezes defasada). O conteúdo da base (por exemplo, a Alpenglow da Solana) envelhece e precisa de revisão manual. Na resposta real, os tempos de finalidade nem sempre aparecem, embora estejam nos trechos recuperados.
 - **Consultas fixas custam latência:** toda comparação entre redes faz 5 consultas (base, perfis e mercado), mesmo quando a pergunta não pede mercado.
 - **Ativo inexistente sem consulta:** em "moeda XYZQWE", o agente pede esclarecimento sem consultar a API (seção 6.1).
-- **LangSmith exercitado só no rastreamento:** os traces de uso real foram analisados (seções 5.11 e 6.3), mas o dataset e os experimentos não foram criados no LangSmith; a avaliação da seção 6.1 vem da execução local equivalente. Com o `.env` atual, a suíte offline também envia traces (seção 5.11).
-- **NLI sem checagem de ativo:** uma afirmação sobre os ativos A e B pode sair `entailment` a partir de um trecho sobre A e C (seção 5.11).
-- **Regra de sentido por palavra-chave:** "alta"/"queda" fora do contexto de preço gera falso positivo (seção 5.11).
+- **LangSmith exercitado só no rastreamento:** os traces de uso real foram analisados (seções 5.11 e 6.3), mas o dataset e os experimentos não foram criados no LangSmith; a avaliação da seção 6.1 vem da execução local equivalente. Os traces da seção 6.3 são anteriores às correções da seção 5.11.
+- **Checagem de ativo e de consenso parcial:** a evidência precisa citar cada ativo da afirmação e o consenso PoS × PoW é conferido por regra, mas o restante do conteúdo continua com a NLI de 2B, que pode aprovar uma frase sobre A a partir de um trecho que fala de A e de outra rede (seção 5.11).
+- **Redação do modelo de 2B em comparações:** mesmo com a instrução, ele usa trechos de outra rede (Ethereum no lugar do Bitcoin) e confunde "finalidade" com "propósito".
 - **Juiz com viés de autoavaliação:** o mesmo modelo responde e julga; as notas do juiz são indício, não prova.
 - **Latência:** um turno leva de 10 s a quase 3 min em CPU; cada correção é mais uma execução do agente.
 
@@ -1352,10 +1373,8 @@ Leitura:
 
 ## Pendências
 
-- Desligar o rastreamento na suíte offline (`LANGSMITH_TRACING=false` no `conftest`), para que o projeto do LangSmith só receba uso real e integração.
-- Truncar a descrição da coerência em vez de rejeitar a saída (`CoherenceOutput.description`), para que a verificação não falhe por tamanho de texto.
-- Na NLI, exigir que a evidência cite os mesmos ativos da afirmação; na regra de sentido, exigir referência a preço ou variação.
-- Na pré-consulta das comparações, buscar a base por rede (não só pela pergunta inteira), para não trazer só o documento Ethereum × Solana.
+- Repetir a exportação do LangSmith (`scripts/langsmith_export.py`) depois de um período de uso com as correções da seção 5.11, para medir o efeito em mais de uma execução por pergunta.
+- Filtrar os trechos da base por rede antes da redação (só os que citam as redes comparadas), já que a instrução sozinha não impede o modelo de usar o Ethereum no lugar do Bitcoin.
 - Criar o dataset e rodar a avaliação como experimento no LangSmith (`make eval-upload`, `make eval`).
 - Extração de afirmações com divisão de fatos compostos e checagem de atribuição de métrica.
 - Resposta cautelosa que preserve a estrutura da resposta (listas e rótulos de ativo).
@@ -1405,7 +1424,7 @@ O caso do LangMem mostrou que a depreciação também vem de **dependências tra
 
 - **Spikes com avisos visíveis:** cada candidato foi importado e executado com `warnings.simplefilter("always")` no ambiente da imagem antes da adoção.
 - **Teste automático:** `test_phase3_modules_use_no_deprecated_langchain_apis` importa os módulos da Fase 3 num interpretador limpo, com `LangChainDeprecationWarning` tratado como erro. Rodar num subprocesso foi necessário porque recarregar módulos no mesmo processo recriava classes de exceção e quebrava outros testes.
-- **Auditoria final (2026-11-13, refeita após as seções 5.9 e 5.10 da Fase 5):** a suíte offline completa rodou com `-W always::DeprecationWarning -W always::PendingDeprecationWarning -W always::FutureWarning`: **383 testes aprovados e nenhum aviso** (`docs/evidence/final/pytest-deprecation-audit.log`).
+- **Auditoria final (2026-11-13, refeita após as seções 5.9 a 5.11 da Fase 5):** a suíte offline completa rodou com `-W always::DeprecationWarning -W always::PendingDeprecationWarning -W always::FutureWarning`: **391 testes aprovados e nenhum aviso** (`docs/evidence/final/pytest-deprecation-audit.log`).
 
 ### A exceção: APIs legadas exigidas na Fase 2
 
@@ -1437,7 +1456,7 @@ Cada desvio tem o motivo registrado no capítulo da fase correspondente.
 A escolha de servir o modelo localmente pelo Ollama, em vez de usar uma API comercial, partiu da natureza do problema:
 
 1. **O conhecimento que importa vem das ferramentas.** Uma análise de mercado cripto depende de preços, volumes e capitalizações que mudam a cada minuto. Nenhum modelo, por maior que seja, tem esses valores no treinamento. A qualidade da resposta depende de o agente **escolher a ferramenta certa, passar os argumentos certos e usar o resultado sem inventar**, e não da memória do modelo. Por isso um modelo pequeno é suficiente, desde que siga o protocolo de ferramentas. O projeto serviu justamente para medir esse potencial: até onde um modelo local leve consegue orquestrar ferramentas reais.
-2. **Privacidade.** Perguntas, histórico de conversa e memórias de longo prazo ficam na máquina. Só as consultas à CoinPaprika (símbolos de ativos) saem para a internet; o LangSmith é opcional e desligado por padrão. Quando ligado, perguntas e respostas vão para o LangSmith; com o `.env` atual, a suíte offline também envia os traces dos testes (Fase 5, seção 5.11).
+2. **Privacidade.** Perguntas, histórico de conversa e memórias de longo prazo ficam na máquina. Só as consultas à CoinPaprika (símbolos de ativos) saem para a internet; o LangSmith é opcional e desligado por padrão. Quando ligado, perguntas e respostas vão para o LangSmith; a suíte offline não envia traces (desligados no `conftest` desde 2026-11-13, Fase 5, seção 5.11).
 3. **Avaliar o estado dos modelos locais.** Outro objetivo era verificar a qualidade que modelos abertos já alcançam num computador pessoal, sem GPU dedicada.
 4. **Custo e reprodutibilidade.** Sem cobrança por token e sem dependência de disponibilidade de um provedor; qualquer pessoa reproduz o ambiente com `make up`.
 
@@ -1524,7 +1543,7 @@ Ao fim das cinco fases, o Crypto Intelligence Agent é uma aplicação local com
 | 4 | Text-to-Query real (9 perguntas) | 9 status corretos, nenhum SQL inseguro executado |
 | 4 | Diagnóstico de recuperação (halving) | Trecho relevante do 3º para o 1º lugar com Query Rewriting (MRR 0,33 → 1,0) |
 | 5 | Avaliação final do agente integrado | 20 de 20 exemplos executados; média de trajetória 0,962 e de resposta 0,951; `groundedness` 1,0; 14 dos 15 exemplos do agente terminaram `verified` |
-| 1–5 | Suíte offline com todos os avisos visíveis | 383 testes aprovados, nenhum aviso de depreciação |
+| 1–5 | Suíte offline com todos os avisos visíveis | 391 testes aprovados, nenhum aviso de depreciação |
 
 ## O que funcionou
 
@@ -1541,7 +1560,7 @@ Ao fim das cinco fases, o Crypto Intelligence Agent é uma aplicação local com
 - **Dados:** o plano gratuito da CoinPaprika não oferece série histórica; o histórico local depende de coletas manuais.
 - **Profundidade desigual nas comparações entre redes:** a base local cobre a fundo Bitcoin, Ethereum e Solana; as demais redes contam só com o perfil da CoinPaprika (consenso e descrição curta).
 - **Sem autenticação:** adequado só ao uso local de um usuário.
-- **LangSmith:** o rastreamento de uso real foi analisado (13 turnos; a verificação ocupa 48% do tempo do turno na mediana) e revelou defeitos que a avaliação agregada não mostrava; o dataset e os experimentos ainda não foram rodados no LangSmith.
+- **LangSmith:** o rastreamento de uso real foi analisado (13 turnos; a verificação ocupa 48% do tempo do turno na mediana) e revelou defeitos que a avaliação agregada não mostrava, já corrigidos; o dataset e os experimentos ainda não foram rodados no LangSmith.
 
 ## Trabalhos futuros
 

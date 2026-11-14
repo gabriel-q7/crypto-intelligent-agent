@@ -40,6 +40,8 @@ Para cada afirmação, `select_evidence` escolhe até 3 evidências (`VERIFICATI
 - +1 por palavra de conteúdo em comum;
 - +1 se o tipo combina (afirmação numérica com API/SQL/cálculo; conceitual com documento).
 
+Depois das 3, para cada ativo da afirmação sem evidência entre as escolhidas, entra a melhor evidência que fale dele (pelo texto ou pelas entidades). Se nenhuma evidência fala de um ativo da afirmação, ela sai `neutral` (`method=no_evidence`) sem chamar o LLM. "Ambas/ambos/as duas/os dois" sem ativo na frase recebem os ativos da pergunta.
+
 Não há comparação de todas as afirmações com todas as evidências. Os ids das evidências usadas ficam no resultado, e o conjunto completo (`evidence`), com a proveniência, também.
 
 ## 4. Classificação: entailment, contradiction, neutral
@@ -61,6 +63,8 @@ Duas etapas:
 2. **NLI com LLM local** (afirmações sem valores). O `gemma4:e2b` via Ollama (`OLLAMA_MODEL`, modo JSON, temperatura 0) recebe só a hipótese e as evidências selecionadas e devolve `{label, confidence, rationale}`, validado por Pydantic. Rótulo fora do conjunto ou JSON inválido levam a `NLIUnavailableError`, que é falha de infraestrutura e **não** contradição.
 
 Sem evidência selecionada, o resultado é `neutral` com `method=no_evidence`, sem chamar o LLM.
+
+Entre as duas etapas, a **regra de consenso** (`consensus_check`, `method=consensus_check`) confere a família do consenso (PoS × PoW) atribuída a cada ativo contra o `proof_type` do perfil da CoinPaprika (`get_asset_profile`). Divergência → `contradiction` sem LLM. Se o consenso confere e a NLI ainda diz `contradiction`, o rótulo cai para `neutral`. Motivo: a NLI de 2B aprovou "ambas usam Proof of Stake" para Solana e Bitcoin e reprovou "Solana usa DPoS" (Report, Fase 5, seção 5.11).
 
 ### 4.1 Por que não Transformers (desvio do enunciado)
 
@@ -88,13 +92,13 @@ A interface (`LLMNLIClassifier.classify(claim, evidence) → ClaimVerification`)
 
 | Achado | Severidade | Detecta |
 |---|---|---|
-| `direction_mismatch` | error | "X subiu N%" quando a variação real é negativa (ou o contrário). A verificação de números das Fases 2–4 compara o módulo e não pegava isso |
+| `direction_mismatch` | error | "X subiu N%" quando a variação real é negativa (ou o contrário). A verificação de números das Fases 2–4 compara o módulo e não pegava isso. Só em frase sobre preço ou variação ("alta velocidade" não conta) |
 | `numeric_comparison` | error | "A maior/menor que B" numa métrica cujos valores dizem o contrário |
-| `calculation` | error | Dois valores em US$ e um percentual que não corresponde a (b−a)/a |
+| `calculation` | error | Dois valores em US$ e um percentual que não corresponde a (b−a)/a. Ignora frase com valores de métricas diferentes (preço e market cap) |
 | `period_mismatch` | warning | A pergunta pede 24h/7d/30d e a resposta usa só outra janela sem explicar |
 | `ignored_limitation` | error | Houve falha de ferramenta ou cobertura insuficiente e a resposta não admite limitação alguma |
 
-**LLM** (`llm_findings`, `gemma4:e2b`): contradição interna entre frases (`internal_contradiction`, error) e conclusão que não decorre do que foi dito (`unsupported_conclusion`, warning). Os achados do LLM que não são contradição interna ficam como warning, porque o modelo gera falsos positivos (observado: "falta justificativa para o preço"). Pode ser desligado com `VERIFICATION_COHERENCE_LLM=false`.
+**LLM** (`llm_findings`, `gemma4:e2b`): contradição interna entre frases (`internal_contradiction`, error) e conclusão que não decorre do que foi dito (`unsupported_conclusion`, warning). Os achados do LLM que não são contradição interna ficam como warning, porque o modelo gera falsos positivos (observado: "falta justificativa para o preço"). Pode ser desligado com `VERIFICATION_COHERENCE_LLM=false`. A descrição do achado é cortada em 400 caracteres (antes, um texto maior derrubava a verificação inteira).
 
 ## 6. Status geral
 

@@ -84,6 +84,12 @@ def normalize(text: str) -> str:
     return unicodedata.normalize("NFKD", text.lower()).encode("ascii", "ignore").decode()
 
 
+# Nome por extenso de cada símbolo (o 1º alias de cada um em ASSET_ALIASES é o nome).
+ASSET_NAMES: dict[str, str] = {}
+for _alias, _symbol in ASSET_ALIASES.items():
+    ASSET_NAMES.setdefault(_symbol, _alias)
+
+
 def find_assets(text: str) -> list[str]:
     """Ativos citados na mensagem, na ordem em que aparecem (aliases conhecidos)."""
     norm = normalize(text)

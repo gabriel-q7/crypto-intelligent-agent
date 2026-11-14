@@ -52,7 +52,7 @@ class ClaimVerification(BaseModel):
     claim: Claim
     label: NLILabel
     confidence: float | None = Field(default=None, ge=0, le=1)
-    method: Literal["numeric_check", "llm_nli", "no_evidence"]
+    method: Literal["numeric_check", "consensus_check", "llm_nli", "no_evidence"]
     evidence_ids: list[str] = []
     rationale: str = ""
 

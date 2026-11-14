@@ -280,6 +280,24 @@ def verify_test_logs() -> None:
         expect(FASE5, f"({failed} de {failed})", "verification_failed causadas pelo verificador")
         expect(FASE5, f"{ls['corrections']} de {ls['real_turns']} turnos passaram pela correção", "correções no LangSmith")
 
+    if summary_path.exists():
+        before = [json.loads(line) for line in (summary_path.parent / "turns.jsonl").read_text(encoding="utf-8").splitlines()
+                  if "solana vs ethereum" in line]
+        missed = sum(r["verification"] != "verified" for r in before)
+        expect(FASE5, f"{missed} de {len(before)} execuções sem `verified`", "solana vs ethereum antes das correções")
+
+    probe = EVIDENCE_FINAL / "langsmith-fixes-probe.jsonl"
+    rows = {json.loads(line)["question"]: json.loads(line) for line in probe.read_text(encoding="utf-8").splitlines()
+            if line.strip()}
+    for question, expected in (("faça uma comparação sobre solana vs bitcoin", ("partial", "partially_verified")),
+                               ("faça uma comparação sobre solana vs ethereum", ("complete", "verified")),
+                               ("faça uma comparação sobre cardano vs avalanche", ("complete", "verified"))):
+        row = rows.get(question, {})
+        check((row.get("status"), row.get("verification")) == expected,
+              f"langsmith-fixes-probe: {question} deveria ser {expected}, é {(row.get('status'), row.get('verification'))}")
+    check(all(r["tools"].count("search_knowledge_base") == 3 for r in rows.values()),
+          "langsmith-fixes-probe: comparação sem a busca por rede")
+
     final_integration = EVIDENCE_FINAL / "integration-phase5.log"
     if final_integration.exists():
         log = final_integration.read_text(encoding="utf-8")

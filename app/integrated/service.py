@@ -26,7 +26,7 @@ from app.conversation.chatbot import ConversationService
 from app.integrated.agent import AgentRun, prefetch_messages, run_agent, trajectory
 from app.integrated.history import SessionHistoryAdapter
 from app.integrated.schemas import AgentReply
-from app.intent.classifier import find_assets
+from app.intent.classifier import ASSET_NAMES, find_assets
 from app.persistence.sqlite_store import ConversationStore
 from app.schemas.report import CryptoReport, ReportStatus
 from app.services.grounding import findings_from, sources_from
@@ -81,8 +81,13 @@ def skipped_concepts(message: str, run: AgentRun) -> list[str]:
 
 
 def comparison_calls(message: str, assets: Sequence[str]) -> list[tuple[str, dict]]:
-    """Consultas fixas de uma comparação entre redes: o código decide, não o modelo (2B ignora o roteamento)."""
+    """Consultas fixas de uma comparação entre redes: o código decide, não o modelo (2B ignora o roteamento).
+
+    A base é consultada pela pergunta inteira (traz o documento comparativo, se houver) e por rede: só com a
+    pergunta, "solana vs bitcoin" trazia apenas o documento Ethereum × Solana (Fase 5, seção 5.11)."""
     calls: list[tuple[str, dict]] = [("search_knowledge_base", {"question": message})]
+    calls += [("search_knowledge_base", {"question": f"{ASSET_NAMES.get(a, a).title()}: consenso, contratos "
+                                                     "inteligentes, finalidade e escalabilidade"}) for a in assets]
     calls += [("get_asset_profile", {"asset": a}) for a in assets]
     calls += [("get_market_data", {"asset": a}) for a in assets]
     return calls
@@ -90,7 +95,8 @@ def comparison_calls(message: str, assets: Sequence[str]) -> list[tuple[str, dic
 
 def comparison_instruction(assets: Sequence[str]) -> str:
     return (f"As consultas para comparar {' e '.join(assets)} já foram feitas acima (base de conhecimento, perfil técnico "
-            "da CoinPaprika e dados de mercado). Redija a comparação usando só essas observações, sem chamar ferramentas: "
+            "da CoinPaprika e dados de mercado). Redija a comparação usando só essas observações, sem chamar ferramentas, "
+            f"e fale só de {' e '.join(assets)}: se um trecho descrever outra rede, não a use no lugar delas. "
             "(a) tecnologia — consenso, contratos inteligentes, finalidade e escalabilidade de cada rede; o que não "
             "estiver nas observações, diga que não foi encontrado nas fontes; (b) mercado — preço, market cap e variação "
             "24h com fonte e horário.")

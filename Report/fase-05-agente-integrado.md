@@ -170,6 +170,27 @@ O rastreamento no LangSmith foi ligado em 2026-11-12 (projeto `crypto-intelligen
 
 - **Aprendizado:** a avaliação agregada (seção 6.1) e as amostras de teste real (seções 5.9 e 5.10) não revelaram nenhum desses quatro problemas; o trace por etapa revelou. Também ficou claro que o rastreamento precisa ser desligado nos testes offline, ou as métricas do projeto deixam de medir o sistema.
 
+**Correções (2026-11-13):**
+1. **Testes sem rastreamento:** `tests/conftest.py` chama `langsmith.configure(enabled=False)` no `pytest_configure`, a não ser que a execução selecione integração ou rede (`-m "integration or network"`). O interruptor é global e vale também para as threads do `TestClient`. Conferido no LangSmith: uma execução completa da suíte offline criou 0 traces raiz. Teste `test_offline_suite_does_not_send_traces_to_langsmith`.
+2. **Coerência truncada, não rejeitada:** um validador corta a descrição em 400 caracteres em vez de recusar a saída inteira. Teste `test_long_coherence_description_is_truncated_not_rejected`.
+3. **Comparação "solana vs bitcoin"**, em quatro partes:
+   - a pré-consulta busca a base também **por rede** ("Bitcoin: consenso, contratos inteligentes, finalidade e escalabilidade"); com isso o `bitcoin.md` passou a vir (distância 0,213), ao lado do documento comparativo;
+   - a seleção de evidência garante, para cada ativo da afirmação, ao menos uma evidência que fale dele; se nenhuma falar, a afirmação sai `neutral` sem chamar o LLM;
+   - "ambas/ambos/as duas/os dois" sem ativo na frase recebem os ativos da pergunta;
+   - **regra de consenso (`consensus_check`):** a família do consenso (PoS × PoW) atribuída a cada ativo é conferida contra o `proof_type` do perfil da CoinPaprika, sem LLM. Divergência vira `contradiction`; se o consenso confere e a NLI ainda diz `contradiction` (caso real: "Solana usa DPoS" contra o trecho "Proof of Stake"), o rótulo cai para `neutral`. Na primeira rodada após as três primeiras partes, a NLI ainda aprovou "Ambas as redes utilizam Proof of Stake" com o perfil do BTC na evidência; a regra foi a resposta a isso.
+   - a instrução de redação pede para falar só das redes comparadas.
+4. **Regras de coerência com contexto:** a regra de sentido só considera "alta/queda" em frase sobre preço ou variação; a regra de cálculo ignora frases com valores de métricas diferentes (preço e market cap), um 5º falso positivo, da mesma família, encontrado no teste das correções ("cardano vs avalanche" saiu `contradicted` por isso).
+
+**Resultado** (`docs/evidence/final/langsmith-fixes-probe.jsonl`, 2026-11-13; 1 execução por pergunta, com as 7 consultas fixas):
+
+| Pergunta | Antes (traces da seção 6.3) | Depois |
+|---|---|---|
+| solana vs bitcoin | "ambas usam Proof of Stake", `verification_failed` | consenso correto (PoW × DPoS); `partially_verified` |
+| solana vs ethereum | 4 de 6 execuções sem `verified` | `complete` e `verified`, sem correção |
+| cardano vs avalanche | `unsupported`; depois `verified` com correção | `complete` e `verified`, sem correção |
+
+O que sobrou em "solana vs bitcoin" é redação do modelo de 2B: em contratos inteligentes ele ainda descreve o Ethereum, e lê "finalidade" como "propósito" ("a finalidade do Bitcoin é a segurança"); essa frase saiu `neutral` e a resposta a marca como não confirmada. Testes offline: 391, todos aprovados.
+
 ## 6. Evidências e métricas
 
 | Verificação | Resultado |
@@ -282,9 +303,9 @@ Leitura:
 - **Comparação entre redes com profundidade desigual:** redes descritas na base local (Bitcoin, Ethereum e Solana) têm contratos, execução e finalidade; para as demais, só o perfil da CoinPaprika (consenso e uma descrição curta, em inglês, às vezes defasada). O conteúdo da base (por exemplo, a Alpenglow da Solana) envelhece e precisa de revisão manual. Na resposta real, os tempos de finalidade nem sempre aparecem, embora estejam nos trechos recuperados.
 - **Consultas fixas custam latência:** toda comparação entre redes faz 5 consultas (base, perfis e mercado), mesmo quando a pergunta não pede mercado.
 - **Ativo inexistente sem consulta:** em "moeda XYZQWE", o agente pede esclarecimento sem consultar a API (seção 6.1).
-- **LangSmith exercitado só no rastreamento:** os traces de uso real foram analisados (seções 5.11 e 6.3), mas o dataset e os experimentos não foram criados no LangSmith; a avaliação da seção 6.1 vem da execução local equivalente. Com o `.env` atual, a suíte offline também envia traces (seção 5.11).
-- **NLI sem checagem de ativo:** uma afirmação sobre os ativos A e B pode sair `entailment` a partir de um trecho sobre A e C (seção 5.11).
-- **Regra de sentido por palavra-chave:** "alta"/"queda" fora do contexto de preço gera falso positivo (seção 5.11).
+- **LangSmith exercitado só no rastreamento:** os traces de uso real foram analisados (seções 5.11 e 6.3), mas o dataset e os experimentos não foram criados no LangSmith; a avaliação da seção 6.1 vem da execução local equivalente. Os traces da seção 6.3 são anteriores às correções da seção 5.11.
+- **Checagem de ativo e de consenso parcial:** a evidência precisa citar cada ativo da afirmação e o consenso PoS × PoW é conferido por regra, mas o restante do conteúdo continua com a NLI de 2B, que pode aprovar uma frase sobre A a partir de um trecho que fala de A e de outra rede (seção 5.11).
+- **Redação do modelo de 2B em comparações:** mesmo com a instrução, ele usa trechos de outra rede (Ethereum no lugar do Bitcoin) e confunde "finalidade" com "propósito".
 - **Juiz com viés de autoavaliação:** o mesmo modelo responde e julga; as notas do juiz são indício, não prova.
 - **Latência:** um turno leva de 10 s a quase 3 min em CPU; cada correção é mais uma execução do agente.
 
@@ -299,10 +320,8 @@ Leitura:
 
 ## 9. Pendências
 
-- Desligar o rastreamento na suíte offline (`LANGSMITH_TRACING=false` no `conftest`), para que o projeto do LangSmith só receba uso real e integração.
-- Truncar a descrição da coerência em vez de rejeitar a saída (`CoherenceOutput.description`), para que a verificação não falhe por tamanho de texto.
-- Na NLI, exigir que a evidência cite os mesmos ativos da afirmação; na regra de sentido, exigir referência a preço ou variação.
-- Na pré-consulta das comparações, buscar a base por rede (não só pela pergunta inteira), para não trazer só o documento Ethereum × Solana.
+- Repetir a exportação do LangSmith (`scripts/langsmith_export.py`) depois de um período de uso com as correções da seção 5.11, para medir o efeito em mais de uma execução por pergunta.
+- Filtrar os trechos da base por rede antes da redação (só os que citam as redes comparadas), já que a instrução sozinha não impede o modelo de usar o Ethereum no lugar do Bitcoin.
 - Criar o dataset e rodar a avaliação como experimento no LangSmith (`make eval-upload`, `make eval`).
 - Extração de afirmações com divisão de fatos compostos e checagem de atribuição de métrica.
 - Resposta cautelosa que preserve a estrutura da resposta (listas e rótulos de ativo).

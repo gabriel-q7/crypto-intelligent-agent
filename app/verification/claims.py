@@ -54,6 +54,10 @@ def _sentences(answer: str) -> list[str]:
     return parts
 
 
+# "Ambas utilizam PoS": a frase fala dos ativos comparados sem citá-los (resolvidos pela pergunta).
+COLLECTIVE = re.compile(r"\b(ambas|ambos|as duas|os dois|as tr[eê]s|os tr[eê]s)\b", re.IGNORECASE)
+
+
 def extract_claims(answer: str, limit: int = MAX_CLAIMS) -> list[Claim]:
     claims: list[Claim] = []
     for index, sentence in enumerate(_sentences(answer)):

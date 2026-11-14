@@ -11,7 +11,8 @@ import time
 from langchain_core.language_models import BaseChatModel
 from langsmith import traceable
 
-from app.verification.claims import extract_claims
+from app.intent.classifier import find_assets
+from app.verification.claims import COLLECTIVE, extract_claims
 from app.verification.evidence import build_evidence, select_evidence
 from app.verification.logic import CoherenceUnavailableError, llm_findings, rule_findings
 from app.verification.nli import LLMNLIClassifier, NLIUnavailableError, verify_claim
@@ -29,9 +30,13 @@ class VerificationService:
         self.evidence_per_claim = evidence_per_claim
 
     @traceable(name="verification.claims_nli", run_type="chain")
-    def _claims(self, answer: str, evidence: list[EvidenceItem]) -> tuple[list[ClaimVerification], list[str]]:
+    def _claims(self, question: str, answer: str, evidence: list[EvidenceItem]) -> tuple[list[ClaimVerification], list[str]]:
         results, errors = [], []
+        compared = find_assets(question)
         for claim in extract_claims(answer):
+            # "Ambas utilizam PoS": a frase não cita os ativos; são os da pergunta.
+            if not claim.entities and len(compared) >= 2 and COLLECTIVE.search(claim.text):
+                claim = claim.model_copy(update={"entities": compared})
             selected = select_evidence(claim, evidence, self.evidence_per_claim)
             try:
                 results.append(verify_claim(claim, selected, self.nli))
@@ -57,7 +62,7 @@ class VerificationService:
     def verify(self, question: str, answer: str, observations: list[dict]) -> VerificationResult:
         started = time.perf_counter()
         evidence = build_evidence(observations)
-        claims, claim_errors = self._claims(answer, evidence)
+        claims, claim_errors = self._claims(question, answer, evidence)
         findings, logic_errors = self._logic(question, answer, observations)
         errors = claim_errors + logic_errors
         status = aggregate(claims, findings, errors)

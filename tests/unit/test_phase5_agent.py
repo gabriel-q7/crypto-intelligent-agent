@@ -163,9 +163,11 @@ def test_network_comparison_tools_are_called_by_code_and_model_only_writes(tmp_p
     llm = scripted("O Ethereum usa Proof of Stake desde 2022; o BTC está em US$ 81.545,05 (CoinPaprika).")
     service, store, _ = make_service(tmp_path, llm, ScriptedVerifier(result("verified")), prefetch_tools=tools)
     reply = service.handle(store.create_session().id, "faça uma comparação sobre bitcoin vs ethereum")
-    expected = ["search_knowledge_base", "get_asset_profile", "get_asset_profile", "get_market_data", "get_market_data"]
-    assert [s.tool for s in reply.trajectory] == expected and [s.order for s in reply.trajectory] == [1, 2, 3, 4, 5]
+    expected = ["search_knowledge_base"] * 3 + ["get_asset_profile"] * 2 + ["get_market_data"] * 2
+    assert [s.tool for s in reply.trajectory] == expected and [s.order for s in reply.trajectory] == list(range(1, 8))
     assert calls == [("search_knowledge_base", "faça uma comparação sobre bitcoin vs ethereum"),
+                     ("search_knowledge_base", "Bitcoin: consenso, contratos inteligentes, finalidade e escalabilidade"),
+                     ("search_knowledge_base", "Ethereum: consenso, contratos inteligentes, finalidade e escalabilidade"),
                      ("get_asset_profile", "BTC"), ("get_asset_profile", "ETH"),
                      ("get_market_data", "BTC"), ("get_market_data", "ETH")]
     assert not reply.verification.correction_attempted and reply.answer.startswith("O Ethereum usa Proof of Stake")

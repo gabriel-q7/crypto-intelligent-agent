@@ -9,6 +9,7 @@ import re
 import unicodedata
 
 from app.integrated.tools import TOOL_CATEGORY
+from app.intent.classifier import find_assets
 from app.services.grounding import extract_figure_readings, format_pct, format_usd
 from app.verification.schemas import Claim, EvidenceItem
 
@@ -108,7 +109,8 @@ def build_evidence(observations: list[dict]) -> list[EvidenceItem]:
                     f"{format_usd(ohlcv.get('high'))}, mínima {format_usd(ohlcv.get('low'))}, último {format_usd(ohlcv.get('close'))}")
             add("api", tool, text, obs, [profile.get("symbol", ""), profile.get("name", "")], _numbers(data))
         elif tool == "get_asset_profile":
-            add("api", tool, profile_text(data), obs, [data.get("symbol", ""), data.get("name", "")], [])
+            add("api", tool, profile_text(data), obs, [data.get("symbol", ""), data.get("name", "")], [],
+                {"proof_type": data.get("proof_type")})
         elif tool == "get_global_market":
             text = (f"Mercado global: market cap {format_usd(data.get('market_cap_usd'))}, volume 24h "
                     f"{format_usd(data.get('volume_24h_usd'))}, dominância do BTC {format_pct(data.get('bitcoin_dominance_percentage')).lstrip('+')}")
@@ -140,12 +142,27 @@ def build_evidence(observations: list[dict]) -> list[EvidenceItem]:
     return items
 
 
+def assets_in(item: EvidenceItem) -> set[str]:
+    """Ativos de que a evidência fala (símbolos), pelo texto e pelas entidades da observação."""
+    return set(find_assets(f"{item.text} {' '.join(e for e in item.entities if e)}"))
+
+
+def uncovered_assets(claim: Claim, evidence: list[EvidenceItem]) -> list[str]:
+    """Ativos da afirmação que nenhuma evidência selecionada menciona."""
+    covered = set().union(*(assets_in(item) for item in evidence)) if evidence else set()
+    return [a for a in claim.entities if a.upper() not in covered]
+
+
 def select_evidence(claim: Claim, evidence: list[EvidenceItem], k: int = 3) -> list[EvidenceItem]:
-    """As ``k`` evidências mais relevantes para a afirmação (não compara tudo com tudo)."""
+    """As ``k`` evidências mais relevantes para a afirmação (não compara tudo com tudo).
+
+    Depois das ``k``, garante para cada ativo da afirmação a melhor evidência que fale dele, se houver:
+    "Solana e Bitcoin usam PoS" não pode ser julgada só com trechos sobre Ethereum e Solana
+    (caso real no LangSmith, Fase 5, seção 5.11)."""
     claim_words = content_words(claim.text)
     claim_values = [abs(v) for _, readings in extract_figure_readings(claim.text) for v in readings[:1]]
     claim_entities = {normalize(e) for e in claim.entities}
-    scored = []
+    scored, ranked = [], []
     for item in evidence:
         if item.kind == "tool_error":
             continue
@@ -163,7 +180,14 @@ def select_evidence(claim: Claim, evidence: list[EvidenceItem], k: int = 3) -> l
             score += 1
         if claim.kind != "numeric" and item.kind == "rag":
             score += 1
+        ranked.append((score, item))
         if score > 0:
             scored.append((score, item))
     scored.sort(key=lambda pair: pair[0], reverse=True)
-    return [item for _, item in scored[:k]]
+    ranked.sort(key=lambda pair: pair[0], reverse=True)
+    selected = [item for _, item in scored[:k]]
+    for asset in uncovered_assets(claim, selected):
+        best = next((item for _, item in ranked if asset.upper() in assets_in(item) and item not in selected), None)
+        if best is not None:
+            selected.append(best)
+    return selected
