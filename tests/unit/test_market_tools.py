@@ -126,3 +126,32 @@ def test_profile_becomes_portuguese_evidence_and_finding():
     assert "consenso Delegated Proof of Stake" in item.text
     assert "código aberto" in item.text and "descrição: High-performance blockchain." in item.text
     assert findings_from([obs])[0].statement == "Solana: perfil técnico — consenso Delegated Proof of Stake"
+
+
+@pytest.mark.parametrize("raw, expected", [
+    ("SOL, 7", ("SOL", 7)), ("sol-solana 30", ("sol-solana", 30)), ("ETH", ("ETH", 7)),
+    ("asset=btc, 14 dias", ("btc", 14)),
+])
+def test_history_input_parsing(raw, expected):
+    from app.tools.market_tools import parse_history_input
+    assert parse_history_input(raw) == expected
+
+
+def test_price_history_tool_lists_daily_prices_with_source():
+    from tests.unit.test_coinpaprika_client import HISTORY
+
+    def handler(request):
+        if request.url.path == "/v1/tickers/sol-solana/historical":
+            return httpx.Response(200, json=HISTORY)
+        return httpx.Response(404, json={"error": "x"})
+
+    client = CoinPaprikaClient(CoinPaprikaSettings(base_url="https://test.local/v1"),
+                               transport=httpx.MockTransport(handler), sleep=lambda _: None)
+    tools = {t.name: t for t in build_market_tools(client, profile=True)}
+    assert "get_price_history" not in {t.name for t in build_market_tools(client)}
+    result = json.loads(tools["get_price_history"].invoke("sol-solana, 7"))
+    assert result["ok"] and result["data"]["symbol"] == "SOL" and result["data"]["days"] == 7
+    assert [(p["date"], p["price_usd"]) for p in result["data"]["points"]] == [("2026-11-06", 89.99), ("2026-11-07", 89.82)]
+    assert result["source"]["endpoint"] == "/tickers/sol-solana/historical"
+    bad = json.loads(tools["get_price_history"].invoke("sol-solana, 999"))
+    assert not bad["ok"] and bad["error"]["kind"] == "invalid_argument"

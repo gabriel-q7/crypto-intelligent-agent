@@ -76,7 +76,9 @@ def test_structured_tools_delegate_to_existing_single_input_tools():
     tools["get_market_data"].invoke({"asset": "BTC"})
     tools["get_global_market"].invoke({})
     tools["calculate_percent_change"].invoke({"old_value": 100, "new_value": 110})
-    assert seen == [("get_market_data", "BTC"), ("get_global_market", "global"), ("calculate_percent_change", "100.0, 110.0")]
+    tools["get_price_history"].invoke({"asset": "SOL"})
+    assert seen == [("get_market_data", "BTC"), ("get_global_market", "global"), ("calculate_percent_change", "100.0, 110.0"),
+                    ("get_price_history", "SOL, 7")]
     assert tools["query_market_database"].args == {"question": tools["query_market_database"].args["question"]}
 
 
@@ -137,11 +139,11 @@ def test_history_isolated_by_session(tmp_path):
 # --------------------------------------------------------------------------- serviço: correção e persistência
 
 
-def make_service(tmp_path, llm, verifier, db="c.sqlite3", prefetch_tools=()):
+def make_service(tmp_path, llm, verifier, db="c.sqlite3", prefetch_tools=(), extra_tools=()):
     store, memory = ConversationStore(tmp_path / db), InMemoryBackend()
     conversation = ConversationService(store, memory, FakeListChatModel(responses=["{}"]), None, lambda q: [],
                                        SETTINGS, background=False)
-    service = IntegratedAgentService(build_integrated_agent(llm, fake_tools()), verifier, store,
+    service = IntegratedAgentService(build_integrated_agent(llm, [*fake_tools(), *extra_tools]), verifier, store,
                                      SessionHistoryAdapter(store, memory, SETTINGS), conversation, "fake",
                                      tools=prefetch_tools)
     return service, store, memory
@@ -315,6 +317,80 @@ def test_network_comparison_without_knowledge_base_is_corrected(tmp_path):
     assert reply.verification.correction_attempted and len(verifier.calls) == 2
     assert [s.tool for s in reply.trajectory] == ["get_market_data", "search_knowledge_base"]
     assert reply.answer.startswith("O Ethereum usa Proof of Stake")
+
+
+OBS_SOL_HISTORY = {
+    "ok": True, "tool": "get_price_history",
+    "data": {"coin_id": "sol-solana", "symbol": "SOL", "days": 7, "interval": "1d",
+             "points": [{"date": "2026-11-06", "price_usd": 89.99, "volume_24h_usd": 2.4e9, "market_cap_usd": 5.3e10},
+                        {"date": "2026-11-07", "price_usd": 89.82, "volume_24h_usd": 1.0e9, "market_cap_usd": 5.3e10}]},
+    "source": {"provider": "CoinPaprika", "endpoint": "/tickers/sol-solana/historical",
+               "source_updated_at": "2026-11-07T00:00:00Z", "retrieved_at": "2026-11-13T01:00:00Z"},
+}
+
+
+def history_tools(calls: list) -> list[StructuredTool]:
+    from app.integrated.tools import HistoryArgs, QuestionArgs
+
+    def db(question: str) -> str:
+        calls.append(("query_market_database", question))
+        return json.dumps({"ok": True, "tool": "query_market_database",
+                           "data": {"status": "no_matching_records", "message": "nenhum registro", "rows": [],
+                                    "row_count": 0, "sql": "SELECT 1", "params": [], "coverage": {}},
+                           "source": {"provider": "SQLite local", "endpoint": "market_db"}})
+
+    def history(asset: str, days: int = 7) -> str:
+        calls.append(("get_price_history", asset, days))
+        return json.dumps(OBS_SOL_HISTORY)
+
+    return [StructuredTool.from_function(db, name="query_market_database", description="banco", args_schema=QuestionArgs),
+            StructuredTool.from_function(history, name="get_price_history", description="histórico", args_schema=HistoryArgs)]
+
+
+def test_history_days_from_question():
+    from app.integrated.service import history_days
+
+    assert history_days("me informe o preço do SOL nos dias da última semana") == 7
+    assert history_days("preço do BTC nos últimos 10 dias") == 10
+    assert history_days("como variou o ETH nas últimas 2 semanas") == 14
+    assert history_days("preço do SOL no último mês") == 30
+    assert history_days("preço do BTC ontem") == 2
+
+
+def test_skipped_history_flags_past_prices_without_price_history():
+    from app.integrated.agent import AgentRun
+    from app.integrated.schemas import ToolStep
+    from app.integrated.service import skipped_history
+
+    def step(tool: str, ok: bool = True) -> ToolStep:
+        return ToolStep(order=1, tool=tool, category=TOOL_CATEGORY[tool], args={}, ok=ok, output="{}")
+
+    question = "me informe o preço do SOL nos dias da última semana"
+    db_only = AgentRun(answer="O banco local não retornou registros.", steps=[step("query_market_database")])
+    assert skipped_history(question, db_only) == ["SOL"]
+    assert skipped_history(question, AgentRun(answer="...", steps=[step("get_price_history")])) == []
+    assert skipped_history(question, AgentRun(answer="...", steps=[step("get_price_history", ok=False)])) == ["SOL"]
+    assert skipped_history("Qual o preço atual do SOL?", db_only) == []
+
+
+def test_empty_database_falls_back_to_price_history(tmp_path):
+    # Caso real (2026-11-13): banco de snapshots sem registros e resposta parada em "não retornou registros".
+    calls = []
+    question = "me informe o preço do SOL nos dias da última semana"
+    llm = scripted(
+        tool_call("query_market_database", {"question": question}, "c1"),
+        "O banco de dados local de snapshots não retornou registros para o preço do SOL nos últimos 7 dias.",
+        tool_call("get_price_history", {"asset": "SOL", "days": 7}, "c2"),
+        "SOL (CoinPaprika, 00:00 UTC): 06/11 US$ 89,99; 07/11 US$ 89,82.",
+    )
+    verifier = ScriptedVerifier(result("verified"), result("verified"))
+    service, store, _ = make_service(tmp_path, llm, verifier, extra_tools=history_tools(calls))
+    reply = service.handle(store.create_session().id, question)
+    assert reply.verification.correction_attempted and len(verifier.calls) == 2
+    assert [s.tool for s in reply.trajectory] == ["query_market_database", "get_price_history"]
+    assert calls[-1] == ("get_price_history", "SOL", 7)
+    assert reply.answer.startswith("SOL (CoinPaprika") and reply.status == "complete"
+    assert any("histórico de preço" in f.statement for f in reply.findings)
 
 
 def test_verification_failure_is_reported_not_corrected(tmp_path):

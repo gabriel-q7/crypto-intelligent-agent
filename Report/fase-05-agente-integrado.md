@@ -191,6 +191,19 @@ O rastreamento no LangSmith foi ligado em 2026-11-12 (projeto `crypto-intelligen
 
 O que sobrou em "solana vs bitcoin" é redação do modelo de 2B: em contratos inteligentes ele ainda descreve o Ethereum, e lê "finalidade" como "propósito" ("a finalidade do Bitcoin é a segurança"); essa frase saiu `neutral` e a resposta a marca como não confirmada. Testes offline: 391, todos aprovados.
 
+### 5.12 Histórico de preço sem fallback para a API
+
+- **Sintoma (uso real, 2026-11-13):** "me informe o preço do SOL nos dias da última semana" → "O banco de dados local de snapshots não retornou registros para o preço do SOL nos últimos 7 dias." O agente só tinha `query_market_database` para dados passados; com o banco sem registros do período, a resposta parou na falta de dados.
+- **Causa:** o cliente da CoinPaprika tratava todo histórico como bloqueado no plano gratuito. Isso vale para `/coins/{id}/ohlcv/historical` (HTTP 402), mas não para `/tickers/{id}/historical`: verificado em 2026-11-13, o plano gratuito devolve um ponto por dia (00:00 UTC) no último ano; antes disso, 402 ("Getting daily historical data before ... is not allowed in this plan").
+- **Correção:**
+  - `CoinPaprikaClient.get_price_history(coin_id, days)`: intervalo `1d` até 31 dias e `7d` acima, limite de 364 dias (com o início em 00:00 UTC, 365 já cai fora da janela do plano);
+  - ferramenta `get_price_history` (categoria `api`, só no agente integrado), argumentos `asset` e `days` (padrão 7). A saída traz só data e preço: na 1ª execução real, com volume e market cap junto, o modelo de 2B embaralhou os dígitos ("US$ 103,468,952,90" no lugar de 1.034.689.529);
+  - prompt: preço em dias passados → `get_price_history`; banco local sem registros → chamar `get_price_history` em seguida;
+  - garantia no código (`skipped_history`): pergunta sobre dias passados ("última semana", "últimos N dias", "ontem", "histórico") com ativo citado e sem `get_price_history` bem-sucedido usa a correção única, com o período extraído da pergunta (`history_days`);
+  - evidência e achados: um item por dia ("SOL em 2026-11-10 (00:00 UTC, histórico CoinPaprika): preço US$ 84,54").
+- **Evidência:** a mesma pergunta, com o modelo real, passou a chamar `get_price_history` direto e listar os 8 pontos (2026-11-07 a 2026-11-14, US$ 89,82 a US$ 78,14), `complete` e sem correção. Testes: `test_empty_database_falls_back_to_price_history`, `test_skipped_history_flags_past_prices_without_price_history`, `test_price_history_uses_free_tickers_historical_daily` e outros 5 (401 testes offline passando).
+- **Aprendizado:** "o plano gratuito não tem histórico" era verdade para um endpoint e virou regra para todos. Quando uma fonte falha, vale testar os endpoints vizinhos antes de declarar o dado indisponível.
+
 ## 6. Evidências e métricas
 
 | Verificação | Resultado |

@@ -4,10 +4,13 @@ Endpoints usados (plano gratuito):
 - ``GET /search/``                 identificar ativos por nome, símbolo ou id;
 - ``GET /tickers/{coin_id}``       preço, volume, market cap, variações, ATH;
 - ``GET /coins/{coin_id}/ohlcv/today``  OHLCV do dia corrente (UTC);
+- ``GET /tickers/{coin_id}/historical``  preço/volume/market cap por dia (00:00 UTC) ou semana;
 - ``GET /coins/{coin_id}``         perfil do ativo (tipo, consenso, descrição, links, tags, início);
 - ``GET /global``                  visão geral do mercado.
 
 Histórico de OHLCV (``/ohlcv/historical``) é bloqueado no plano gratuito (HTTP 402) e não é usado.
+O histórico de ticks (``/tickers/{id}/historical``) é liberado no plano gratuito para o último ano
+com intervalo diário (verificado em 2026-11-13; antes disso, HTTP 402 → ``plan_restricted``).
 
 Regra central: nenhuma função devolve dado inventado. Falhas viram ``CoinPaprikaError``
 com ``kind`` explícito; cada resultado carrega ``source`` com o endpoint, o horário de
@@ -18,7 +21,7 @@ import logging
 import re
 import time
 from collections.abc import Callable
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
 
 import httpx
@@ -110,6 +113,21 @@ class OhlcvToday(BaseModel):
     source: SourceInfo
 
 
+class PricePoint(BaseModel):
+    timestamp: datetime
+    price_usd: float
+    volume_24h_usd: float | None = None
+    market_cap_usd: float | None = None
+
+
+class PriceHistory(BaseModel):
+    coin_id: str
+    interval: str
+    start: datetime
+    points: list[PricePoint]
+    source: SourceInfo
+
+
 class CoinProfile(BaseModel):
     id: str
     name: str
@@ -141,6 +159,8 @@ class GlobalMarket(BaseModel):
 
 
 DESCRIPTION_MAX_CHARS = 800
+# Plano gratuito: diário só a partir de "agora - 365 dias"; com o início em 00:00 UTC, 365 dias já cai fora.
+HISTORY_MAX_DAYS = 364
 SOURCE_SUFFIX = re.compile(r"\s*Source:\s*CoinPaprika\.com\s*$", re.IGNORECASE)
 
 
@@ -365,6 +385,31 @@ class CoinPaprikaClient:
             ),
         }
         return self._parse(OhlcvToday, payload, path)
+
+    def get_price_history(self, coin_id: str, days: int) -> PriceHistory:
+        """Preço dos últimos ``days`` dias: um ponto por dia (00:00 UTC) até 31 dias; acima disso, por semana."""
+        coin_id = validate_coin_id(coin_id)
+        if not 1 <= days <= HISTORY_MAX_DAYS:
+            raise CoinPaprikaError("invalid_argument", f"período deve ter de 1 a {HISTORY_MAX_DAYS} dias")
+        interval = "1d" if days <= 31 else "7d"
+        start = (_now() - timedelta(days=days)).replace(hour=0, minute=0, second=0, microsecond=0)
+        path = f"/tickers/{coin_id}/historical"
+        data, retrieved_at = self._get(path, {"start": start.strftime("%Y-%m-%d"), "interval": interval})
+        if not isinstance(data, list):
+            raise CoinPaprikaError("malformed", f"resposta inesperada em {path}")
+        if not data:
+            raise CoinPaprikaError("not_found", f"sem histórico de preço para {coin_id!r}")
+        points = [
+            {"timestamp": row.get("timestamp"), "price_usd": row.get("price"),
+             "volume_24h_usd": row.get("volume_24h"), "market_cap_usd": row.get("market_cap")}
+            for row in data if isinstance(row, dict)
+        ]
+        payload = {
+            "coin_id": coin_id, "interval": interval, "start": start, "points": points,
+            "source": SourceInfo(endpoint=path, source_updated_at=points[-1]["timestamp"] if points else None,
+                                 retrieved_at=retrieved_at),
+        }
+        return self._parse(PriceHistory, payload, path)
 
     def get_coin_profile(self, coin_id: str) -> CoinProfile:
         coin_id = validate_coin_id(coin_id)

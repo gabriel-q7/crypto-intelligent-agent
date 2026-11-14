@@ -6,7 +6,7 @@ nova aqui. Toda chamada devolve a mesma observação JSON (``ok``/``error``/``so
 
 | Categoria | Ferramentas |
 |---|---|
-| API (CoinPaprika ao vivo) | search_crypto_asset, get_market_data, get_market_details, get_asset_profile, get_global_market |
+| API (CoinPaprika ao vivo) | search_crypto_asset, get_market_data, get_market_details, get_asset_profile, get_price_history, get_global_market |
 | SQL (snapshots SQLite) | query_market_database |
 | RAG (Chroma + Query Rewriting) | search_knowledge_base |
 | Determinística | calculate_percent_change |
@@ -15,11 +15,14 @@ nova aqui. Toda chamada devolve a mesma observação JSON (``ok``/``error``/``so
 from langchain_core.tools import BaseTool, StructuredTool
 from pydantic import BaseModel, Field
 
+from app.tools.coinpaprika import HISTORY_MAX_DAYS
+
 TOOL_CATEGORY = {
     "search_crypto_asset": "api",
     "get_market_data": "api",
     "get_market_details": "api",
     "get_asset_profile": "api",
+    "get_price_history": "api",
     "get_global_market": "api",
     "query_market_database": "sql",
     "search_knowledge_base": "rag",
@@ -29,6 +32,12 @@ TOOL_CATEGORY = {
 
 class AssetArgs(BaseModel):
     asset: str = Field(description="Símbolo, nome ou id CoinPaprika de UM ativo (ex.: 'BTC', 'ethereum', 'sol-solana').")
+
+
+class HistoryArgs(BaseModel):
+    asset: str = Field(description="Símbolo, nome ou id CoinPaprika de UM ativo (ex.: 'SOL', 'bitcoin').")
+    days: int = Field(default=7, ge=1, le=HISTORY_MAX_DAYS,
+                      description="Quantos dias para trás (última semana = 7, último mês = 30).")
 
 
 class SearchArgs(BaseModel):
@@ -60,6 +69,12 @@ DESCRIPTIONS = {
         "descrição, whitepaper, site e repositório. Sem preços. Use em comparações "
         "entre redes e quando a base de conhecimento não cobrir a rede. Chame uma vez por ativo."
     ),
+    "get_price_history": (
+        "Histórico de preço de UM ativo (CoinPaprika): preço em USD de cada dia (00:00 UTC) "
+        f"nos últimos N dias (até {HISTORY_MAX_DAYS}; acima de 31 dias, um ponto por semana). Use para 'preço nos "
+        "dias da última semana', 'como variou no último mês', 'preço de ontem' e quando query_market_database não "
+        "tiver registros do período."
+    ),
     "get_global_market": "Market cap total, volume 24h e dominância do BTC, ao vivo (CoinPaprika).",
     "query_market_database": (
         "Consulta o BANCO LOCAL de snapshots de mercado já coletados (SQLite) com uma pergunta em linguagem "
@@ -89,6 +104,7 @@ def structured_tools(base_tools: list[BaseTool]) -> list[StructuredTool]:
         "get_market_data": (AssetArgs, lambda asset: delegate("get_market_data", asset)),
         "get_market_details": (AssetArgs, lambda asset: delegate("get_market_details", asset)),
         "get_asset_profile": (AssetArgs, lambda asset: delegate("get_asset_profile", asset)),
+        "get_price_history": (HistoryArgs, lambda asset, days=7: delegate("get_price_history", f"{asset}, {days}")),
         "get_global_market": (GlobalArgs, lambda: delegate("get_global_market", "global")),
         "query_market_database": (QuestionArgs, lambda question: delegate("query_market_database", question)),
         "search_knowledge_base": (QuestionArgs, lambda question: delegate("search_knowledge_base", question)),

@@ -203,6 +203,11 @@ def findings_from(observations: Iterable[dict]) -> list[Finding]:
         elif tool == "get_asset_profile":
             consensus = f" — consenso {data['proof_type']}" if data.get("proof_type") else ""
             findings.append(_finding(obs, f"{data['name']}: perfil técnico{consensus}"))
+        elif tool == "get_price_history":
+            points = data.get("points") or []
+            if points:
+                daily = "; ".join(f"{p['date']} {format_usd(p['price_usd'])}" for p in points[-31:])
+                findings.append(_finding(obs, f"{data.get('symbol')}: histórico de preço (00:00 UTC) — {daily}"))
         elif tool == "get_global_market":
             findings.append(_finding(obs, f"Mercado global: market cap {format_usd(data['market_cap_usd'])}, volume 24h {format_usd(data['volume_24h_usd'])}, dominância BTC {format_pct(data['bitcoin_dominance_percentage']).lstrip('+')}"))
         elif tool == "search_knowledge_base":

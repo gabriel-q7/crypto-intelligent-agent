@@ -29,6 +29,7 @@ from app.integrated.schemas import AgentReply
 from app.intent.classifier import ASSET_NAMES, find_assets
 from app.persistence.sqlite_store import ConversationStore
 from app.schemas.report import CryptoReport, ReportStatus
+from app.tools.coinpaprika import HISTORY_MAX_DAYS
 from app.services.grounding import findings_from, sources_from
 from app.verification.policy import cautious_answer, correction_message, needs_correction
 from app.verification.schemas import VerificationResult
@@ -36,7 +37,7 @@ from app.verification.service import VerificationService
 
 logger = logging.getLogger(__name__)
 
-MARKET_TOOLS = {"get_market_data", "get_market_details", "get_global_market", "query_market_database"}
+MARKET_TOOLS = {"get_market_data", "get_market_details", "get_global_market", "query_market_database", "get_price_history"}
 MAX_CORRECTIONS = 1
 # Resposta que recusa, diz não ter dados ou devolve a pergunta ao usuário. Com ativo citado e nenhuma
 # ferramenta chamada, é falha do agente (caso real: "Qual devo investir: SOL ou ETH?" → "não tenho dados").
@@ -54,6 +55,10 @@ COMPARISON = re.compile(r"(\bvs\b|\bversus\b|\bcompar|\bdiferen)", re.IGNORECASE
 # Comparação só de mercado ("compare o preço de BTC e ETH") não exige a base, salvo se citar tecnologia.
 MARKET_ONLY = re.compile(r"pre[cç]o|cota[cç]|volume|market ?cap|capitaliza|rank|varia[cç]|desempenho|investi",
                          re.IGNORECASE)
+# Preço em dias passados ("nos dias da última semana", "últimos 10 dias", "ontem"): o banco local de snapshots
+# pode não ter o período; a CoinPaprika (get_price_history) tem o último ano por dia.
+HISTORY = re.compile(r"hist[oó]ric|[uú]ltim[oa]s?\s+(\d+\s+)?(dias?|semanas?|m[eê]s|meses|ano)|semana passada|"
+                     r"m[eê]s passado|\bontem\b|\bnos dias\b|\bdia a dia\b|\bpor dia\b", re.IGNORECASE)
 TECHNICAL = re.compile(r"rede|blockchain|tecnolog|contrato|consenso|finalidade|escalab|smart|proof|staking",
                        re.IGNORECASE)
 
@@ -78,6 +83,32 @@ def skipped_concepts(message: str, run: AgentRun) -> list[str]:
     if any(s.tool == "search_knowledge_base" for s in run.steps):
         return []
     return network_comparison(message)
+
+
+def history_days(message: str) -> int:
+    """Período pedido, em dias (padrão: última semana)."""
+    if match := re.search(r"(\d{1,3})\s*(dias?|semanas?|m[eê]s|meses)", message, re.IGNORECASE):
+        n, unit = int(match.group(1)), match.group(2).lower()
+        days = n * 7 if unit.startswith("semana") else n * 30 if unit.startswith("m") else n
+    elif re.search(r"m[eê]s", message, re.IGNORECASE):
+        days = 30
+    elif re.search(r"\bano\b", message, re.IGNORECASE):
+        days = 364
+    elif re.search(r"\bontem\b", message, re.IGNORECASE):
+        days = 2
+    else:
+        days = 7
+    return max(1, min(days, HISTORY_MAX_DAYS))
+
+
+def skipped_history(message: str, run: AgentRun) -> list[str]:
+    """Ativos de uma pergunta sobre preço em dias passados que ficou sem get_price_history bem-sucedido.
+
+    Caso real (2026-11-13): "me informe o preço do SOL nos dias da última semana" → query_market_database sem
+    registros e a resposta parou em "o banco local não retornou registros", sem consultar a CoinPaprika."""
+    if not HISTORY.search(message) or any(s.tool == "get_price_history" and s.ok for s in run.steps):
+        return []
+    return find_assets(message)
 
 
 def comparison_calls(message: str, assets: Sequence[str]) -> list[tuple[str, dict]]:
@@ -157,6 +188,12 @@ class IntegratedAgentService:
                                    "chamada: chame search_knowledge_base com a pergunta completa e explique consenso, "
                                    "contratos inteligentes e finalidade de cada rede a partir dos trechos, além dos "
                                    "dados de mercado (fonte e horário)")
+        if assets := skipped_history(message, first):
+            days = history_days(message)
+            instructions.insert(0, f"a pergunta pede o preço de {', '.join(assets)} em dias passados e get_price_history "
+                                   f"não foi usada: chame get_price_history (asset={assets[0]!r}, days={days}) para cada "
+                                   "ativo e liste o preço de cada dia com fonte (CoinPaprika); a falta de registros no "
+                                   "banco local não impede a resposta")
         feedback = HumanMessage(content=correction_message(instructions))
         return self._run(history, message, extra=[*previous, feedback])
 
@@ -188,8 +225,9 @@ class IntegratedAgentService:
             # Resposta vazia não tem afirmação a refutar e sairia "verified"; também usa a correção única.
             # Idem para a recusa sem consulta com ativo citado.
             # Idem para comparação entre redes sem a base de conhecimento (só preço/volume).
+            # Idem para preço em dias passados sem get_price_history (ex.: banco local sem registros).
             agent_failed = (not first.answer.strip() or bool(skipped_lookup(message, first))
-                            or bool(skipped_concepts(message, first)))
+                            or bool(skipped_concepts(message, first)) or bool(skipped_history(message, first)))
             if needs_correction(verification.status) or (agent_failed and verification.status != "verification_failed"):
                 corrected = self._correct(bundle.messages, message, first, verification)
                 observations += corrected.observations  # novas chamadas, se houve, entram na evidência
@@ -242,7 +280,7 @@ class IntegratedAgentService:
 
     def _save_analysis(self, session_id: str, seq: int, message: str, answer: str, run: AgentRun, status: str) -> str | None:
         """Episódio da Fase 3 (resultado anterior + Mem0) quando houve dado de mercado real."""
-        market_obs = [o for o in run.observations if o.get("ok") and o.get("tool") in {"get_market_data", "query_market_database"}]
+        market_obs = [o for o in run.observations if o.get("ok") and o.get("tool") in {"get_market_data", "query_market_database", "get_price_history"}]
         if not market_obs:
             return None
         report = CryptoReport(

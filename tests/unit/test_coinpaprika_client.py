@@ -163,3 +163,35 @@ def test_free_plan_zero_30d_change_is_unavailable():
     real = {**TICKER, "quotes": {"USD": {**TICKER["quotes"]["USD"], "percent_change_30d": -2.5}}}
     client, _ = make_client(lambda req: httpx.Response(200, json=real))
     assert client.get_ticker("btc-bitcoin").percent_change_30d == -2.5
+
+
+HISTORY = [
+    {"timestamp": "2026-11-06T00:00:00Z", "price": 89.99, "volume_24h": 2432262463, "market_cap": 53122377085},
+    {"timestamp": "2026-11-07T00:00:00Z", "price": 89.82, "volume_24h": 1034689529, "market_cap": 53084826400},
+]
+
+
+def test_price_history_uses_free_tickers_historical_daily():
+    seen = []
+
+    def handler(request):
+        seen.append(request.url)
+        return httpx.Response(200, json=HISTORY)
+
+    client, _ = make_client(handler)
+    history = client.get_price_history("sol-solana", 7)
+    assert seen[0].path == "/v1/tickers/sol-solana/historical" and seen[0].params["interval"] == "1d"
+    assert [p.price_usd for p in history.points] == [89.99, 89.82] and history.interval == "1d"
+    assert history.source.source_updated_at.isoformat() == "2026-11-07T00:00:00+00:00"
+    client.get_price_history("sol-solana", 90)
+    assert seen[1].params["interval"] == "7d"  # acima de 31 dias, por semana
+
+
+def test_price_history_rejects_period_outside_free_plan_and_maps_402():
+    client, _ = make_client(lambda req: httpx.Response(402, json={"error": "not allowed in this plan"}))
+    with pytest.raises(CoinPaprikaError) as exc:
+        client.get_price_history("sol-solana", 400)
+    assert exc.value.kind == "invalid_argument"
+    with pytest.raises(CoinPaprikaError) as exc:
+        client.get_price_history("sol-solana", 7)
+    assert exc.value.kind == "plan_restricted"

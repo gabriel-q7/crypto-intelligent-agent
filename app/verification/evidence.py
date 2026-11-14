@@ -111,6 +111,12 @@ def build_evidence(observations: list[dict]) -> list[EvidenceItem]:
         elif tool == "get_asset_profile":
             add("api", tool, profile_text(data), obs, [data.get("symbol", ""), data.get("name", "")], [],
                 {"proof_type": data.get("proof_type")})
+        elif tool == "get_price_history":
+            symbol = data.get("symbol", "")
+            for point in (data.get("points") or [])[:60]:
+                text = f"{symbol} em {point.get('date')} (00:00 UTC, histórico CoinPaprika): preço {format_usd(point.get('price_usd'))}"
+                add("api", tool, text, obs, [symbol, data.get("coin_id", "")], _numbers(point),
+                    {"date": point.get("date")})
         elif tool == "get_global_market":
             text = (f"Mercado global: market cap {format_usd(data.get('market_cap_usd'))}, volume 24h "
                     f"{format_usd(data.get('volume_24h_usd'))}, dominância do BTC {format_pct(data.get('bitcoin_dominance_percentage')).lstrip('+')}")

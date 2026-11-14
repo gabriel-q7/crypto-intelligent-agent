@@ -16,8 +16,11 @@ from typing import Any
 from langchain_core.tools import Tool
 from pydantic import BaseModel, Field, ValidationError, field_validator
 
-from app.tools.coinpaprika import COIN_ID_PATTERN, CoinPaprikaClient, CoinPaprikaError
+from app.tools.coinpaprika import COIN_ID_PATTERN, HISTORY_MAX_DAYS, CoinPaprikaClient, CoinPaprikaError
 
+HISTORY_DEFAULT_DAYS = 7
+# "SOL, 7", "sol-solana 30", "ETH": ativo e, opcionalmente, número de dias no fim.
+HISTORY_INPUT = re.compile(r"^(?P<asset>.+?)(?:[\s,;|]+(?P<days>\d{1,3}))?(?:\s*dias?)?$", re.IGNORECASE)
 INPUT_PREFIX = re.compile(r"^(?:query|asset|ativo|id|input|symbol|q)\s*[:=]\s*", re.IGNORECASE)
 
 
@@ -113,8 +116,17 @@ def _guarded(tool: str, fn: Callable[[str], str]) -> Callable[[str], str]:
     return run
 
 
+def parse_history_input(raw: str) -> tuple[str, int]:
+    """Texto da ferramenta de histórico → (ativo, dias). Sem número, usa a última semana."""
+    text = AssetInput(value=raw).value
+    match = HISTORY_INPUT.match(text)
+    asset = match.group("asset").strip().strip(",;|") if match else text
+    days = int(match.group("days")) if match and match.group("days") else HISTORY_DEFAULT_DAYS
+    return asset, days
+
+
 def build_market_tools(client: CoinPaprikaClient | None = None, profile: bool = False) -> list[Tool]:
-    """``profile=True`` acrescenta ``get_asset_profile`` (só o agente integrado da Fase 5 usa)."""
+    """``profile=True`` acrescenta ``get_asset_profile`` e ``get_price_history`` (só o agente integrado da Fase 5 usa)."""
     client = client or CoinPaprikaClient()
 
     def coin_id_for(value: str) -> str:
@@ -144,6 +156,29 @@ def build_market_tools(client: CoinPaprikaClient | None = None, profile: bool = 
         info = client.get_coin_profile(coin_id_for(value))
         return _ok("get_asset_profile", info.model_dump(mode="json", exclude={"source"}),
                    info.source.model_dump(mode="json"))
+
+    def price_history(raw: str) -> str:
+        tool = "get_price_history"
+        try:
+            asset, days = parse_history_input(raw)
+        except ValidationError as exc:
+            return _error(tool, "invalid_argument", f"entrada inválida {raw!r}: {exc.errors()[0]['msg']}")
+        if not 1 <= days <= HISTORY_MAX_DAYS:
+            return _error(tool, "invalid_argument", f"período deve ter de 1 a {HISTORY_MAX_DAYS} dias (pedido: {days})")
+        try:
+            coin_id = coin_id_for(asset)
+            history = client.get_price_history(coin_id, days)
+        except CoinPaprikaError as exc:
+            return _error(tool, exc.kind, str(exc))
+        data = {
+            "coin_id": coin_id,
+            "symbol": coin_id.split("-")[0].upper(),
+            "days": days,
+            "interval": history.interval,
+            # Só data e preço: com volume e market cap junto, o modelo pequeno embaralhava os dígitos (2026-11-13).
+            "points": [{"date": p.timestamp.date().isoformat(), "price_usd": p.price_usd} for p in history.points],
+        }
+        return _ok(tool, data, history.source.model_dump(mode="json"))
 
     def global_guarded(_: str) -> str:
         # Entrada ignorada: aceita qualquer texto (o modelo às vezes escreve "none" ou "").
@@ -191,6 +226,15 @@ def build_market_tools(client: CoinPaprikaClient | None = None, profile: bool = 
             description=(
                 "Perfil técnico de UM ativo na CoinPaprika: consenso, código aberto, "
                 "descrição, whitepaper, site e repositório. Sem preços. Entrada: símbolo, nome ou id."
+            ),
+        ))
+        tools.append(Tool(
+            name="get_price_history",
+            func=price_history,
+            description=(
+                "Histórico de preço de UM ativo na CoinPaprika: preço em USD por dia (00:00 UTC) "
+                f"nos últimos N dias (até {HISTORY_MAX_DAYS}; acima de 31, por semana). "
+                "Entrada: 'ativo, dias' (ex.: 'SOL, 7')."
             ),
         ))
     return tools

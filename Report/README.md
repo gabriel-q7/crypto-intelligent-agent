@@ -17,7 +17,7 @@ Esta pasta reúne a documentação escrita **durante** o desenvolvimento, fase a
 | 2 — Agente com ferramentas (CoinPaprika, ReAct, roteamento, memória, Chroma, API HTTP) | [fase-02-agente-ferramentas.md](fase-02-agente-ferramentas.md) | Concluída |
 | 3 — Memória conversacional (SQLite, Mem0/Chroma, intenção e contexto, sessões persistentes) | [fase-03-memoria-conversacional.md](fase-03-memoria-conversacional.md) | Concluída |
 | 4 — Ferramentas externas e RAG existente (SQLite de snapshots, Text-to-Query, Retrieval Agent, Query Rewriting) | [fase-04-ferramentas-rag.md](fase-04-ferramentas-rag.md) | Concluída |
-| 5 — Agente integrado (`create_agent`), verificação de respostas, avaliação (LangSmith) e interface Streamlit | [fase-05-agente-integrado.md](fase-05-agente-integrado.md) | Concluída (diário consolidado em 2026-11-08; adendos em 2026-11-12 e 2026-11-13: seções 5.9 a 5.11 e 6.3) |
+| 5 — Agente integrado (`create_agent`), verificação de respostas, avaliação (LangSmith) e interface Streamlit | [fase-05-agente-integrado.md](fase-05-agente-integrado.md) | Concluída (diário consolidado em 2026-11-08; adendos em 2026-11-12 e 2026-11-13: seções 5.9 a 5.12 e 6.3) |
 
 ## Convenções
 

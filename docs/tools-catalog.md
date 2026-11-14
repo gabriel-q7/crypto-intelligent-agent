@@ -69,6 +69,16 @@ Ordem de registro em `app/agents/factory.py::build_agent_tools`.
 | Lógica | `GET /coins/{id}`. `hash_algorithm` e `org_structure` ficam de fora: o ETH ainda vem com `Ethash` (anterior ao The Merge) e a estrutura é opinião da fonte |
 | Uso | Chamada pelo código em toda comparação entre redes (`IntegratedAgentService._prefetch`); cobre redes que a base de conhecimento não documenta |
 
+### 3b. `get_price_history` — API (só no agente integrado)
+
+| | |
+|---|---|
+| Descrição | Preço em USD de UM ativo em cada dia (00:00 UTC) dos últimos N dias |
+| Entrada | `asset` e `days` (1 a 364, padrão 7); na ferramenta de texto, `"ativo, dias"` (ex.: `"SOL, 7"`) |
+| Saída | `{coin_id, symbol, days, interval, points: [{date, price_usd}]}` |
+| Lógica | `GET /tickers/{id}/historical?start=...&interval=1d` (acima de 31 dias, `7d`). Liberado no plano gratuito para o último ano; antes disso, 402 → `plan_restricted`. Volume e market cap ficam de fora da saída (o modelo de 2B embaralhava os dígitos) |
+| Uso | Preço em dias passados ("última semana", "últimos N dias", "ontem") e quando `query_market_database` não tem registros do período. Se o agente não a chamar nessas perguntas, `skipped_history` aciona a correção única |
+
 ### 4. `get_global_market` — API
 
 | | |
