@@ -4,6 +4,10 @@ Todo o código deste trabalho está no GitHub:
 
 **<https://github.com/gabriel-q7/crypto-intelligent-agent>**
 
+Vídeo de apresentação:
+
+**<https://drive.google.com/file/d/1eSJtLnwlsB-GBLx4WHWoj_MGZ3NNTUzv/view?usp=sharing>**
+
 | Diretório | Conteúdo |
 |------------------------------|----------------------------------------------------------------|
 | `app/` | Aplicação FastAPI: chains, agentes, ferramentas, memória, Text-to-Query, Retrieval Agent, verificação e avaliação |
