@@ -3,6 +3,9 @@ langchain-core==1.7.6
 # create_openai_tools_agent/AgentExecutor (langchain-classic, legado). Ver docs/agent-integration.md
 langchain==1.4.9
 langchain-ollama==1.1.0
+# Projeto LangGraph: StateGraph explícito (app/graph/). Já vinha como dependência do langchain 1.4.9;
+# fixado porque agora é importado diretamente. Ver docs/langgraph-architecture.md
+langgraph==1.2.20
 # Fase 2: APIs legadas (initialize_agent, RouterChain) isoladas em app/legacy/
 langchain-classic==1.0.8
 # Fase 2: base de conhecimento — Chroma (pacote dedicado) e divisão de documentos
