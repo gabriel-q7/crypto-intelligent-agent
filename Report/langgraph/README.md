@@ -18,7 +18,7 @@ fechado e não é alterado.
 |---|---|---|
 | 0 — Avaliação do repositório-base e branch | [etapa-00-avaliacao-e-branch.md](etapa-00-avaliacao-e-branch.md) | Concluída em 2026-11-23 |
 | 1 — StateGraph mínimo (agente, ToolNode, tools_condition) | [etapa-01-stategraph-minimo.md](etapa-01-stategraph-minimo.md) | Concluída em 2026-11-23 |
-| 2 — Integração completa das ferramentas | — | Pendente |
+| 2 — Integração completa das ferramentas, evidência e verificação | [etapa-02-ferramentas-evidencia.md](etapa-02-ferramentas-evidencia.md) | Concluída em 2026-11-24 |
 | 3 — Checkpointer persistente e threads | — | Pendente |
 | 4 — Gestão do histórico | — | Pendente |
 | 5 — Reflexion | — | Pendente |

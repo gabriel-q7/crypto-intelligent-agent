@@ -9,7 +9,8 @@ from langgraph.errors import GraphRecursionError
 from langgraph.graph import END, START
 
 from app.graph import build_react_graph, graph_config, run_react
-from app.graph.nodes import finalize
+from app.graph.run import turn_input
+from app.graph.nodes import collect_evidence
 from app.integrated.tools import AssetArgs
 from tests.unit.phase5_fakes import OBS_BTC, OBS_ETH, scripted, tool_call
 
@@ -40,12 +41,13 @@ def two_calls(*assets: str) -> AIMessage:
 
 def test_graph_structure_is_explicit():
     graph = build_react_graph(scripted("ok"), [market_tool()]).get_graph()
-    assert set(graph.nodes) == {START, "agent", "tools", "finalize", END}
+    assert set(graph.nodes) == {START, "agent", "tools", "collect_evidence", "finalize", END}
     edges = {(e.source, e.target, e.conditional) for e in graph.edges}
     assert (START, "agent", False) in edges
-    assert ("agent", "tools", True) in edges       # tools_condition: há tool_calls
-    assert ("agent", "finalize", True) in edges    # tools_condition: sem tool_calls
-    assert ("tools", "agent", False) in edges      # volta ao raciocínio após a ferramenta
+    assert ("agent", "tools", True) in edges               # tools_condition: há tool_calls
+    assert ("agent", "collect_evidence", True) in edges    # tools_condition: sem tool_calls
+    assert ("tools", "agent", False) in edges              # volta ao raciocínio após a ferramenta
+    assert ("collect_evidence", "finalize", False) in edges
     assert ("finalize", END, False) in edges
 
 
@@ -128,18 +130,19 @@ def test_system_prompt_is_sent_but_not_stored_in_state():
 def test_history_and_user_query_are_kept():
     history = [HumanMessage(content="Preço do BTC?"), AIMessage(content="US$ 81 mil.")]
     graph = build_react_graph(scripted("E o ETH está em US$ 2.426."), [market_tool()])
-    state = graph.invoke({"messages": [*history, HumanMessage(content="E o ETH?")], "user_query": "E o ETH?"})
+    state = graph.invoke(turn_input("E o ETH?", history))
     assert state["user_query"] == "E o ETH?"
     assert len(state["messages"]) == 4
+    assert state["evidence"] == [] and state["draft_answer"] == "E o ETH está em US$ 2.426."
 
 
-def test_finalize_ignores_ai_messages_with_tool_calls():
+def test_collect_evidence_ignores_ai_messages_with_tool_calls():
     state = {"messages": [HumanMessage(content="x"), tool_call("get_market_data", {"asset": "BTC"}, "c1")]}
-    assert finalize(state) == {"final_response": ""}
+    assert collect_evidence(state)["draft_answer"] == ""
 
 
 def test_graph_config_sets_limit_thread_and_metadata():
     config = graph_config(6, thread_id="s1", session="abc")
-    assert config["recursion_limit"] == 15
+    assert config["recursion_limit"] == 34  # 6 iterações × 2 passadas (resposta + 1 correção)
     assert config["configurable"] == {"thread_id": "s1"}
     assert config["metadata"] == {"architecture": "react_graph", "session": "abc"}

@@ -25,7 +25,7 @@ from langsmith import traceable, tracing_context
 from app.conversation.chatbot import ConversationService
 from app.integrated.agent import AgentRun, prefetch_messages, run_agent, trajectory
 from app.integrated.history import SessionHistoryAdapter
-from app.integrated.schemas import AgentReply
+from app.integrated.schemas import AgentReply, ToolStep
 from app.intent.classifier import ASSET_NAMES, find_assets
 from app.persistence.sqlite_store import ConversationStore
 from app.schemas.report import CryptoReport, ReportStatus
@@ -133,6 +133,75 @@ def comparison_instruction(assets: Sequence[str]) -> str:
             "24h com fonte e horário.")
 
 
+def agent_failed(message: str, run: AgentRun) -> bool:
+    """Falhas do agente que a verificação não pega e que usam a correção única: resposta vazia, recusa sem
+    consulta com ativo citado, comparação entre redes sem a base de conhecimento, preço em dias passados sem
+    ``get_price_history``."""
+    return (not run.answer.strip() or bool(skipped_lookup(message, run)) or bool(skipped_concepts(message, run))
+            or bool(skipped_history(message, run)))
+
+
+def should_correct(message: str, run: AgentRun, verification: VerificationResult) -> bool:
+    return needs_correction(verification.status) or (
+        agent_failed(message, run) and verification.status != "verification_failed")
+
+
+def correction_feedback(message: str, first: AgentRun, verification: VerificationResult) -> str:
+    """Feedback estruturado da correção única: instruções da verificação + falhas do agente detectadas por regra."""
+    instructions = list(verification.correction_instructions)
+    if not first.answer.strip():
+        instructions.insert(0, f"a resposta final veio vazia: responda à pergunta \"{message}\" com base nas "
+                               "observações das ferramentas acima")
+    if assets := skipped_lookup(message, first):
+        instructions.insert(0, f"a pergunta cita {', '.join(assets)} e nenhuma ferramenta foi chamada: chame "
+                               "get_market_data para cada um e responda com os dados (fonte e horário); se for "
+                               "pedido de recomendação, apresente os dados e diga que não faz recomendação")
+    if assets := skipped_concepts(message, first):
+        instructions.insert(0, f"a pergunta compara as redes {', '.join(assets)} e search_knowledge_base não foi "
+                               "chamada: chame search_knowledge_base com a pergunta completa e explique consenso, "
+                               "contratos inteligentes e finalidade de cada rede a partir dos trechos, além dos "
+                               "dados de mercado (fonte e horário)")
+    if assets := skipped_history(message, first):
+        days = history_days(message)
+        instructions.insert(0, f"a pergunta pede o preço de {', '.join(assets)} em dias passados e get_price_history "
+                               f"não foi usada: chame get_price_history (asset={assets[0]!r}, days={days}) para cada "
+                               "ativo e liste o preço de cada dia com fonte (CoinPaprika); a falta de registros no "
+                               "banco local não impede a resposta")
+    return correction_message(instructions)
+
+
+def settle_correction(
+    corrected_answer: str, second: VerificationResult, original_status: str
+) -> tuple[str, VerificationResult]:
+    """Depois da correção única: resposta corrigida se passou (ou se a verificação falhou); senão, a versão cautelosa."""
+    passed = second.status == "verified"
+    answer = corrected_answer if passed or second.status == "verification_failed" else cautious_answer(
+        corrected_answer, second.claims, second.logical_findings)
+    return answer, second.model_copy(update={
+        "correction_attempted": True, "corrected_passed": passed, "original_status": original_status,
+    })
+
+
+def deliverable_answer(message: str, answer: str, verification: VerificationResult) -> str:
+    """Ajustes finais garantidos por código: resposta vazia, ressalva de recomendação, aviso de não verificada."""
+    if not answer.strip():
+        answer = "Não foi possível gerar uma resposta para esta pergunta."
+    elif ADVICE.search(message) and not re.search(r"recomenda", answer, re.IGNORECASE):
+        answer += "\n\n" + ADVICE_NOTICE
+    if verification.status == "verification_failed":
+        answer += "\n\nAviso: a verificação automática não pôde ser concluída; esta resposta não foi verificada."
+    return answer
+
+
+def reply_status(steps: Sequence[ToolStep], verification: VerificationResult) -> str:
+    market = [s for s in steps if s.tool in MARKET_TOOLS]
+    if market and not any(s.ok for s in market):
+        return "failed"
+    if any(not s.ok for s in steps) or verification.status != "verified":
+        return "partial"
+    return "complete"
+
+
 def session_tag(session_id: str) -> str:
     """Identificador para os traces sem expor o id real da sessão."""
     return hashlib.sha256(session_id.encode()).hexdigest()[:12]
@@ -175,26 +244,7 @@ class IntegratedAgentService:
     @traceable(name="integrated.correction", run_type="chain")
     def _correct(self, history, message: str, first: AgentRun, verification: VerificationResult) -> AgentRun:
         previous = first.messages[len(history) + 1:]  # chamadas, observações e resposta do 1º passo
-        instructions = list(verification.correction_instructions)
-        if not first.answer.strip():
-            instructions.insert(0, f"a resposta final veio vazia: responda à pergunta \"{message}\" com base nas "
-                                   "observações das ferramentas acima")
-        if assets := skipped_lookup(message, first):
-            instructions.insert(0, f"a pergunta cita {', '.join(assets)} e nenhuma ferramenta foi chamada: chame "
-                                   "get_market_data para cada um e responda com os dados (fonte e horário); se for "
-                                   "pedido de recomendação, apresente os dados e diga que não faz recomendação")
-        if assets := skipped_concepts(message, first):
-            instructions.insert(0, f"a pergunta compara as redes {', '.join(assets)} e search_knowledge_base não foi "
-                                   "chamada: chame search_knowledge_base com a pergunta completa e explique consenso, "
-                                   "contratos inteligentes e finalidade de cada rede a partir dos trechos, além dos "
-                                   "dados de mercado (fonte e horário)")
-        if assets := skipped_history(message, first):
-            days = history_days(message)
-            instructions.insert(0, f"a pergunta pede o preço de {', '.join(assets)} em dias passados e get_price_history "
-                                   f"não foi usada: chame get_price_history (asset={assets[0]!r}, days={days}) para cada "
-                                   "ativo e liste o preço de cada dia com fonte (CoinPaprika); a falta de registros no "
-                                   "banco local não impede a resposta")
-        feedback = HumanMessage(content=correction_message(instructions))
+        feedback = HumanMessage(content=correction_feedback(message, first, verification))
         return self._run(history, message, extra=[*previous, feedback])
 
     # ------------------------------------------------------------------ turno
@@ -222,32 +272,17 @@ class IntegratedAgentService:
 
             final, answer, original = first, first.answer, None
             observations = list(first.observations)
-            # Resposta vazia não tem afirmação a refutar e sairia "verified"; também usa a correção única.
-            # Idem para a recusa sem consulta com ativo citado.
-            # Idem para comparação entre redes sem a base de conhecimento (só preço/volume).
-            # Idem para preço em dias passados sem get_price_history (ex.: banco local sem registros).
-            agent_failed = (not first.answer.strip() or bool(skipped_lookup(message, first))
-                            or bool(skipped_concepts(message, first)) or bool(skipped_history(message, first)))
-            if needs_correction(verification.status) or (agent_failed and verification.status != "verification_failed"):
+            # Resposta vazia, recusa sem consulta, comparação sem a base ou histórico sem get_price_history
+            # também usam a correção única (``agent_failed``).
+            if should_correct(message, first, verification):
                 corrected = self._correct(bundle.messages, message, first, verification)
                 observations += corrected.observations  # novas chamadas, se houve, entram na evidência
                 second = self.verifier.verify(message, corrected.answer, observations)
-                original_status = verification.status
-                passed = second.status == "verified"
                 original = first.answer
                 final = AgentRun(answer=corrected.answer, steps=first.steps + _renumber(corrected.steps, len(first.steps)),
                                  observations=observations, messages=corrected.messages)
-                answer = corrected.answer if passed or second.status == "verification_failed" else cautious_answer(
-                    corrected.answer, second.claims, second.logical_findings)
-                verification = second.model_copy(update={
-                    "correction_attempted": True, "corrected_passed": passed, "original_status": original_status,
-                })
-            if not answer.strip():
-                answer = "Não foi possível gerar uma resposta para esta pergunta."
-            elif ADVICE.search(message) and not re.search(r"recomenda", answer, re.IGNORECASE):
-                answer += "\n\n" + ADVICE_NOTICE
-            if verification.status == "verification_failed":
-                answer += "\n\nAviso: a verificação automática não pôde ser concluída; esta resposta não foi verificada."
+                answer, verification = settle_correction(corrected.answer, second, verification.status)
+            answer = deliverable_answer(message, answer, verification)
 
             status = self._status(final, verification)
             limitations = [f"{s.tool}: {s.error_kind} — {s.error_message}" for s in final.steps if not s.ok]
@@ -271,12 +306,7 @@ class IntegratedAgentService:
 
     @staticmethod
     def _status(run: AgentRun, verification: VerificationResult) -> str:
-        market = [s for s in run.steps if s.tool in MARKET_TOOLS]
-        if market and not any(s.ok for s in market):
-            return "failed"
-        if any(not s.ok for s in run.steps) or verification.status != "verified":
-            return "partial"
-        return "complete"
+        return reply_status(run.steps, verification)
 
     def _save_analysis(self, session_id: str, seq: int, message: str, answer: str, run: AgentRun, status: str) -> str | None:
         """Episódio da Fase 3 (resultado anterior + Mem0) quando houve dado de mercado real."""
