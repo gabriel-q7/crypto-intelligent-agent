@@ -121,9 +121,9 @@ benchmark-compare: ## Compara os resultados de benchmark salvos
 
 clean-data: ## APAGA ./data (conversas, memórias, snapshots, coleção Chroma). Exige CONFIRM=yes
 	@if [ "$(CONFIRM)" != "yes" ]; then \
-		echo "Isto apaga conversas (SQLite), memórias (Mem0/Chroma), snapshots de mercado e a coleção de conhecimento em ./data."; \
+		echo "Isto apaga conversas (SQLite), checkpoints do grafo (LangGraph), memórias (Mem0/Chroma), snapshots de mercado e a coleção de conhecimento em ./data."; \
 		echo "Para confirmar: make clean-data CONFIRM=yes"; exit 1; \
 	fi
 	$(COMPOSE) stop app
-	rm -rf data/conversations.sqlite3* data/memory_chroma data/mem0_history.sqlite3* data/chroma data/market.sqlite3*
+	rm -rf data/conversations.sqlite3* data/langgraph_checkpoints.sqlite3* data/memory_chroma data/mem0_history.sqlite3* data/chroma data/market.sqlite3*
 	@echo "./data limpo. Rode 'make up', 'make ingest' e 'make market-ingest'."

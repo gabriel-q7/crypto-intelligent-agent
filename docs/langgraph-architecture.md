@@ -158,3 +158,9 @@ erro nem formato de observação (`ok`/`error`/`source`):
 Evidência real (2026-11-24, `gemma4:e2b`, CPU):
 [etapa-02-tools-live.jsonl](evidence/langgraph/etapa-02-tools-live.jsonl) e
 [etapa-02-rewrite-probe.jsonl](evidence/langgraph/etapa-02-rewrite-probe.jsonl).
+
+## 6. Persistência (Etapa 3)
+
+O grafo compila com um `SqliteSaver` (`data/langgraph_checkpoints.sqlite3`) e usa `thread_id = session_id`.
+Detalhes, divisão de responsabilidades com o SQLite de conversas e testes em
+[langgraph-persistence.md](langgraph-persistence.md).

@@ -95,8 +95,24 @@ def run_react(
     history: Sequence[BaseMessage] = (),
     config: RunnableConfig | None = None,
 ) -> GraphRun:
+    """Um turno. Com checkpointer e ``thread_id`` no ``config``, o histórico vem do checkpoint da thread: não
+    passe ``history`` (as mensagens se repetiriam no estado)."""
     started = time.perf_counter()
-    state = graph.invoke(turn_input(question, history), config=config)
+    if history and (config or {}).get("configurable", {}).get("thread_id"):
+        state = graph.get_state(config)
+        if state.values.get("messages"):
+            raise ValueError("thread com estado salvo: o histórico vem do checkpoint, não de history")
+    return graph_run(graph.invoke(turn_input(question, history), config=config), started)
+
+
+def resume_react(graph: CompiledStateGraph, config: RunnableConfig) -> GraphRun:
+    """Retoma o turno interrompido da thread a partir do último checkpoint (nós já concluídos não rodam de novo:
+    uma ferramenta já executada não é chamada outra vez)."""
+    started = time.perf_counter()
+    return graph_run(graph.invoke(None, config=config), started)
+
+
+def graph_run(state: dict, started: float) -> GraphRun:
     corrected = bool(state.get("correction_attempts"))
     return GraphRun(
         answer=state.get("final_response", ""),

@@ -251,3 +251,15 @@ def get_verification_settings() -> VerificationSettings:
         coherence_llm=parse_optional_bool(os.getenv("VERIFICATION_COHERENCE_LLM")) is not False,
         evidence_per_claim=_env_int("VERIFICATION_EVIDENCE_PER_CLAIM", defaults.evidence_per_claim),
     )
+
+
+@dataclass(frozen=True)
+class GraphSettings:
+    # Projeto LangGraph: checkpoints do grafo (estado de execução por thread_id). Arquivo próprio, separado das
+    # conversas (fonte da verdade das mensagens), do Mem0, do Chroma e dos snapshots de mercado.
+    checkpoint_db_path: str = "data/langgraph_checkpoints.sqlite3"
+
+
+def get_graph_settings() -> GraphSettings:
+    defaults = GraphSettings()
+    return GraphSettings(checkpoint_db_path=os.getenv("GRAPH_CHECKPOINT_DB_PATH", defaults.checkpoint_db_path))
